@@ -1,0 +1,14 @@
+{
+  "args": {
+    "location": [
+      2,
+      2,
+      3
+    ],
+    "name": "AuthoringSentinel"
+  },
+  "backend": null,
+  "command": "driver.blender.object.transform",
+  "dry_run": false,
+  "request_id": "fc3ae9a37331467db932309c1a20b3ce"
+}

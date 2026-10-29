@@ -1,0 +1,32 @@
+{
+  "command": "driver.blender.session.open",
+  "data": {
+    "bytes": 699546,
+    "fresh_session": true,
+    "opened": true,
+    "path": "static-asset-attempt03/asset-scene.blend",
+    "sha256": "8c49ad77ba0e6d571f0cfafd45cebb4a6aa45ac380f64afcb705df08415a3d91",
+    "use_scripts": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 19507,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "f28eba0abfa63880f96d18c524ed77e9dac0f1c65b00009dbc6da64871a630f2",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "c63770cadc494d84bc4d7a7a13815208",
+  "warnings": []
+}

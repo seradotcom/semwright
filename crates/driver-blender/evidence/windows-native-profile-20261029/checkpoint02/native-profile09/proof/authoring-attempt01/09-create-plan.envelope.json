@@ -1,0 +1,755 @@
+{
+  "command": "driver.blender.composition.plan",
+  "data": {
+    "plan": {
+      "body": {
+        "base": [
+          {
+            "concurrency": "best_effort_revalidate",
+            "document_id": "blender-authoring-workspace",
+            "generation": "d575b41811af4975ab5d333156edf72f",
+            "key": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            },
+            "provider_session": "078cc0a7a9134a86ba5fe711cd35e569",
+            "revision": {
+              "kind": "fingerprint",
+              "value": "f73f1960acede533b25b14c145fd0419a91bee43acfb28baea8fbf111c141788"
+            }
+          }
+        ],
+        "budget": {
+          "max_elapsed_ms": 300000,
+          "max_findings": 512,
+          "max_iterations": 3,
+          "max_observations": 64,
+          "max_operations": 512
+        },
+        "changes": {
+          "atomicity": "non_atomic_sequence",
+          "operations": [
+            {
+              "depends_on": [],
+              "effects": [
+                "create_owned_object"
+              ],
+              "id": "collection",
+              "payload": {
+                "island": "cec43badb8114c179b8004ca426149a3",
+                "kind": "collection",
+                "name": "native_authoring_proof"
+              },
+              "postconditions": [],
+              "reads": [
+                {
+                  "logical_id": "collection",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ],
+              "writes": [
+                {
+                  "logical_id": "collection",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ]
+            },
+            {
+              "depends_on": [
+                "collection"
+              ],
+              "effects": [
+                "create_owned_object"
+              ],
+              "id": "material-earth",
+              "payload": {
+                "island": "cec43badb8114c179b8004ca426149a3",
+                "kind": "material",
+                "material": {
+                  "base_color": [
+                    0.45,
+                    0.24,
+                    0.1,
+                    1.0
+                  ],
+                  "base_color_texture": null,
+                  "emission_color": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "emission_strength": 0.0,
+                  "emission_texture": null,
+                  "id": "earth",
+                  "metallic": 0.0,
+                  "metallic_texture": null,
+                  "normal_texture": null,
+                  "opacity": 1.0,
+                  "opacity_texture": null,
+                  "roughness": 0.7,
+                  "roughness_texture": null
+                }
+              },
+              "postconditions": [],
+              "reads": [
+                {
+                  "logical_id": "material-earth",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ],
+              "writes": [
+                {
+                  "logical_id": "material-earth",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ]
+            },
+            {
+              "depends_on": [
+                "material-earth"
+              ],
+              "effects": [
+                "create_owned_object"
+              ],
+              "id": "material-sea",
+              "payload": {
+                "island": "cec43badb8114c179b8004ca426149a3",
+                "kind": "material",
+                "material": {
+                  "base_color": [
+                    0.08,
+                    0.32,
+                    0.45,
+                    1.0
+                  ],
+                  "base_color_texture": null,
+                  "emission_color": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "emission_strength": 0.0,
+                  "emission_texture": null,
+                  "id": "sea",
+                  "metallic": 0.0,
+                  "metallic_texture": null,
+                  "normal_texture": null,
+                  "opacity": 1.0,
+                  "opacity_texture": null,
+                  "roughness": 0.5,
+                  "roughness_texture": null
+                }
+              },
+              "postconditions": [],
+              "reads": [
+                {
+                  "logical_id": "material-sea",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ],
+              "writes": [
+                {
+                  "logical_id": "material-sea",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ]
+            },
+            {
+              "depends_on": [
+                "material-sea"
+              ],
+              "effects": [
+                "create_owned_object"
+              ],
+              "id": "entity-tetra",
+              "payload": {
+                "entity": {
+                  "attributes": [],
+                  "id": "tetra",
+                  "materials": [
+                    "earth"
+                  ],
+                  "modifiers": [],
+                  "name": "Proof Tetrahedron",
+                  "shade_smooth": false,
+                  "shape": {
+                    "faces": [
+                      [
+                        0,
+                        2,
+                        1
+                      ],
+                      [
+                        0,
+                        1,
+                        3
+                      ],
+                      [
+                        0,
+                        3,
+                        2
+                      ],
+                      [
+                        1,
+                        2,
+                        3
+                      ]
+                    ],
+                    "kind": "mesh",
+                    "uv": null,
+                    "vertices": [
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        2.0,
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        0.0,
+                        1.0,
+                        0.0
+                      ],
+                      [
+                        0.0,
+                        0.0,
+                        3.0
+                      ]
+                    ]
+                  },
+                  "transform": {
+                    "rotation": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "scale": [
+                      1.0,
+                      1.0,
+                      1.0
+                    ],
+                    "translation": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ]
+                  }
+                },
+                "island": "cec43badb8114c179b8004ca426149a3",
+                "kind": "entity",
+                "meters_per_unit": 1.0
+              },
+              "postconditions": [],
+              "reads": [
+                {
+                  "logical_id": "entity-tetra",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ],
+              "writes": [
+                {
+                  "logical_id": "entity-tetra",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ]
+            },
+            {
+              "depends_on": [
+                "entity-tetra"
+              ],
+              "effects": [
+                "create_owned_object"
+              ],
+              "id": "entity-wedge",
+              "payload": {
+                "entity": {
+                  "attributes": [],
+                  "id": "wedge",
+                  "materials": [
+                    "sea"
+                  ],
+                  "modifiers": [],
+                  "name": "Proof Triangular Prism",
+                  "shade_smooth": false,
+                  "shape": {
+                    "faces": [
+                      [
+                        0,
+                        2,
+                        1
+                      ],
+                      [
+                        3,
+                        4,
+                        5
+                      ],
+                      [
+                        0,
+                        1,
+                        4,
+                        3
+                      ],
+                      [
+                        1,
+                        2,
+                        5,
+                        4
+                      ],
+                      [
+                        2,
+                        0,
+                        3,
+                        5
+                      ]
+                    ],
+                    "kind": "mesh",
+                    "uv": null,
+                    "vertices": [
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        2.0,
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        0.0,
+                        2.0,
+                        0.0
+                      ],
+                      [
+                        0.0,
+                        0.0,
+                        1.0
+                      ],
+                      [
+                        2.0,
+                        0.0,
+                        1.0
+                      ],
+                      [
+                        0.0,
+                        2.0,
+                        1.0
+                      ]
+                    ]
+                  },
+                  "transform": {
+                    "rotation": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "scale": [
+                      1.0,
+                      1.0,
+                      1.0
+                    ],
+                    "translation": [
+                      4.0,
+                      0.0,
+                      0.0
+                    ]
+                  }
+                },
+                "island": "cec43badb8114c179b8004ca426149a3",
+                "kind": "entity",
+                "meters_per_unit": 1.0
+              },
+              "postconditions": [
+                "blender.plan-native-readback.v1",
+                "blender.unmanaged-preservation.v1"
+              ],
+              "reads": [
+                {
+                  "logical_id": "entity-wedge",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ],
+              "writes": [
+                {
+                  "logical_id": "entity-wedge",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "contract_version": 1,
+        "dependencies": {
+          "effects.contract": "82bd571b19c00d7b2a8dd18f7b79fd0b7a25a96cc9d5f70f3f4b2983ba087c91"
+        },
+        "intent": {
+          "kind": "create",
+          "spec": {
+            "animation": null,
+            "collection": "native_authoring_proof",
+            "entities": [
+              {
+                "attributes": [],
+                "id": "tetra",
+                "materials": [
+                  "earth"
+                ],
+                "modifiers": [],
+                "name": "Proof Tetrahedron",
+                "shade_smooth": false,
+                "shape": {
+                  "faces": [
+                    [
+                      0,
+                      2,
+                      1
+                    ],
+                    [
+                      0,
+                      1,
+                      3
+                    ],
+                    [
+                      0,
+                      3,
+                      2
+                    ],
+                    [
+                      1,
+                      2,
+                      3
+                    ]
+                  ],
+                  "kind": "mesh",
+                  "uv": null,
+                  "vertices": [
+                    [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    [
+                      2.0,
+                      0.0,
+                      0.0
+                    ],
+                    [
+                      0.0,
+                      1.0,
+                      0.0
+                    ],
+                    [
+                      0.0,
+                      0.0,
+                      3.0
+                    ]
+                  ]
+                },
+                "transform": {
+                  "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              },
+              {
+                "attributes": [],
+                "id": "wedge",
+                "materials": [
+                  "sea"
+                ],
+                "modifiers": [],
+                "name": "Proof Triangular Prism",
+                "shade_smooth": false,
+                "shape": {
+                  "faces": [
+                    [
+                      0,
+                      2,
+                      1
+                    ],
+                    [
+                      3,
+                      4,
+                      5
+                    ],
+                    [
+                      0,
+                      1,
+                      4,
+                      3
+                    ],
+                    [
+                      1,
+                      2,
+                      5,
+                      4
+                    ],
+                    [
+                      2,
+                      0,
+                      3,
+                      5
+                    ]
+                  ],
+                  "kind": "mesh",
+                  "uv": null,
+                  "vertices": [
+                    [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    [
+                      2.0,
+                      0.0,
+                      0.0
+                    ],
+                    [
+                      0.0,
+                      2.0,
+                      0.0
+                    ],
+                    [
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    [
+                      2.0,
+                      0.0,
+                      1.0
+                    ],
+                    [
+                      0.0,
+                      2.0,
+                      1.0
+                    ]
+                  ]
+                },
+                "transform": {
+                  "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "translation": [
+                    4.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              }
+            ],
+            "materials": [
+              {
+                "base_color": [
+                  0.45,
+                  0.24,
+                  0.1,
+                  1.0
+                ],
+                "base_color_texture": null,
+                "emission_color": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "emission_strength": 0.0,
+                "emission_texture": null,
+                "id": "earth",
+                "metallic": 0.0,
+                "metallic_texture": null,
+                "normal_texture": null,
+                "opacity": 1.0,
+                "opacity_texture": null,
+                "roughness": 0.7,
+                "roughness_texture": null
+              },
+              {
+                "base_color": [
+                  0.08,
+                  0.32,
+                  0.45,
+                  1.0
+                ],
+                "base_color_texture": null,
+                "emission_color": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "emission_strength": 0.0,
+                "emission_texture": null,
+                "id": "sea",
+                "metallic": 0.0,
+                "metallic_texture": null,
+                "normal_texture": null,
+                "opacity": 1.0,
+                "opacity_texture": null,
+                "roughness": 0.5,
+                "roughness_texture": null
+              }
+            ],
+            "meters_per_unit": 1.0,
+            "relations": [],
+            "textures": [],
+            "version": 1
+          }
+        },
+        "intent_digest": "d0ef1fff1b593881f2dbce57cbdcbacaaad23deaab238b6f7c29e3b665e96f45",
+        "observation_scope": [
+          {
+            "logical_id": "collection",
+            "property": "declared-native-state",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          },
+          {
+            "logical_id": "entity-tetra",
+            "property": "declared-native-state",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          },
+          {
+            "logical_id": "entity-wedge",
+            "property": "declared-native-state",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          },
+          {
+            "logical_id": "material-earth",
+            "property": "declared-native-state",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          },
+          {
+            "logical_id": "material-sea",
+            "property": "declared-native-state",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          },
+          {
+            "logical_id": "unmanaged-scene",
+            "property": "source-projection",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          }
+        ],
+        "owner": {
+          "principal": "host_session",
+          "session": "078cc0a7a9134a86ba5fe711cd35e569"
+        },
+        "profile": {
+          "id": "blender-native-authoring",
+          "intent_schema": "2289c624552c94a44de90654876655e5054ca7b0fc55b74259044d8dea29d5e8",
+          "operation_schema": "fee167754621bbb3f9a7c84bdad613dfea9b17bc316b6da1bd3d8be914fb0943",
+          "version": 1
+        },
+        "require_compare_and_swap": false,
+        "required_rules": [
+          "blender.plan-native-readback.v1",
+          "blender.unmanaged-preservation.v1"
+        ]
+      },
+      "digest": "bace616adef1c27b451342677743755ca9aa386d840471d41bfb1e137db6e8a9"
+    },
+    "plan_ref": "095e1b6b833a437c8f7113542286c12c"
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 247,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "216bb335fb5828bbff3d8d8e514f28042910395fb877cce6447ef71705e6cde6",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "82ca843a335049fd9ad3a07ffa6d2d42",
+  "warnings": []
+}

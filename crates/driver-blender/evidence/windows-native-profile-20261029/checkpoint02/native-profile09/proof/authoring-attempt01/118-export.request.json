@@ -1,0 +1,11 @@
+{
+  "args": {
+    "animations": false,
+    "collection": "SW_cec43badb811_native_authoring_proof",
+    "path": "authoring-attempt01/authoring.glb"
+  },
+  "backend": null,
+  "command": "driver.blender.export.glb",
+  "dry_run": false,
+  "request_id": "b84d04c3e8004c03aeae005faf52e6f9"
+}

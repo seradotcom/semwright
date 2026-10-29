@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "utc_start": "2026-10-29T02:09:55.841599+00:00",
+  "candidate": "native-profile10",
+  "argv": [
+    "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\windows_broker_authoring-a9500905004d3cdf.exe",
+    "--ignored",
+    "--exact",
+    "windows_production_broker_static_asset",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "test_binary_sha256": "25cf7cc424084e6409eb4fbcb251631029ddd0fa70ca627147adb7ad94ea114c",
+  "source_sha256": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9",
+  "compiled_source_log": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt05",
+  "exit_code": 0,
+  "timed_out": false,
+  "seconds": 43.171999999991385,
+  "log_sha256": "64712b868e89ffd59cbb29c67ebf698757097a1c3f5720e18d2511f57e89672e",
+  "receipts": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03",
+  "artifact_directory": "E:\\Projects\\worldwright-archipelago\\.local\\native-profile10-workspace\\static-asset-attempt03",
+  "asset_input": {
+    "path": "E:\\Projects\\worldwright-archipelago\\art\\recipes\\20261029-r22\\faro_rock.transport.spec.json",
+    "sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+  },
+  "broker_used": true,
+  "retry_performed": false,
+  "Linux_4_5_14": "NOT_RUN",
+  "art_approval": false
+}

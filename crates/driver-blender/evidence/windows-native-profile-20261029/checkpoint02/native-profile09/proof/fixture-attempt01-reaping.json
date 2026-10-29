@@ -1,0 +1,37 @@
+{
+    "scope":  "fixture-attempt01",
+    "utc":  "2026-10-29T01:44:28.6405333Z",
+    "candidate":  "native-profile09",
+    "sessions":  [
+                     {
+                         "pid":  28964,
+                         "nonce":  "1e75dbaa82e84771b31b887ddf1c23a9",
+                         "reap":  [
+                                      {
+                                          "component":  "driver-host",
+                                          "exit_code":  1,
+                                          "kill_completed":  true,
+                                          "phase":  "session_process_reaped",
+                                          "pid":  28964,
+                                          "wait_completed":  true
+                                      }
+                                  ],
+                         "pid_absent":  true
+                     },
+                     {
+                         "pid":  42244,
+                         "nonce":  "d09678de8d6746699b1dfb55a6e8be32",
+                         "reap":  [
+                                      {
+                                          "component":  "driver-host",
+                                          "exit_code":  1,
+                                          "kill_completed":  true,
+                                          "phase":  "session_process_reaped",
+                                          "pid":  42244,
+                                          "wait_completed":  true
+                                      }
+                                  ],
+                         "pid_absent":  true
+                     }
+                 ]
+}

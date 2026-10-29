@@ -1,0 +1,39 @@
+{
+  "command": "driver.blender.introspect.summary",
+  "data": {
+    "arbitrary_python": false,
+    "available_addons": 13,
+    "enabled_addons": 8,
+    "generic_operator_invoke": false,
+    "operator_categories": 77,
+    "operators": 2499,
+    "rna_types": 6266,
+    "version": [
+      5,
+      2,
+      1
+    ],
+    "version_string": "5.2.1 LTS"
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 15125,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "41207636f66d7d72f548b1a4e7e049ba177aa3fbf876931b5c16b4c5198582cd",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "ae3f7362d1e444cfbca64350cd3d8059",
+  "warnings": []
+}

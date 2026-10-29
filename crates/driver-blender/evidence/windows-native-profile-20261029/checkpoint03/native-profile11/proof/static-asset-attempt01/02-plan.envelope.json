@@ -1,0 +1,554 @@
+{
+  "command": "driver.blender.composition.plan",
+  "data": {
+    "plan": {
+      "body": {
+        "base": [
+          {
+            "concurrency": "best_effort_revalidate",
+            "document_id": "blender-authoring-workspace",
+            "generation": "9f00d8b67d274086a63b3b2c503ce406",
+            "key": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            },
+            "provider_session": "1f0a0db827864811860b87e900d2e877",
+            "revision": {
+              "kind": "fingerprint",
+              "value": "f8a6ef4fd82b501bc0b91858a9b70ea7f66badc096c57da39cf331f77ece9e76"
+            }
+          }
+        ],
+        "budget": {
+          "max_elapsed_ms": 300000,
+          "max_findings": 512,
+          "max_iterations": 3,
+          "max_observations": 64,
+          "max_operations": 512
+        },
+        "changes": {
+          "atomicity": "non_atomic_sequence",
+          "operations": [
+            {
+              "depends_on": [],
+              "effects": [
+                "create_owned_object"
+              ],
+              "id": "collection",
+              "payload": {
+                "island": "c242f21a199d4bea914cd4405adc2d16",
+                "kind": "collection",
+                "name": "GEO01_FARO_THRESHOLD_R23"
+              },
+              "postconditions": [],
+              "reads": [
+                {
+                  "logical_id": "collection",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ],
+              "writes": [
+                {
+                  "logical_id": "collection",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ]
+            },
+            {
+              "depends_on": [
+                "collection"
+              ],
+              "effects": [
+                "create_owned_object"
+              ],
+              "id": "material-limestone",
+              "payload": {
+                "island": "c242f21a199d4bea914cd4405adc2d16",
+                "kind": "material",
+                "material": {
+                  "base_color": [
+                    0.4851499400560704,
+                    0.47353149614800955,
+                    0.33716361504833037,
+                    1.0
+                  ],
+                  "base_color_texture": null,
+                  "emission_color": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "emission_strength": 0.0,
+                  "emission_texture": null,
+                  "id": "limestone",
+                  "metallic": 0.0,
+                  "metallic_texture": null,
+                  "normal_texture": null,
+                  "opacity": 1.0,
+                  "opacity_texture": null,
+                  "roughness": 0.88,
+                  "roughness_texture": null
+                }
+              },
+              "postconditions": [],
+              "reads": [
+                {
+                  "logical_id": "material-limestone",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ],
+              "writes": [
+                {
+                  "logical_id": "material-limestone",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ]
+            },
+            {
+              "depends_on": [
+                "material-limestone"
+              ],
+              "effects": [
+                "create_owned_object"
+              ],
+              "id": "entity-bridge_threshold",
+              "payload": {
+                "entity": {
+                  "attributes": [],
+                  "id": "bridge_threshold",
+                  "materials": [
+                    "limestone"
+                  ],
+                  "modifiers": [],
+                  "name": "Stone transition at lighthouse bridge",
+                  "shade_smooth": false,
+                  "shape": {
+                    "faces": [
+                      [
+                        0,
+                        2,
+                        1
+                      ],
+                      [
+                        0,
+                        3,
+                        2
+                      ],
+                      [
+                        4,
+                        5,
+                        6
+                      ],
+                      [
+                        4,
+                        6,
+                        7
+                      ],
+                      [
+                        0,
+                        1,
+                        5
+                      ],
+                      [
+                        0,
+                        5,
+                        4
+                      ],
+                      [
+                        1,
+                        2,
+                        6
+                      ],
+                      [
+                        1,
+                        6,
+                        5
+                      ],
+                      [
+                        2,
+                        3,
+                        7
+                      ],
+                      [
+                        2,
+                        7,
+                        6
+                      ],
+                      [
+                        3,
+                        0,
+                        4
+                      ],
+                      [
+                        3,
+                        4,
+                        7
+                      ]
+                    ],
+                    "kind": "mesh",
+                    "uv": null,
+                    "vertices": [
+                      [
+                        -52.1,
+                        -8.6,
+                        9.6
+                      ],
+                      [
+                        -50.65,
+                        -8.6,
+                        9.6
+                      ],
+                      [
+                        -50.65,
+                        -5.4,
+                        9.6
+                      ],
+                      [
+                        -52.1,
+                        -5.4,
+                        9.6
+                      ],
+                      [
+                        -52.1,
+                        -8.6,
+                        10.17
+                      ],
+                      [
+                        -50.65,
+                        -8.6,
+                        10.5
+                      ],
+                      [
+                        -50.65,
+                        -5.4,
+                        10.5
+                      ],
+                      [
+                        -52.1,
+                        -5.4,
+                        10.17
+                      ]
+                    ]
+                  },
+                  "transform": {
+                    "rotation": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "scale": [
+                      1.0,
+                      1.0,
+                      1.0
+                    ],
+                    "translation": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ]
+                  }
+                },
+                "island": "c242f21a199d4bea914cd4405adc2d16",
+                "kind": "entity",
+                "meters_per_unit": 1.0
+              },
+              "postconditions": [
+                "blender.plan-native-readback.v1",
+                "blender.unmanaged-preservation.v1"
+              ],
+              "reads": [
+                {
+                  "logical_id": "entity-bridge_threshold",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ],
+              "writes": [
+                {
+                  "logical_id": "entity-bridge_threshold",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "contract_version": 1,
+        "dependencies": {
+          "effects.contract": "b7e30c1d2f6e2943f6112c70a2ea6bc7ea53ee029f61cf5ed0f423c78701bc12"
+        },
+        "intent": {
+          "kind": "create",
+          "spec": {
+            "animation": null,
+            "collection": "GEO01_FARO_THRESHOLD_R23",
+            "entities": [
+              {
+                "attributes": [],
+                "id": "bridge_threshold",
+                "materials": [
+                  "limestone"
+                ],
+                "modifiers": [],
+                "name": "Stone transition at lighthouse bridge",
+                "shade_smooth": false,
+                "shape": {
+                  "faces": [
+                    [
+                      0,
+                      2,
+                      1
+                    ],
+                    [
+                      0,
+                      3,
+                      2
+                    ],
+                    [
+                      4,
+                      5,
+                      6
+                    ],
+                    [
+                      4,
+                      6,
+                      7
+                    ],
+                    [
+                      0,
+                      1,
+                      5
+                    ],
+                    [
+                      0,
+                      5,
+                      4
+                    ],
+                    [
+                      1,
+                      2,
+                      6
+                    ],
+                    [
+                      1,
+                      6,
+                      5
+                    ],
+                    [
+                      2,
+                      3,
+                      7
+                    ],
+                    [
+                      2,
+                      7,
+                      6
+                    ],
+                    [
+                      3,
+                      0,
+                      4
+                    ],
+                    [
+                      3,
+                      4,
+                      7
+                    ]
+                  ],
+                  "kind": "mesh",
+                  "uv": null,
+                  "vertices": [
+                    [
+                      -52.1,
+                      -8.6,
+                      9.6
+                    ],
+                    [
+                      -50.65,
+                      -8.6,
+                      9.6
+                    ],
+                    [
+                      -50.65,
+                      -5.4,
+                      9.6
+                    ],
+                    [
+                      -52.1,
+                      -5.4,
+                      9.6
+                    ],
+                    [
+                      -52.1,
+                      -8.6,
+                      10.17
+                    ],
+                    [
+                      -50.65,
+                      -8.6,
+                      10.5
+                    ],
+                    [
+                      -50.65,
+                      -5.4,
+                      10.5
+                    ],
+                    [
+                      -52.1,
+                      -5.4,
+                      10.17
+                    ]
+                  ]
+                },
+                "transform": {
+                  "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              }
+            ],
+            "materials": [
+              {
+                "base_color": [
+                  0.4851499400560704,
+                  0.47353149614800955,
+                  0.33716361504833037,
+                  1.0
+                ],
+                "base_color_texture": null,
+                "emission_color": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "emission_strength": 0.0,
+                "emission_texture": null,
+                "id": "limestone",
+                "metallic": 0.0,
+                "metallic_texture": null,
+                "normal_texture": null,
+                "opacity": 1.0,
+                "opacity_texture": null,
+                "roughness": 0.88,
+                "roughness_texture": null
+              }
+            ],
+            "meters_per_unit": 1.0,
+            "relations": [],
+            "textures": [],
+            "version": 1
+          }
+        },
+        "intent_digest": "f055334f521cbc67bd9b73fdebb2a4a20990b70edf79fbe1c223768f4492711e",
+        "observation_scope": [
+          {
+            "logical_id": "collection",
+            "property": "declared-native-state",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          },
+          {
+            "logical_id": "entity-bridge_threshold",
+            "property": "declared-native-state",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          },
+          {
+            "logical_id": "material-limestone",
+            "property": "declared-native-state",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          },
+          {
+            "logical_id": "unmanaged-scene",
+            "property": "source-projection",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          }
+        ],
+        "owner": {
+          "principal": "host_session",
+          "session": "1f0a0db827864811860b87e900d2e877"
+        },
+        "profile": {
+          "id": "blender-native-authoring",
+          "intent_schema": "2289c624552c94a44de90654876655e5054ca7b0fc55b74259044d8dea29d5e8",
+          "operation_schema": "fee167754621bbb3f9a7c84bdad613dfea9b17bc316b6da1bd3d8be914fb0943",
+          "version": 1
+        },
+        "require_compare_and_swap": false,
+        "required_rules": [
+          "blender.plan-native-readback.v1",
+          "blender.unmanaged-preservation.v1"
+        ]
+      },
+      "digest": "c8d98cb54156dc695aa3ad4191fe474f738a5f162c4a150fac9d770e66c53939"
+    },
+    "plan_ref": "78dc4b575726467b912401e4b26b3296"
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 280,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "216bb335fb5828bbff3d8d8e514f28042910395fb877cce6447ef71705e6cde6",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "3f3071f3a2294f2d94dd24832c47883a",
+  "warnings": []
+}

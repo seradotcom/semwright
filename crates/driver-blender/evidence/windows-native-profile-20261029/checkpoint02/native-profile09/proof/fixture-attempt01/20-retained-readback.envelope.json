@@ -1,0 +1,49 @@
+{
+  "command": "driver.blender.object.get",
+  "data": {
+    "object": {
+      "collections": [
+        "BrokerProof",
+        "Collection"
+      ],
+      "location": [
+        3.0,
+        4.0,
+        5.0
+      ],
+      "name": "BrokerProofCube",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        2.0,
+        1.0
+      ],
+      "type": "MESH"
+    }
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 60,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1.0",
+      "catalog_revision": 160,
+      "descriptor_sha256": "648a6c58057e0396f7c67024b439819391c91e366009a20d9da97243f830439c",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "40355032f90a468b8b8148ff47206d64",
+  "warnings": []
+}

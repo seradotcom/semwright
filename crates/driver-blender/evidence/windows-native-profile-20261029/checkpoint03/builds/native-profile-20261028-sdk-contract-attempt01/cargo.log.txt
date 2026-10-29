@@ -1,0 +1,14 @@
+   Compiling semwright-platform-windows-sys v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows-sys)
+   Compiling semwright-platform-services v1.0.0 (E:\Projects\semwright-blender52\crates\platform-services)
+   Compiling semwright-protocol v1.0.0 (E:\Projects\semwright-blender52\crates\protocol)
+   Compiling semwright-driver-sdk v1.0.0 (E:\Projects\semwright-blender52\crates\driver-sdk)
+    Finished `test` profile [unoptimized] target(s) in 32.47s
+     Running unittests src\lib.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\semwright_driver_sdk-f26c8ea0aac6a7da.exe)
+
+running 3 tests
+test windows_native_profile_tests::windows_native_profile_defaults_to_no_authority ... ok
+test windows_native_profile_tests::windows_native_profile_requires_closed_authority ... ok
+test windows_native_profile_tests::windows_native_profile_unknown_values_fail_closed ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.00s
+

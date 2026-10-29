@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T02:27:03.586989+00:00",
+  "revision": "20261029-semwright-threshold-r23",
+  "broker_receipt_sha256": "e3606a8eea0f2d06d0604eb278fc8109a658098a3414d9550a4ba4d9fb8e0c6f",
+  "export_request_id": "d1e56ad3c7aa4efc88a6dcdcb48f8c4a",
+  "source_files": [
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\native-profile11-workspace\\static-asset-attempt01\\asset.glb",
+      "destination": "game/assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+      "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8",
+      "bytes": 2124
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\native-profile11-workspace\\static-asset-attempt01\\asset-scene.blend",
+      "destination": "art/blender/semwright/20261029-semwright-threshold-r23/FARO_THRESHOLD_scene.blend",
+      "sha256": "d7842da0216d796f98aea3d23234b74c8cd521f50c8b52a4dbd5abbbbb6f1ff9",
+      "bytes": 629460
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\native-profile11-workspace\\static-asset-attempt01\\asset-library.blend",
+      "destination": "art/blender/semwright/20261029-semwright-threshold-r23/FARO_THRESHOLD_library.blend",
+      "sha256": "61df35fc36b0f68f4a2554a3451f30fa4c67ef1dac1532dcb1f53984a76a29ab",
+      "bytes": 64288
+    }
+  ],
+  "glb_nodes": [
+    "SW_c242f21a199d_bridge_threshold"
+  ],
+  "triangles": 12,
+  "existing_glbs_unchanged": true,
+  "route_and_controller_unchanged": true,
+  "bundle_sha256": "1056e727006920ee2d69812c75bdaa449cabc00c77c1fb3d470def06e1498eac",
+  "godot_validation": "NOT_RUN",
+  "art_approved": false
+}

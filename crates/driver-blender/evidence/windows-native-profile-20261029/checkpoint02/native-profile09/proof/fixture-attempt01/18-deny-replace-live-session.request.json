@@ -1,0 +1,10 @@
+{
+  "args": {
+    "expected_sha256": "b7a96f2b2403b291157b4bd19d5f0679f8fad6849f8e61689123660f9fdea79c",
+    "path": "broker-proof.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.session.open",
+  "dry_run": false,
+  "request_id": "46c0adeb7dc04efca3cc6d991f54020a"
+}

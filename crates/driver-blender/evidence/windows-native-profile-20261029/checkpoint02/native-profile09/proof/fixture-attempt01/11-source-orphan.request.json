@@ -1,0 +1,11 @@
+{
+  "args": {
+    "limit": 8,
+    "query": "Dots Stroke",
+    "root": "materials"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "c612486ab150425999f692694913716c"
+}

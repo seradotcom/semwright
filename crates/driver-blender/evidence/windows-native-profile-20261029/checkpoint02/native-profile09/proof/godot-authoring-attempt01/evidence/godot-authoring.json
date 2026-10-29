@@ -1,0 +1,181 @@
+{
+	"art_review": "NOT_APPLICABLE_DIAGNOSTIC_FIXTURE",
+	"camera_position": [
+		10.0,
+		8.0,
+		11.0
+	],
+	"camera_target": [
+		3.0,
+		1.0,
+		-1.0
+	],
+	"capture_sha256": "f25155383f6719aa819ee7266c28f06248ee6b0eda2f8544731744c80b78da51",
+	"capture_size": [
+		1280,
+		720
+	],
+	"color_comparison": "srgb_to_linear(BaseMaterial3D.albedo_color) vs glTF linear factor",
+	"display_server": "Windows",
+	"elapsed_ms": 336,
+	"exit_code": 0,
+	"godot_broker_used": false,
+	"godot_version": {
+		"build": "official",
+		"hash": "ed1daf0bf001b61586d9930840f2f1394092c079",
+		"hex": 263938,
+		"major": 4,
+		"minor": 7,
+		"patch": 2,
+		"status": "stable",
+		"string": "4.7.2-stable (official)",
+		"timestamp": 0
+	},
+	"godot_windows_driver_qualified": false,
+	"input_sha256": "4662b0d93ef7e6187c79e5d83829f8ed5dc75ef4153ab8080f021480ac672b52",
+	"mesh_instance_count": 2,
+	"meshes": [
+		{
+			"albedo_after_srgb_to_linear": [
+				0.450000017881393,
+				0.239999979734421,
+				0.0999999940395355,
+				1.0
+			],
+			"expected_linear_albedo": [
+				0.449999988079071,
+				0.239999994635582,
+				0.100000001490116,
+				1.0
+			],
+			"fixture_id": "tetra",
+			"global_basis": [
+				[
+					1.0,
+					0.0,
+					0.0
+				],
+				[
+					0.0,
+					1.0,
+					0.0
+				],
+				[
+					0.0,
+					0.0,
+					1.0
+				]
+			],
+			"global_scale": [
+				1.0,
+				1.0,
+				1.0
+			],
+			"global_translation": [
+				1.0,
+				0.5,
+				-2.0
+			],
+			"index_count": 12,
+			"linear_color_max_error": 0.0000000298023223876953,
+			"local_aabb_position": [
+				0.0,
+				0.0,
+				-1.0
+			],
+			"local_aabb_size": [
+				2.0,
+				3.0,
+				1.0
+			],
+			"material_name": "SW_cec43badb811_earth",
+			"metallic": 0.0,
+			"native_name": "SW_cec43badb811_tetra",
+			"path": "SW_cec43badb811_tetra",
+			"raw_albedo_property": [
+				0.701410710811615,
+				0.527112782001495,
+				0.349190205335617,
+				1.0
+			],
+			"roughness": 0.699999988079071,
+			"triangle_count": 4,
+			"vertex_count": 12
+		},
+		{
+			"albedo_after_srgb_to_linear": [
+				0.0799999982118607,
+				0.320000022649765,
+				0.450000017881393,
+				1.0
+			],
+			"expected_linear_albedo": [
+				0.0799999982118607,
+				0.319999992847443,
+				0.449999988079071,
+				1.0
+			],
+			"fixture_id": "wedge",
+			"global_basis": [
+				[
+					1.0,
+					0.0,
+					0.0
+				],
+				[
+					0.0,
+					1.0,
+					0.0
+				],
+				[
+					0.0,
+					0.0,
+					1.0
+				]
+			],
+			"global_scale": [
+				1.0,
+				1.0,
+				1.0
+			],
+			"global_translation": [
+				4.0,
+				0.0,
+				0.0
+			],
+			"index_count": 24,
+			"linear_color_max_error": 0.0000000298023223876953,
+			"local_aabb_position": [
+				0.0,
+				0.0,
+				-2.0
+			],
+			"local_aabb_size": [
+				2.0,
+				1.0,
+				2.0
+			],
+			"material_name": "SW_cec43badb811_sea",
+			"metallic": 0.0,
+			"native_name": "SW_cec43badb811_wedge",
+			"path": "SW_cec43badb811_wedge",
+			"raw_albedo_property": [
+				0.31330418586731,
+				0.601243436336517,
+				0.701410710811615,
+				1.0
+			],
+			"roughness": 0.5,
+			"triangle_count": 8,
+			"vertex_count": 18
+		}
+	],
+	"message": "Native two-mesh geometry, materials, transforms and visible frame verified",
+	"os": "Windows",
+	"proof": "two_mesh_authoring_native_godot_consumer",
+	"rendering_method": "gl_compatibility",
+	"status": "PASS",
+	"user_data_directory": "E:/Projects/worldwright-archipelago/evidence/integration/20261029-native-profile/native-profile09/godot-authoring-attempt01/runtime-env/APPDATA/Godot/app_userdata/Semwright Two Mesh Native Consumer",
+	"video_adapter_name": "NVIDIA GeForce GTX 1650",
+	"video_adapter_vendor": "NVIDIA"
+}

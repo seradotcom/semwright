@@ -1,0 +1,40 @@
+{
+  "command": "driver.blender.file.checkpoint",
+  "data": {
+    "bytes": 604115,
+    "contract": "static_mesh_scene_v1",
+    "copy": true,
+    "empty_runtime_image_placeholders": 2,
+    "path": "broker-source-copy.blend",
+    "retained_orphans": [
+      {
+        "name": "Dots Stroke",
+        "root": "materials"
+      }
+    ],
+    "sha256": "b7a96f2b2403b291157b4bd19d5f0679f8fad6849f8e61689123660f9fdea79c",
+    "source_fake_users_restored": true,
+    "undo_history_preserved": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 65,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "5edf79789e7541dc9655cb8d9eb45f3a26ebcbc43c14598e09467a6a957c27e2",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "173768dc87bf4d5ea0aa359a13ba01da",
+  "warnings": []
+}

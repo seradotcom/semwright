@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 8,
+    "root": "materials"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "79c14c5ef4d04e85975c927665c305c8"
+}

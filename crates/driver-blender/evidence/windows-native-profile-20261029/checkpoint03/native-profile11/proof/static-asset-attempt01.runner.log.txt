@@ -1,0 +1,20 @@
+
+running 1 test
+test windows_production_broker_static_asset ... BROKER_PROOF_STEP {"label":"version","ok":true,"request_id":"c5c062afcfb14581bc2d96c10dcb434d"}
+BROKER_PROOF_STEP {"label":"baseline","ok":true,"request_id":"36a3e6cc242d4d9cb223821d56e3ae8e"}
+BROKER_PROOF_STEP {"label":"plan","ok":true,"request_id":"3f3071f3a2294f2d94dd24832c47883a"}
+BROKER_PROOF_STEP {"label":"plan-readonly","ok":true,"request_id":"c0d337e7da0c494582e5bcfb6a67b6f3"}
+BROKER_PROOF_STEP {"label":"apply","ok":true,"request_id":"fcc9136a17ff46cf85cda17d8c09816f"}
+BROKER_PROOF_STEP {"label":"readback","ok":true,"request_id":"74f2165bb2a544228ea9d45ba611ceda"}
+BROKER_PROOF_STEP {"label":"unmanaged-readback","ok":true,"request_id":"ab3c0377a88d4aa7a84a24865dd5b26a"}
+BROKER_PROOF_STEP {"label":"persist-library","ok":true,"request_id":"fec83092fe60437289beb275470c4932"}
+BROKER_PROOF_STEP {"label":"checkpoint-close","ok":true,"request_id":"655544848a4d449e8918c4ea547e96c1"}
+BROKER_PROOF_STEP {"label":"reopen","ok":true,"request_id":"58c0a26d5458491981046de116dd7e4d"}
+BROKER_PROOF_STEP {"label":"reopened-readback","ok":true,"request_id":"c7714658cc2f410abba5d739e331dbbe"}
+BROKER_PROOF_STEP {"label":"export","ok":true,"request_id":"d1e56ad3c7aa4efc88a6dcdcb48f8c4a"}
+BROKER_PROOF_STEP {"label":"cleanup-inspect","ok":true,"request_id":"a702acafbc154a5dacaff7c9a829857d"}
+BROKER_PROOF_STEP {"label":"final-close","ok":true,"request_id":"c1165890d041455886ca66f2706d23a5"}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 40.19s
+

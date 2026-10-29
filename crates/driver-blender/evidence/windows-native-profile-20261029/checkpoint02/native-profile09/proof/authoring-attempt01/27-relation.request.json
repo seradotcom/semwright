@@ -1,0 +1,11 @@
+{
+  "args": {
+    "limit": 256,
+    "property": "rigidbody_world",
+    "ref": "blender-rna/v1/scenes/U2NlbmU@9"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.relations",
+  "dry_run": false,
+  "request_id": "5157a6528919436f8f2804e192e1c679"
+}

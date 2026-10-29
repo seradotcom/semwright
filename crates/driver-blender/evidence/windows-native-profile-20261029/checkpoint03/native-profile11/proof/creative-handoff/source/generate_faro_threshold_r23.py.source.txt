@@ -1,0 +1,40 @@
+"""New bounded original threshold data; production uses the first-party broker."""
+from pathlib import Path
+from collections import defaultdict
+import json,math,hashlib
+R=Path(__file__).resolve().parents[1]
+x0,x1=-52.1,-50.65
+y0,y1=-8.6,-5.4
+bottom,h0,h1=9.60,10.17,10.50
+v=[[x0,y0,bottom],[x1,y0,bottom],[x1,y1,bottom],[x0,y1,bottom],
+   [x0,y0,h0],[x1,y0,h1],[x1,y1,h1],[x0,y1,h0]]
+f=[[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]]
+edges=defaultdict(int);orientation=defaultdict(int);volume=0.
+for face in f:
+ a,b,c=[v[i] for i in face]
+ cross=[b[1]*c[2]-b[2]*c[1],b[2]*c[0]-b[0]*c[2],b[0]*c[1]-b[1]*c[0]]
+ volume+=sum(a[k]*cross[k] for k in range(3))/6
+ for i,j in zip(face,face[1:]+face[:1]):
+  edge=tuple(sorted((i,j)));edges[edge]+=1;orientation[edge]+=1 if i<j else -1
+assert all(x==2 for x in edges.values()) and all(x==0 for x in orientation.values()) and volume>0
+color=[c/12.92 if c<=.04045 else ((c+.055)/1.055)**2.4 for c in [185/255,183/255,157/255]]+[1.]
+spec={"version":1,"collection":"GEO01_FARO_THRESHOLD_R23","meters_per_unit":1,"textures":[],
+"materials":[{"id":"limestone","base_color":color,"roughness":.88,"metallic":0}],
+"entities":[{"id":"bridge_threshold","name":"Stone transition at lighthouse bridge","shape":{"kind":"mesh","vertices":v,"faces":f,"uv":None},
+"transform":{"translation":[0,0,0],"rotation":[0,0,0],"scale":[1,1,1]},"materials":["limestone"],"modifiers":[],"shade_smooth":False}],
+"relations":[],"animation":None}
+out=R/"art/recipes/20261029-r23/faro_threshold.spec.json"
+report=R/"evidence/art_review/20261029-semwright-threshold-r23/mesh-source-check.json"
+assert not out.exists() and not report.exists()
+raw=(json.dumps(spec,separators=(",",":"),allow_nan=False)+"\n").encode()
+out.parent.mkdir(parents=True,exist_ok=True)
+with out.open("xb") as t:t.write(raw)
+proof={"schema":1,"reason":"Fix measured reverse traversal obstruction against deck edge at x=-50.75, y=10.49 in Godot; controller and route remain unchanged",
+"recipe":str(out),"sha256":hashlib.sha256(raw).hexdigest(),"generator_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+"vertices":8,"triangles":12,"closed_manifold":True,"signed_volume":volume,
+"native_blender_bounds":[[x0,y0,bottom],[x1,y1,h1]],"slope_degrees":math.degrees(math.atan((h1-h0)/(x1-x0))),
+"deck_overlap_m":.10,"top_step_at_deck_m":.01,"source_failed_route_sha256":"96c41b26be51fe8d96e19d4f34fbd3daf0090a2ecec3a5ad57be547768411ae1",
+"authoring_route":"typed_spec_for_semwright_not_executed","art_approved":False}
+report.parent.mkdir(parents=True,exist_ok=True)
+with report.open("x",encoding="utf-8") as t:json.dump(proof,t,indent=2);t.write("\n")
+print(json.dumps(proof,indent=2))

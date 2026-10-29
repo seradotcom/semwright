@@ -1,0 +1,4 @@
+   Compiling semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+    Finished `test` profile [unoptimized] target(s) in 25.69s
+  Executable tests\windows_broker_cancel.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\windows_broker_cancel-11a4341ad8d7c775.exe)
+  Executable tests\windows_broker_session.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\windows_broker_session-00b35b195fdda8c0.exe)

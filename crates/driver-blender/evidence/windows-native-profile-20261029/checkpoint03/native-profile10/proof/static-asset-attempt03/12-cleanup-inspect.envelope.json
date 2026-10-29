@@ -1,0 +1,41 @@
+{
+  "command": "driver.blender.session.checkpoint.inspect",
+  "data": {
+    "code": null,
+    "contract": "static_mesh_scene_v1",
+    "inventory": {
+      "empty_runtime_images": 2,
+      "empty_sequence_editors": 1,
+      "meshes": 4,
+      "objects": 6,
+      "orphan_datablocks": 0,
+      "palettes": 1,
+      "scenes": 1,
+      "sequence_channels": 129
+    },
+    "reason": null,
+    "session_open": true,
+    "supported": true
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 101,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "29ffb5e7ef3ef362914692d12fd19df690a7d0088eaf72cbbf02e6637ba144ec",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "2fab1be48d3949febf2156132467f02f",
+  "warnings": []
+}

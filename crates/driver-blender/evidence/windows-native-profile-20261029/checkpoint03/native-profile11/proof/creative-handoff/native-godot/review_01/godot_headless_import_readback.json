@@ -1,0 +1,1978 @@
+{
+	"art_approved": false,
+	"assets": [
+		{
+			"geometry": {
+				"meshes": 24,
+				"surfaces": 24,
+				"triangles": 5272,
+				"vertices": 9888
+			},
+			"id": "ARQ01_POST_HOUSE_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "4da7217251cf22faf13f682384bee4d8e5b434299cf2251f7050d5a237816cc4"
+		},
+		{
+			"geometry": {
+				"meshes": 15,
+				"surfaces": 15,
+				"triangles": 6600,
+				"vertices": 12316
+			},
+			"id": "ARQ01_POST_HOUSE_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "d8d31c393429684f9a5f1958fed60380eac7c3045db420943c1a01c92d508c6e"
+		},
+		{
+			"geometry": {
+				"meshes": 16,
+				"surfaces": 16,
+				"triangles": 4200,
+				"vertices": 5144
+			},
+			"id": "ARQ01_POST_HOUSE_p03",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p03.glb",
+			"replaced_meshes": [],
+			"sha256": "de94547d67798d5868f7474b235eaa08172ef0425b316d04090350d045a71d3c"
+		},
+		{
+			"geometry": {
+				"meshes": 29,
+				"surfaces": 29,
+				"triangles": 4140,
+				"vertices": 6478
+			},
+			"id": "ARQ01_POST_HOUSE_p04",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p04.glb",
+			"replaced_meshes": [],
+			"sha256": "4fb33c3e95b1b10ae531bedb4aa4d197310f8f4941547d2e0d40b383b513880a"
+		},
+		{
+			"geometry": {
+				"meshes": 18,
+				"surfaces": 18,
+				"triangles": 3456,
+				"vertices": 3532
+			},
+			"id": "ARQ02_ARCH_LIGHTHOUSE_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ02_ARCH_LIGHTHOUSE_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "fc1ba15daf7ca7f4e4340b84967697e0932f43758c6ccd69d40959c718caeea0"
+		},
+		{
+			"geometry": {
+				"meshes": 7,
+				"surfaces": 7,
+				"triangles": 3992,
+				"vertices": 7684
+			},
+			"id": "ARQ02_ARCH_LIGHTHOUSE_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ02_ARCH_LIGHTHOUSE_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "991ecd66a1c30cb79a3cf42423c4485dc7d91ae6525d97bef0503a2dac512324"
+		},
+		{
+			"geometry": {
+				"meshes": 8,
+				"surfaces": 8,
+				"triangles": 3648,
+				"vertices": 3048
+			},
+			"id": "GEO01_HARBOR_COAST_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "16e187384945cf8b170ea972630717ccaf45c6ad339a6c024eb50f7be5c323b3"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "1870606ca9d2986def04fbe6261f0f2f79f9922135a1ac30e4161617d50e43bb"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p03",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p03.glb",
+			"replaced_meshes": [],
+			"sha256": "b73bdb1c40a84ddc81e29e713c9af76590d361db5c347c15ad23f7d8cb0b703f"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p04",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p04.glb",
+			"replaced_meshes": [],
+			"sha256": "d291b479476b612a5559ab050b62642ed8b546d2d4aee64494232f2f5ba7d336"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p05",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p05.glb",
+			"replaced_meshes": [],
+			"sha256": "def316afef0e90f0398921701db407851348298420f42beb2f98efb8c164c585"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p06",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p06.glb",
+			"replaced_meshes": [],
+			"sha256": "b263bc0e115e2b7dedb1e200087f237460be9e052a6441f384bfb1cc05a2cb88"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p07",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p07.glb",
+			"replaced_meshes": [],
+			"sha256": "1eb7a8abca8b6b4de376ce95e95679ea993286e0b8b225b5c944efc98723ea57"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 3722,
+				"vertices": 2440
+			},
+			"id": "GEO01_HARBOR_COAST_p08",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p08.glb",
+			"replaced_meshes": [],
+			"sha256": "14dbcedad0bc84fe1b0b77d34e2bad4319e8c21052ad9362cbaef8ba0dcdb7c3"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 5116,
+				"vertices": 2980
+			},
+			"id": "GEO01_HARBOR_COAST_p09",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p09.glb",
+			"replaced_meshes": [],
+			"sha256": "02a3f2cffec8f559fe88f7fd2548c7302595917aaa1f2b58582576c4a7805dbe"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 3577,
+				"vertices": 3370
+			},
+			"id": "GEO01_HARBOR_COAST_p10",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p10.glb",
+			"replaced_meshes": [],
+			"sha256": "cf0669e6ee26b3eef20f0328d90b5cd040649e8244025dd4959c2036af78d2be"
+		},
+		{
+			"geometry": {
+				"meshes": 4,
+				"surfaces": 4,
+				"triangles": 6550,
+				"vertices": 9605
+			},
+			"id": "GEO01_HARBOR_COAST_p11",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p11.glb",
+			"replaced_meshes": [],
+			"sha256": "8edce7e277b0b0cd7899a62ff3319d743a2dc7dd99f7a5ce5efe8138614f04d6"
+		},
+		{
+			"geometry": {
+				"meshes": 11,
+				"surfaces": 11,
+				"triangles": 4580,
+				"vertices": 6899
+			},
+			"id": "GEO01_HARBOR_COAST_p12",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p12.glb",
+			"replaced_meshes": [
+				"GEO01_HARBOR_COAST_faro_integrated_limestone_stone_0"
+			],
+			"sha256": "a22793649352eaa0237b2d503e4b59b0523bc83c15796621caf5d7bdadec9fe0"
+		},
+		{
+			"geometry": {
+				"meshes": 4,
+				"surfaces": 4,
+				"triangles": 3368,
+				"vertices": 6708
+			},
+			"id": "GEO01_HARBOR_COAST_p13",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p13.glb",
+			"replaced_meshes": [
+				"GEO01_HARBOR_COAST_faro_crown_stone_0",
+				"GEO01_HARBOR_COAST_faro_footing_cap_stone_0",
+				"GEO01_HARBOR_COAST_faro_integrated_limestone_base_stone_dark_0",
+				"GEO01_HARBOR_COAST_faro_integrated_limestone_toe_stone_0",
+				"GEO01_HARBOR_COAST_faro_rock_mass_stone_0",
+				"GEO01_HARBOR_COAST_faro_rock_mass_stone_light_0"
+			],
+			"sha256": "2069d725122b22ff890c3f5f57c11c0474f5d965ef6cd656f8b6e0836e07349f"
+		},
+		{
+			"geometry": {
+				"meshes": 5,
+				"surfaces": 5,
+				"triangles": 5892,
+				"vertices": 3222
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "e62d2a1203abf55526c5453898392e987ab9204f81b358eb8257f5097a14f305"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 2592,
+				"vertices": 2508
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "69e3244f89ab1ac747db3ee8aa667a9973784f2a9cb9df33912fa5c08a697aad"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p03",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p03.glb",
+			"replaced_meshes": [],
+			"sha256": "cece160b38d3021c981e547573743a8c2b27dec3c1112caab745c25d27822eea"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p04",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p04.glb",
+			"replaced_meshes": [],
+			"sha256": "655efc572a70c977bc97909c3be0689665561a920a9acddb94f0c6ccbe4991ba"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 1344,
+				"vertices": 840
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p05",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p05.glb",
+			"replaced_meshes": [],
+			"sha256": "7dd4008505d60e80bdd0f371f429da954b0425eb67e00d58ea064aa737aebf93"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 2808,
+				"vertices": 2610
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p06",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p06.glb",
+			"replaced_meshes": [],
+			"sha256": "9f84d3d33298b0b23f23a1c8fb241b16a1ee5062afe8382b3ae2e59889204ed0"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 3600,
+				"vertices": 1920
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p07",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p07.glb",
+			"replaced_meshes": [],
+			"sha256": "1b0a241b46fc59327afe5a810eb8cfe8ec2da45304c7de1daae925fd0be2c1af"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 4256,
+				"vertices": 2394
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p08",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p08.glb",
+			"replaced_meshes": [],
+			"sha256": "4619753f5dbbe4be040467e5f89f2518672545f721d83eb907f42c36f36a8e87"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 3072,
+				"vertices": 2778
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p09",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p09.glb",
+			"replaced_meshes": [],
+			"sha256": "93bac406306fc5036947d10c8b2edc81675c47ae11dca38cb22fac13f01f9844"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p10",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p10.glb",
+			"replaced_meshes": [],
+			"sha256": "e0a8cf01386a40e22eb394f642d09c0317aa03ee995a44f4a504e0ae55ea6ea8"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p11",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p11.glb",
+			"replaced_meshes": [],
+			"sha256": "1dd54953ce5e496019bb50f7cc10ec889f3a4cf24592c80cf2facbfc84057c76"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p12",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p12.glb",
+			"replaced_meshes": [],
+			"sha256": "afac86036e0bab4a64618a90ca234d64d2af054fb775d355277f7fd13032f17d"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p13",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p13.glb",
+			"replaced_meshes": [],
+			"sha256": "9284653b35cbcad034b57d787c5d654038666076c593b1049798027f0c80c4bd"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p14",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p14.glb",
+			"replaced_meshes": [],
+			"sha256": "6e48b7ac8d88a954742904878b0527d217667f971f5131a4202bd6503a58f598"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 2772,
+				"vertices": 2594
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p15",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p15.glb",
+			"replaced_meshes": [],
+			"sha256": "c12dd6b65c30561b5e9af9f21750113f6bb3e00dfdab1c7b5ac68a3fe9b4bbdc"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 3840,
+				"vertices": 2132
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p16",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p16.glb",
+			"replaced_meshes": [],
+			"sha256": "0d0ddcbf7cac2451762b80cb81e3787773d249b8c454bcaa77823cc570a25376"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 2592,
+				"vertices": 2508
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p17",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p17.glb",
+			"replaced_meshes": [],
+			"sha256": "9435f9c20ff1e717f0f1777625202af8ba597dcd284d6f57455ac8100c130e25"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p18",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p18.glb",
+			"replaced_meshes": [],
+			"sha256": "b19d6b36475bb56799acb62d9c6fc52f257bc845fe8cf418dd447e1e08795c6c"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p19",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p19.glb",
+			"replaced_meshes": [],
+			"sha256": "87b9c253515db90363eda80c4137f994680e5388841b00654eac50a746ec36bf"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p20",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p20.glb",
+			"replaced_meshes": [],
+			"sha256": "bf4a9790f5d2b040e237c4777131d48444da0c5b9a2d514bd93883c47870a005"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p21",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p21.glb",
+			"replaced_meshes": [],
+			"sha256": "9e2f381061541aefe0de919b903dc3e3b92e222e7fdaf942a6a80a68c4c6befd"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 4256,
+				"vertices": 2394
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p22",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p22.glb",
+			"replaced_meshes": [],
+			"sha256": "f82d9aa2ebad10cdb3c5ed546038852b7555101737639f5d5ca141cc66835d9c"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p23",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p23.glb",
+			"replaced_meshes": [],
+			"sha256": "285a064edc94af2e73119df55cd8c548aaee9ca2584bf75ba3a36231960c85a0"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p24",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p24.glb",
+			"replaced_meshes": [],
+			"sha256": "fbc0f3028233189e5fee45356e71936cb7bec345f0b26d0095783f952e329a0b"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p25",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p25.glb",
+			"replaced_meshes": [],
+			"sha256": "83bfaffb43f6c0752e10fc78dbdd7d5f2d83e3076f3c91f18342ac0a65a93a69"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p26",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p26.glb",
+			"replaced_meshes": [],
+			"sha256": "47cfd18e14b7df827e2c2cbde7f616ceaf3e31ef946175539623600f3fd799fc"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p27",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p27.glb",
+			"replaced_meshes": [],
+			"sha256": "31053a7e24d7799d3cc2672352a51f7894cf09c7d1909dd367486f9ef4e56816"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p28",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p28.glb",
+			"replaced_meshes": [],
+			"sha256": "92f23bcba6710a52499e3d5a6a1b4082c9b1ca226ba80ec52974a0a6e2f040ff"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p29",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p29.glb",
+			"replaced_meshes": [],
+			"sha256": "370e80128186c24fe2c0aaff630a73ef89de6e3523040357aae24ecd52d11fb5"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 1608,
+				"vertices": 1608
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p30",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p30.glb",
+			"replaced_meshes": [],
+			"sha256": "3728c3f936e1ef636fe8bdd1596280c3adb3a407033a2e27f0c5af3ef399bf11"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p31",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p31.glb",
+			"replaced_meshes": [],
+			"sha256": "8d3fa851ea86f151d81dec948137b3a9905807c9436a8bbb8788d299c70e5cbd"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p32",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p32.glb",
+			"replaced_meshes": [],
+			"sha256": "cc5a8afb5e08af12a3b3fed69440c91d6afe866cda2c14e4e14a40c202c74f44"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 2232,
+				"vertices": 2232
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p33",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p33.glb",
+			"replaced_meshes": [],
+			"sha256": "4e7ef873734856ea1935e84f3a02cdabcab6b01e150e0ce33563d2f5cc80dc05"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p34",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p34.glb",
+			"replaced_meshes": [],
+			"sha256": "7997f4129686d5039a94eb93fc496a4dc6d3c66210e02d8664252173cbec9c40"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p35",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p35.glb",
+			"replaced_meshes": [],
+			"sha256": "6d81ee82579f3f2d67fd3691edf692159f8bd880794dc5ba309afb9414f45902"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p36",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p36.glb",
+			"replaced_meshes": [],
+			"sha256": "b8cbdf4b695a61de053f872e84739c0050e90d21dc128860c1743be56767f39f"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 1568,
+				"vertices": 882
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p37",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p37.glb",
+			"replaced_meshes": [],
+			"sha256": "0501c17f6f84abfb90438ba384e3dcf4f6239b3d4ece9f2c0e87b8ea57aa54f7"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p38",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p38.glb",
+			"replaced_meshes": [],
+			"sha256": "0b4ff324ff1942da5164a57fa55b8632e3872d360ea6122b42245577d4b7f296"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p39",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p39.glb",
+			"replaced_meshes": [],
+			"sha256": "bf86f5fe08736c19a8ea57f888433f73465ab89fe98713f7a2357caadf254746"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2028,
+				"vertices": 2028
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p40",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p40.glb",
+			"replaced_meshes": [],
+			"sha256": "9d6c1156bf430a1d653ff39c4d4f0bdfe797ed2c4c15b5b1dbbc2230213749c4"
+		},
+		{
+			"geometry": {
+				"meshes": 18,
+				"surfaces": 18,
+				"triangles": 6063,
+				"vertices": 8610
+			},
+			"id": "ARQ03_POST_COURTYARD_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ03_POST_COURTYARD_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "e54e75404565517616473b11f570980354a586cccac1ac7e4819ca9b760c4c74"
+		},
+		{
+			"geometry": {
+				"meshes": 4,
+				"surfaces": 4,
+				"triangles": 4640,
+				"vertices": 8584
+			},
+			"id": "NAT02_HARBOR_GARDENS_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT02_HARBOR_GARDENS_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "6322ad935d1e315b4d36b6497c2683642e18d3f8bc0b0604210d105be3b00905"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 1392,
+				"vertices": 3712
+			},
+			"id": "NAT02_HARBOR_GARDENS_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT02_HARBOR_GARDENS_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "ac96833667e5d95546f6aa1dcb6174c61a190b4ed2cda03951d7309dc13900e8"
+		},
+		{
+			"geometry": {
+				"meshes": 28,
+				"surfaces": 28,
+				"triangles": 3272,
+				"vertices": 4832
+			},
+			"id": "ARQ04_HARBOR_TERRACES_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ04_HARBOR_TERRACES_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "4347578d69c40b23bcc94e3a64fbfdc470b873dbe1ef1cf63df1662bf39158be"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 3328,
+				"vertices": 2080
+			},
+			"id": "NAT04_TERRACE_PLANTS_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "5a7ace3e7286b5162ff6896bc82516f161afc0f9a44bc61758d3e76ab9e4d665"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT04_TERRACE_PLANTS_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "972e8cf3da60af9b7a8e9f10fb14250375fdf59e3438c85eb898dd286c7327c3"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT04_TERRACE_PLANTS_p03",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p03.glb",
+			"replaced_meshes": [],
+			"sha256": "f38b425a9a586fb1dd134c33a6a29cabe3d2b6a793e95b8b2d051ec39219a206"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 2976,
+				"vertices": 7936
+			},
+			"id": "NAT04_TERRACE_PLANTS_p04",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p04.glb",
+			"replaced_meshes": [],
+			"sha256": "54d69a0c2703136061dabb7c2100d57dc66a44c5218e67fedcf5c398a071da6a"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 3840,
+				"vertices": 2400
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "2c119c993985cb46cbdfd434c9aacfd59cb61015394e3ecd2d74554553a44b9a"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 3840,
+				"vertices": 2400
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "4bb53fe1eaed1389d2f16f7037133cb0fea3c63cc2f03e61f3109f60b201cfa5"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p03",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p03.glb",
+			"replaced_meshes": [],
+			"sha256": "e113dbd9ea7d9e20e01662d0d510fb13209fa0bce6a4725b35c64a302efec978"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p04",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p04.glb",
+			"replaced_meshes": [],
+			"sha256": "9f8c27510e1a97d0d2e40ce8f5c419354fa8472c94d600e0536fd35fa46d8982"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4224,
+				"vertices": 8520
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p05",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p05.glb",
+			"replaced_meshes": [],
+			"sha256": "229f011e7350638c02c2b2da0554b3faa22576b51e7859abb59de057bda51dec"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p06",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p06.glb",
+			"replaced_meshes": [],
+			"sha256": "f2e5ff147666d9039e9bc454c393efbd14277fcb5201405a29f75086ccc09786"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 1800
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p07",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p07.glb",
+			"replaced_meshes": [],
+			"sha256": "284059d6ecd5a4b574e1ede9efc66ce5bdadbe965c9424cbbe5d039def72de09"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p08",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p08.glb",
+			"replaced_meshes": [],
+			"sha256": "29e0912c04aac656e0b85183f10bce27aca6b878786b6440206ad46fc4e0054e"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p09",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p09.glb",
+			"replaced_meshes": [],
+			"sha256": "469d6823b634069ba2372977437f65460e612203090c92444f874520b1c1622e"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p10",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p10.glb",
+			"replaced_meshes": [],
+			"sha256": "83f55281787be30b5aa02c8780e75c26ff713ba3f7ef3ef71320c40304acd375"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p11",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p11.glb",
+			"replaced_meshes": [],
+			"sha256": "431dad7ba6dc85e269e68b25bc18995bb9cebf77a71cdf1822e9e47d7370c57b"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p12",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p12.glb",
+			"replaced_meshes": [],
+			"sha256": "ea313ad5d571a011a6e54cf76abc21da2712fd70516710e173b78d15e0cb5707"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p13",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p13.glb",
+			"replaced_meshes": [],
+			"sha256": "e91642834ec8b4b5e11c61e3dcab591b9b753002ff840f176ba2f71791b9d016"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 1800
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p14",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p14.glb",
+			"replaced_meshes": [],
+			"sha256": "7032f13212bc4f3b94aefb38c2db580653fe525c6e358e8176f71f3095c2d0cf"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 3840,
+				"vertices": 2400
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p15",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p15.glb",
+			"replaced_meshes": [],
+			"sha256": "3821bebb56086e1bb80905d095b5248bcdf7466bf9035748d4b7e4a841e470aa"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p16",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p16.glb",
+			"replaced_meshes": [],
+			"sha256": "ba58094988d6e0526185cb9c114703e092040c7652173c3fb77b991472e2e5cc"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p17",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p17.glb",
+			"replaced_meshes": [],
+			"sha256": "edec4947a27c0d52d62ffba28186750fd2b24804404a9b576e6f3a469c790767"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p18",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p18.glb",
+			"replaced_meshes": [],
+			"sha256": "47bc1f73737d4690955999489a5add9cee5935208a869e7684821c473c49ff54"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p19",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p19.glb",
+			"replaced_meshes": [],
+			"sha256": "1abbc8f5414dfa2c8c3c4c865138b1700162924b63ee44671d9475b3402f3883"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p20",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p20.glb",
+			"replaced_meshes": [],
+			"sha256": "10268f25427192a411c72dbbb87576b6d9050738dc40527829fc3a16a340cc29"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p21",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p21.glb",
+			"replaced_meshes": [],
+			"sha256": "e7ca14f3f6e389bb729b2bc6df5befdaece3729b1401286cadc3f001d864b0ad"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p22",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p22.glb",
+			"replaced_meshes": [],
+			"sha256": "c5a19cae445793602cb35b6e11a62b321f9d4a7e73245b1f414114e96a0ddcd3"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 1800
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p23",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p23.glb",
+			"replaced_meshes": [],
+			"sha256": "778d1a3927f1508cabccc4852dcb064142c7ac622989eee49f44c49fc93c5ce1"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 5312,
+				"vertices": 9200
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p24",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p24.glb",
+			"replaced_meshes": [],
+			"sha256": "7ba76d36ff5c6e0f4f8d710c2af92092405aed4defeeef717b119748769bf176"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 3840,
+				"vertices": 2400
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p25",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p25.glb",
+			"replaced_meshes": [],
+			"sha256": "487d5eb157f36fb0fee36d413f941e12875824c4196d594ac0827992c0648492"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p26",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p26.glb",
+			"replaced_meshes": [],
+			"sha256": "bb48408922d9d6468c35a71f24d29978e13d304b55cdf7c3c5d0f97b2e32c1f1"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p27",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p27.glb",
+			"replaced_meshes": [],
+			"sha256": "1212bf79b1263e3b102f71868ac6e3d70a006d71fa8bad2c8743e156fba18fa9"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p28",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p28.glb",
+			"replaced_meshes": [],
+			"sha256": "226ae9ad0efc3f9a895937a1f119ab36e6d100712b5db87f33c3813ede59b33a"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2592,
+				"vertices": 6912
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p29",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p29.glb",
+			"replaced_meshes": [],
+			"sha256": "3381a5663875d8609c46bf7635068f1e0aeda54c8121beedf1fec434716cb780"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4320,
+				"vertices": 11520
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p30",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p30.glb",
+			"replaced_meshes": [],
+			"sha256": "d541a0ff73646cc57616e9f4eff661bfc3d9a327a7b789e615b67f9771cdd8f4"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 4096,
+				"vertices": 7176
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p31",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p31.glb",
+			"replaced_meshes": [],
+			"sha256": "a16c9082a57466cf840b8bd7138dbcd7dee431d13c41317d6528a78400ba140c"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 1632,
+				"vertices": 4352
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p32",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p32.glb",
+			"replaced_meshes": [],
+			"sha256": "3446e86627f2365888d76c59f06fddefcb2168d34c2f007efa8e485ae2dc2657"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 1024,
+				"vertices": 2288
+			},
+			"id": "GEO01_FARO_SEMWRIGHT_R22",
+			"material_roles": {
+				"SW_dc08abe78a2a_limestone": "stone"
+			},
+			"path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+			"replaced_meshes": [],
+			"sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 12,
+				"vertices": 24
+			},
+			"id": "GEO01_FARO_THRESHOLD_SEMWRIGHT_R23",
+			"material_roles": {
+				"SW_c242f21a199d_limestone": "stone"
+			},
+			"path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+			"replaced_meshes": [],
+			"sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+		}
+	],
+	"camera": {
+		"eye": [
+			15.0,
+			4.3,
+			58.0
+		],
+		"fov": 60.0,
+		"id": "llegar",
+		"target": [
+			-9.0,
+			9.0,
+			3.0
+		],
+		"title": "Llegar"
+	},
+	"capture_kind": "native_godot",
+	"engine": {
+		"build": "official",
+		"hash": "ed1daf0bf001b61586d9930840f2f1394092c079",
+		"hex": 263938,
+		"major": 4,
+		"minor": 7,
+		"patch": 2,
+		"status": "stable",
+		"string": "4.7.2-stable (official)",
+		"timestamp": 0
+	},
+	"foliage_material": {
+		"alpha_coverage_ge_128_sampled": 0.331447285225596,
+		"alpha_max_sampled": 255,
+		"alpha_min_sampled": 0,
+		"alpha_probe_stride_pixels": 17,
+		"alpha_scissor_threshold": 0.4,
+		"consumer_alpha_mode": "Godot Alpha Scissor",
+		"errors": [],
+		"height": 1024,
+		"image_sha256": "1c5b08971e872af8c0a193756e6097ae74281ea2c78c6e27b23dfa0a266b42b0",
+		"mipmaps_imported": false,
+		"mipmaps_used": true,
+		"pixel_readback": "PASS",
+		"source_glb_transparency_enum": 4,
+		"surfaces": 34,
+		"uv_vertices": 77868,
+		"width": 1024
+	},
+	"gpu": "",
+	"planar_reflection": {
+		"cached_by_pose": true,
+		"capture_height": 432,
+		"capture_width": 768,
+		"enabled": true,
+		"linear_hdr": true,
+		"max_update_hz": 30,
+		"note": "Render requests, not measured GPU passes; moving-camera cost differs from cached stills",
+		"render_requests": 0
+	},
+	"render_settings": {
+		"ambient_energy": 0.340000003576279,
+		"ambient_source": 3,
+		"exposure": 1.0,
+		"fog_density": 0.000500000023748726,
+		"fog_sky_affect": 0.0500000007450581,
+		"shaders_sha256": {
+			"ocean": "db2c063876495664b9ebe88fae028b934058b79cab14c0be02f04f47896fe5f3",
+			"sky": "0eeccde10f93319ad2b076968413060d1b9a96eb4fd9a6aa80bcd2554dbe1c4a",
+			"surface": "5e2e39e2274fecf192fa8ad64261a9cad8d819e17db11fa45a6a5a4a15053fd9"
+		},
+		"sun_energy": 1.14999997615814,
+		"tonemap": 2,
+		"white": 4.0
+	},
+	"renderer": "forward_plus",
+	"runtime_diagnostics": {
+		"physics_ms": 0.0,
+		"process_ms": 0.0,
+		"time_scale": 1.0,
+		"vsync_mode": 1,
+		"window_focused": true,
+		"window_mode": 1
+	},
+	"source_manifest": {
+		"additional_typed_recipe_sha256": "d42304df12776030ad6692e864544c31ee72c29a23a7cd26ca291f5494b6894e",
+		"art_approved": false,
+		"assets": [
+			{
+				"id": "ARQ01_POST_HOUSE_p01",
+				"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p01.glb",
+				"sha256": "4da7217251cf22faf13f682384bee4d8e5b434299cf2251f7050d5a237816cc4"
+			},
+			{
+				"id": "ARQ01_POST_HOUSE_p02",
+				"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p02.glb",
+				"sha256": "d8d31c393429684f9a5f1958fed60380eac7c3045db420943c1a01c92d508c6e"
+			},
+			{
+				"id": "ARQ01_POST_HOUSE_p03",
+				"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p03.glb",
+				"sha256": "de94547d67798d5868f7474b235eaa08172ef0425b316d04090350d045a71d3c"
+			},
+			{
+				"id": "ARQ01_POST_HOUSE_p04",
+				"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p04.glb",
+				"sha256": "4fb33c3e95b1b10ae531bedb4aa4d197310f8f4941547d2e0d40b383b513880a"
+			},
+			{
+				"id": "ARQ02_ARCH_LIGHTHOUSE_p01",
+				"path": "res://assets/review_20261028-r21/ARQ02_ARCH_LIGHTHOUSE_p01.glb",
+				"sha256": "fc1ba15daf7ca7f4e4340b84967697e0932f43758c6ccd69d40959c718caeea0"
+			},
+			{
+				"id": "ARQ02_ARCH_LIGHTHOUSE_p02",
+				"path": "res://assets/review_20261028-r21/ARQ02_ARCH_LIGHTHOUSE_p02.glb",
+				"sha256": "991ecd66a1c30cb79a3cf42423c4485dc7d91ae6525d97bef0503a2dac512324"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p01",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p01.glb",
+				"sha256": "16e187384945cf8b170ea972630717ccaf45c6ad339a6c024eb50f7be5c323b3"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p02",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p02.glb",
+				"sha256": "1870606ca9d2986def04fbe6261f0f2f79f9922135a1ac30e4161617d50e43bb"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p03",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p03.glb",
+				"sha256": "b73bdb1c40a84ddc81e29e713c9af76590d361db5c347c15ad23f7d8cb0b703f"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p04",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p04.glb",
+				"sha256": "d291b479476b612a5559ab050b62642ed8b546d2d4aee64494232f2f5ba7d336"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p05",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p05.glb",
+				"sha256": "def316afef0e90f0398921701db407851348298420f42beb2f98efb8c164c585"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p06",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p06.glb",
+				"sha256": "b263bc0e115e2b7dedb1e200087f237460be9e052a6441f384bfb1cc05a2cb88"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p07",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p07.glb",
+				"sha256": "1eb7a8abca8b6b4de376ce95e95679ea993286e0b8b225b5c944efc98723ea57"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p08",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p08.glb",
+				"sha256": "14dbcedad0bc84fe1b0b77d34e2bad4319e8c21052ad9362cbaef8ba0dcdb7c3"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p09",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p09.glb",
+				"sha256": "02a3f2cffec8f559fe88f7fd2548c7302595917aaa1f2b58582576c4a7805dbe"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p10",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p10.glb",
+				"sha256": "cf0669e6ee26b3eef20f0328d90b5cd040649e8244025dd4959c2036af78d2be"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p11",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p11.glb",
+				"sha256": "8edce7e277b0b0cd7899a62ff3319d743a2dc7dd99f7a5ce5efe8138614f04d6"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p12",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p12.glb",
+				"replace_meshes": [
+					"GEO01_HARBOR_COAST_faro_integrated_limestone_stone_0"
+				],
+				"sha256": "a22793649352eaa0237b2d503e4b59b0523bc83c15796621caf5d7bdadec9fe0"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p13",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p13.glb",
+				"replace_meshes": [
+					"GEO01_HARBOR_COAST_faro_crown_stone_0",
+					"GEO01_HARBOR_COAST_faro_footing_cap_stone_0",
+					"GEO01_HARBOR_COAST_faro_integrated_limestone_base_stone_dark_0",
+					"GEO01_HARBOR_COAST_faro_integrated_limestone_toe_stone_0",
+					"GEO01_HARBOR_COAST_faro_rock_mass_stone_0",
+					"GEO01_HARBOR_COAST_faro_rock_mass_stone_light_0"
+				],
+				"sha256": "2069d725122b22ff890c3f5f57c11c0474f5d965ef6cd656f8b6e0836e07349f"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p01",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p01.glb",
+				"sha256": "e62d2a1203abf55526c5453898392e987ab9204f81b358eb8257f5097a14f305"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p02",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p02.glb",
+				"sha256": "69e3244f89ab1ac747db3ee8aa667a9973784f2a9cb9df33912fa5c08a697aad"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p03",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p03.glb",
+				"sha256": "cece160b38d3021c981e547573743a8c2b27dec3c1112caab745c25d27822eea"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p04",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p04.glb",
+				"sha256": "655efc572a70c977bc97909c3be0689665561a920a9acddb94f0c6ccbe4991ba"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p05",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p05.glb",
+				"sha256": "7dd4008505d60e80bdd0f371f429da954b0425eb67e00d58ea064aa737aebf93"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p06",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p06.glb",
+				"sha256": "9f84d3d33298b0b23f23a1c8fb241b16a1ee5062afe8382b3ae2e59889204ed0"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p07",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p07.glb",
+				"sha256": "1b0a241b46fc59327afe5a810eb8cfe8ec2da45304c7de1daae925fd0be2c1af"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p08",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p08.glb",
+				"sha256": "4619753f5dbbe4be040467e5f89f2518672545f721d83eb907f42c36f36a8e87"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p09",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p09.glb",
+				"sha256": "93bac406306fc5036947d10c8b2edc81675c47ae11dca38cb22fac13f01f9844"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p10",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p10.glb",
+				"sha256": "e0a8cf01386a40e22eb394f642d09c0317aa03ee995a44f4a504e0ae55ea6ea8"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p11",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p11.glb",
+				"sha256": "1dd54953ce5e496019bb50f7cc10ec889f3a4cf24592c80cf2facbfc84057c76"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p12",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p12.glb",
+				"sha256": "afac86036e0bab4a64618a90ca234d64d2af054fb775d355277f7fd13032f17d"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p13",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p13.glb",
+				"sha256": "9284653b35cbcad034b57d787c5d654038666076c593b1049798027f0c80c4bd"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p14",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p14.glb",
+				"sha256": "6e48b7ac8d88a954742904878b0527d217667f971f5131a4202bd6503a58f598"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p15",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p15.glb",
+				"sha256": "c12dd6b65c30561b5e9af9f21750113f6bb3e00dfdab1c7b5ac68a3fe9b4bbdc"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p16",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p16.glb",
+				"sha256": "0d0ddcbf7cac2451762b80cb81e3787773d249b8c454bcaa77823cc570a25376"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p17",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p17.glb",
+				"sha256": "9435f9c20ff1e717f0f1777625202af8ba597dcd284d6f57455ac8100c130e25"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p18",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p18.glb",
+				"sha256": "b19d6b36475bb56799acb62d9c6fc52f257bc845fe8cf418dd447e1e08795c6c"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p19",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p19.glb",
+				"sha256": "87b9c253515db90363eda80c4137f994680e5388841b00654eac50a746ec36bf"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p20",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p20.glb",
+				"sha256": "bf4a9790f5d2b040e237c4777131d48444da0c5b9a2d514bd93883c47870a005"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p21",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p21.glb",
+				"sha256": "9e2f381061541aefe0de919b903dc3e3b92e222e7fdaf942a6a80a68c4c6befd"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p22",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p22.glb",
+				"sha256": "f82d9aa2ebad10cdb3c5ed546038852b7555101737639f5d5ca141cc66835d9c"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p23",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p23.glb",
+				"sha256": "285a064edc94af2e73119df55cd8c548aaee9ca2584bf75ba3a36231960c85a0"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p24",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p24.glb",
+				"sha256": "fbc0f3028233189e5fee45356e71936cb7bec345f0b26d0095783f952e329a0b"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p25",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p25.glb",
+				"sha256": "83bfaffb43f6c0752e10fc78dbdd7d5f2d83e3076f3c91f18342ac0a65a93a69"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p26",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p26.glb",
+				"sha256": "47cfd18e14b7df827e2c2cbde7f616ceaf3e31ef946175539623600f3fd799fc"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p27",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p27.glb",
+				"sha256": "31053a7e24d7799d3cc2672352a51f7894cf09c7d1909dd367486f9ef4e56816"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p28",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p28.glb",
+				"sha256": "92f23bcba6710a52499e3d5a6a1b4082c9b1ca226ba80ec52974a0a6e2f040ff"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p29",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p29.glb",
+				"sha256": "370e80128186c24fe2c0aaff630a73ef89de6e3523040357aae24ecd52d11fb5"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p30",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p30.glb",
+				"sha256": "3728c3f936e1ef636fe8bdd1596280c3adb3a407033a2e27f0c5af3ef399bf11"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p31",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p31.glb",
+				"sha256": "8d3fa851ea86f151d81dec948137b3a9905807c9436a8bbb8788d299c70e5cbd"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p32",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p32.glb",
+				"sha256": "cc5a8afb5e08af12a3b3fed69440c91d6afe866cda2c14e4e14a40c202c74f44"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p33",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p33.glb",
+				"sha256": "4e7ef873734856ea1935e84f3a02cdabcab6b01e150e0ce33563d2f5cc80dc05"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p34",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p34.glb",
+				"sha256": "7997f4129686d5039a94eb93fc496a4dc6d3c66210e02d8664252173cbec9c40"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p35",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p35.glb",
+				"sha256": "6d81ee82579f3f2d67fd3691edf692159f8bd880794dc5ba309afb9414f45902"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p36",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p36.glb",
+				"sha256": "b8cbdf4b695a61de053f872e84739c0050e90d21dc128860c1743be56767f39f"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p37",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p37.glb",
+				"sha256": "0501c17f6f84abfb90438ba384e3dcf4f6239b3d4ece9f2c0e87b8ea57aa54f7"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p38",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p38.glb",
+				"sha256": "0b4ff324ff1942da5164a57fa55b8632e3872d360ea6122b42245577d4b7f296"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p39",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p39.glb",
+				"sha256": "bf86f5fe08736c19a8ea57f888433f73465ab89fe98713f7a2357caadf254746"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p40",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p40.glb",
+				"sha256": "9d6c1156bf430a1d653ff39c4d4f0bdfe797ed2c4c15b5b1dbbc2230213749c4"
+			},
+			{
+				"id": "ARQ03_POST_COURTYARD_p01",
+				"path": "res://assets/review_20261028-r21/ARQ03_POST_COURTYARD_p01.glb",
+				"sha256": "e54e75404565517616473b11f570980354a586cccac1ac7e4819ca9b760c4c74"
+			},
+			{
+				"id": "NAT02_HARBOR_GARDENS_p01",
+				"path": "res://assets/review_20261028-r21/NAT02_HARBOR_GARDENS_p01.glb",
+				"sha256": "6322ad935d1e315b4d36b6497c2683642e18d3f8bc0b0604210d105be3b00905"
+			},
+			{
+				"id": "NAT02_HARBOR_GARDENS_p02",
+				"path": "res://assets/review_20261028-r21/NAT02_HARBOR_GARDENS_p02.glb",
+				"sha256": "ac96833667e5d95546f6aa1dcb6174c61a190b4ed2cda03951d7309dc13900e8"
+			},
+			{
+				"id": "ARQ04_HARBOR_TERRACES_p01",
+				"path": "res://assets/review_20261028-r21/ARQ04_HARBOR_TERRACES_p01.glb",
+				"sha256": "4347578d69c40b23bcc94e3a64fbfdc470b873dbe1ef1cf63df1662bf39158be"
+			},
+			{
+				"id": "NAT04_TERRACE_PLANTS_p01",
+				"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p01.glb",
+				"sha256": "5a7ace3e7286b5162ff6896bc82516f161afc0f9a44bc61758d3e76ab9e4d665"
+			},
+			{
+				"id": "NAT04_TERRACE_PLANTS_p02",
+				"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p02.glb",
+				"sha256": "972e8cf3da60af9b7a8e9f10fb14250375fdf59e3438c85eb898dd286c7327c3"
+			},
+			{
+				"id": "NAT04_TERRACE_PLANTS_p03",
+				"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p03.glb",
+				"sha256": "f38b425a9a586fb1dd134c33a6a29cabe3d2b6a793e95b8b2d051ec39219a206"
+			},
+			{
+				"id": "NAT04_TERRACE_PLANTS_p04",
+				"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p04.glb",
+				"sha256": "54d69a0c2703136061dabb7c2100d57dc66a44c5218e67fedcf5c398a071da6a"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p01",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p01.glb",
+				"sha256": "2c119c993985cb46cbdfd434c9aacfd59cb61015394e3ecd2d74554553a44b9a"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p02",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p02.glb",
+				"sha256": "4bb53fe1eaed1389d2f16f7037133cb0fea3c63cc2f03e61f3109f60b201cfa5"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p03",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p03.glb",
+				"sha256": "e113dbd9ea7d9e20e01662d0d510fb13209fa0bce6a4725b35c64a302efec978"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p04",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p04.glb",
+				"sha256": "9f8c27510e1a97d0d2e40ce8f5c419354fa8472c94d600e0536fd35fa46d8982"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p05",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p05.glb",
+				"sha256": "229f011e7350638c02c2b2da0554b3faa22576b51e7859abb59de057bda51dec"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p06",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p06.glb",
+				"sha256": "f2e5ff147666d9039e9bc454c393efbd14277fcb5201405a29f75086ccc09786"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p07",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p07.glb",
+				"sha256": "284059d6ecd5a4b574e1ede9efc66ce5bdadbe965c9424cbbe5d039def72de09"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p08",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p08.glb",
+				"sha256": "29e0912c04aac656e0b85183f10bce27aca6b878786b6440206ad46fc4e0054e"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p09",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p09.glb",
+				"sha256": "469d6823b634069ba2372977437f65460e612203090c92444f874520b1c1622e"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p10",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p10.glb",
+				"sha256": "83f55281787be30b5aa02c8780e75c26ff713ba3f7ef3ef71320c40304acd375"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p11",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p11.glb",
+				"sha256": "431dad7ba6dc85e269e68b25bc18995bb9cebf77a71cdf1822e9e47d7370c57b"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p12",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p12.glb",
+				"sha256": "ea313ad5d571a011a6e54cf76abc21da2712fd70516710e173b78d15e0cb5707"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p13",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p13.glb",
+				"sha256": "e91642834ec8b4b5e11c61e3dcab591b9b753002ff840f176ba2f71791b9d016"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p14",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p14.glb",
+				"sha256": "7032f13212bc4f3b94aefb38c2db580653fe525c6e358e8176f71f3095c2d0cf"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p15",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p15.glb",
+				"sha256": "3821bebb56086e1bb80905d095b5248bcdf7466bf9035748d4b7e4a841e470aa"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p16",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p16.glb",
+				"sha256": "ba58094988d6e0526185cb9c114703e092040c7652173c3fb77b991472e2e5cc"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p17",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p17.glb",
+				"sha256": "edec4947a27c0d52d62ffba28186750fd2b24804404a9b576e6f3a469c790767"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p18",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p18.glb",
+				"sha256": "47bc1f73737d4690955999489a5add9cee5935208a869e7684821c473c49ff54"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p19",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p19.glb",
+				"sha256": "1abbc8f5414dfa2c8c3c4c865138b1700162924b63ee44671d9475b3402f3883"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p20",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p20.glb",
+				"sha256": "10268f25427192a411c72dbbb87576b6d9050738dc40527829fc3a16a340cc29"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p21",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p21.glb",
+				"sha256": "e7ca14f3f6e389bb729b2bc6df5befdaece3729b1401286cadc3f001d864b0ad"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p22",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p22.glb",
+				"sha256": "c5a19cae445793602cb35b6e11a62b321f9d4a7e73245b1f414114e96a0ddcd3"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p23",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p23.glb",
+				"sha256": "778d1a3927f1508cabccc4852dcb064142c7ac622989eee49f44c49fc93c5ce1"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p24",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p24.glb",
+				"sha256": "7ba76d36ff5c6e0f4f8d710c2af92092405aed4defeeef717b119748769bf176"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p25",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p25.glb",
+				"sha256": "487d5eb157f36fb0fee36d413f941e12875824c4196d594ac0827992c0648492"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p26",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p26.glb",
+				"sha256": "bb48408922d9d6468c35a71f24d29978e13d304b55cdf7c3c5d0f97b2e32c1f1"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p27",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p27.glb",
+				"sha256": "1212bf79b1263e3b102f71868ac6e3d70a006d71fa8bad2c8743e156fba18fa9"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p28",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p28.glb",
+				"sha256": "226ae9ad0efc3f9a895937a1f119ab36e6d100712b5db87f33c3813ede59b33a"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p29",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p29.glb",
+				"sha256": "3381a5663875d8609c46bf7635068f1e0aeda54c8121beedf1fec434716cb780"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p30",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p30.glb",
+				"sha256": "d541a0ff73646cc57616e9f4eff661bfc3d9a327a7b789e615b67f9771cdd8f4"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p31",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p31.glb",
+				"sha256": "a16c9082a57466cf840b8bd7138dbcd7dee431d13c41317d6528a78400ba140c"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p32",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p32.glb",
+				"sha256": "3446e86627f2365888d76c59f06fddefcb2168d34c2f007efa8e485ae2dc2657"
+			},
+			{
+				"authoring_provenance": {
+					"art_approval": false,
+					"attempt": "static-asset-attempt03",
+					"candidate": "native-profile10",
+					"export_request_id": "7130649de9a84eb9ad626a6b6566800c",
+					"receipt_path": "evidence/integration/20261029-native-profile/native-profile10/static-asset-attempt03/receipt.json",
+					"receipt_sha256": "f540a2b0265d4df55359bbdc9d9d23be6ce5c6b7976f49fd5f66ab932cb33f5f",
+					"route": "first_party_semwright_broker_isolated_windows_blender_5_2_1",
+					"source_checkpoint_sha256": "8c49ad77ba0e6d571f0cfafd45cebb4a6aa45ac380f64afcb705df08415a3d91",
+					"typed_spec_sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+				},
+				"id": "GEO01_FARO_SEMWRIGHT_R22",
+				"material_roles": {
+					"SW_dc08abe78a2a_limestone": "stone"
+				},
+				"path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+				"sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+			},
+			{
+				"authoring_provenance": {
+					"art_approval": false,
+					"attempt": "static-asset-attempt01",
+					"candidate": "native-profile11",
+					"export_request_id": "d1e56ad3c7aa4efc88a6dcdcb48f8c4a",
+					"receipt_path": "evidence/integration/20261029-native-profile/native-profile11/static-asset-attempt01/receipt.json",
+					"receipt_sha256": "e3606a8eea0f2d06d0604eb278fc8109a658098a3414d9550a4ba4d9fb8e0c6f",
+					"route": "first_party_semwright_broker_isolated_windows_blender_5_2_1",
+					"source_checkpoint_sha256": "d7842da0216d796f98aea3d23234b74c8cd521f50c8b52a4dbd5abbbbb6f1ff9",
+					"typed_spec_sha256": "d42304df12776030ad6692e864544c31ee72c29a23a7cd26ca291f5494b6894e"
+				},
+				"id": "GEO01_FARO_THRESHOLD_SEMWRIGHT_R23",
+				"material_roles": {
+					"SW_c242f21a199d_limestone": "stone"
+				},
+				"path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+				"sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+			}
+		],
+		"authoring_route": "mixed_preserved_native_backbone_and_semwright_first_party_asset",
+		"baseline_bundle_sha256": "d7a5da85a6aee2f09abf1a7d213bfa4e0ccc3e7bdfe359280434b377fbfa6173",
+		"baseline_recipe_manifest_sha256": "75f6b9b1a1d17a84c22d58b81214d90a398144b96dbf9cd7129bfd00b479592c",
+		"baseline_revision": "20261028-r21",
+		"recipe_manifest_sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9",
+		"revision": "20261029-semwright-threshold-r23",
+		"schema_version": 1.0,
+		"semwright_broker_scope": [
+			"GEO01_FARO_SEMWRIGHT_R22",
+			"GEO01_FARO_THRESHOLD_SEMWRIGHT_R23"
+		],
+		"semwright_broker_used": true,
+		"semwright_e2e": "BROKER_BLENDER_COMPONENTS_PASS_GODOT_PROJECT_PENDING"
+	},
+	"viewport": [
+		1920.0,
+		1080.0
+	]
+}

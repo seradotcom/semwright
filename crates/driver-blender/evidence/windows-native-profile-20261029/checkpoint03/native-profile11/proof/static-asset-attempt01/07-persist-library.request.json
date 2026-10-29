@@ -1,0 +1,10 @@
+{
+  "args": {
+    "island": "c242f21a199d4bea914cd4405adc2d16",
+    "path": "static-asset-attempt01/asset-library.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.composition.persist",
+  "dry_run": false,
+  "request_id": "fec83092fe60437289beb275470c4932"
+}

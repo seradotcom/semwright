@@ -1,0 +1,28 @@
+{
+  "command": "driver.blender.collection.create",
+  "data": {
+    "changed": true,
+    "name": "BrokerProof"
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 66,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1.0",
+      "catalog_revision": 160,
+      "descriptor_sha256": "7d7cc0dff7553a1eeac7f52b005d850e4c1185c84ef27599fbb7bc6e6323d68c",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "067b0a3f9aa54e23ad22d931e178635f",
+  "warnings": []
+}

@@ -1,0 +1,267 @@
+{
+  "command": "driver.blender.semantic.object.describe",
+  "data": {
+    "name": "Scene",
+    "properties": [
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "RNA type definition",
+        "id": "rna_type",
+        "name": "RNA",
+        "reason": "RNA type metadata is runtime-owned",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Top-level strips only",
+        "id": "strips",
+        "name": "Strips",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "All strips, recursively including those inside metastrips",
+        "id": "strips_all",
+        "name": "All Strips",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Meta strip stack, last is currently edited meta strip",
+        "id": "meta_stack",
+        "name": "Meta Stack",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "channels",
+        "name": "Channels",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Sequencer's active strip",
+        "id": "active_strip",
+        "name": "Active Strip",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "",
+        "id": "selected_retiming_keys",
+        "name": "Retiming Key Selection Status",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Partial overlay on top of the sequencer with a frame offset",
+        "id": "show_overlay_frame",
+        "name": "Show Overlay",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "",
+        "id": "use_overlay_frame_lock",
+        "name": "Overlay Lock",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Render missing images/movies with a solid magenta color",
+        "id": "show_missing_media",
+        "name": "Show Missing Media",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Number of frames to offset",
+        "id": "overlay_frame",
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "name": "Overlay Offset",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "How to store proxies for this project",
+        "enum": [
+          {
+            "id": "PER_STRIP",
+            "name": "Per Strip"
+          },
+          {
+            "id": "PROJECT",
+            "name": "Project"
+          }
+        ],
+        "id": "proxy_storage",
+        "name": "Proxy Storage",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "proxy_dir",
+        "name": "Proxy Directory",
+        "reason": "Filesystem paths require scoped asset/file semantics",
+        "status": "unsupported_by_design",
+        "subtype": "DIR_PATH",
+        "type": "STRING",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Cache raw images read from disk, for faster tweaking of strip parameters at the cost of memory usage",
+        "id": "use_cache_raw",
+        "name": "Cache Raw",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Cache final image for each frame",
+        "id": "use_cache_final",
+        "name": "Cache Final",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Render frames ahead of current frame in the background for faster playback",
+        "id": "use_prefetch",
+        "name": "Prefetch Frames",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Size of raw source images cache in megabytes",
+        "id": "cache_raw_size",
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "name": "Raw Cache Size",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "INT",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Size of final rendered images cache in megabytes",
+        "id": "cache_final_size",
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "name": "Final Cache Size",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "INT",
+        "writable": false
+      }
+    ],
+    "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdXQ@1",
+    "rna_type": "SequenceEditor",
+    "root": "scenes",
+    "truncated": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 33,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "4453b7deccbf6dfb6b9d2b05e44a31230787d6e01e0d014bd3b2dd1a2fbfb6cd",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "9728f98692244cc19a530bdc32b2e595",
+  "warnings": []
+}

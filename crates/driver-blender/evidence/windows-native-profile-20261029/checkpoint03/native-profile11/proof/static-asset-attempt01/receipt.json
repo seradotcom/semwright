@@ -1,0 +1,2003 @@
+{
+  "G6": "NOT_COMPLETE",
+  "Godot_import": "NOT_RUN",
+  "Linux_4_5_14": "NOT_RUN",
+  "art_approval": false,
+  "broker_used": true,
+  "close": {
+    "checkpoint": {
+      "bytes": 629460,
+      "contract": "static_mesh_scene_v1",
+      "copy": true,
+      "empty_runtime_image_placeholders": 2,
+      "path": "static-asset-attempt01/final-recovery.blend",
+      "retained_orphans": [],
+      "sha256": "e34e041c92569e7a33baf058f786891c999c502837398c75bc7cce42a060e08e",
+      "source_fake_users_restored": true,
+      "undo_history_preserved": false
+    },
+    "close_state": "closed",
+    "closed": true
+  },
+  "close_acknowledged": true,
+  "close_error": null,
+  "error": null,
+  "human_edit_preservation_claimed": false,
+  "passed": true,
+  "proof_kind": "original_static_asset_broker_production",
+  "requests": [
+    {
+      "command": "driver.blender.introspect.summary",
+      "elapsed_ms": 20346,
+      "envelope_sha256": "85b89c64a61f12949d1fe2a9b1bab1f17c17425e2e642a49cdd66d41fdff77e5",
+      "error": null,
+      "label": "version",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "c5c062afcfb14581bc2d96c10dcb434d",
+      "request_sha256": "ec705031724c01a332800e3f64a23c670fc3aafd8ff01383a525adc4603b0338"
+    },
+    {
+      "command": "driver.blender.composition.inspect",
+      "elapsed_ms": 111,
+      "envelope_sha256": "e2e6f8c0fbdbdb88e07e1e62768a5a08e3c50d5e04c7dbe229163d7f26bda90b",
+      "error": null,
+      "label": "baseline",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "36a3e6cc242d4d9cb223821d56e3ae8e",
+      "request_sha256": "c722bf00b35ffe583467470cc5c885ec1a8896c1e64b081e741294037a458654"
+    },
+    {
+      "command": "driver.blender.composition.plan",
+      "elapsed_ms": 285,
+      "envelope_sha256": "e1e303c820c592075f43ea7b397b293d09e4373eb10f40a4303b1e4de10c9a4c",
+      "error": null,
+      "label": "plan",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "3f3071f3a2294f2d94dd24832c47883a",
+      "request_sha256": "bbaf65b59de27956715d96c5de0fb4b43289ed84692f167f1b806ba3dd7fd6c6"
+    },
+    {
+      "command": "driver.blender.composition.inspect",
+      "elapsed_ms": 61,
+      "envelope_sha256": "9a3e896cb95c875f17fb76d642ae130dc00330362222df137a1004a622c765a6",
+      "error": null,
+      "label": "plan-readonly",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "c0d337e7da0c494582e5bcfb6a67b6f3",
+      "request_sha256": "305d0e23072503ae12cf1a8f2152cbf56c5a52a855e75a7351ec71bb393f9059"
+    },
+    {
+      "command": "driver.blender.composition.apply",
+      "elapsed_ms": 97,
+      "envelope_sha256": "878638d36463493efb5871c5f548be464a4dd16f19e33cad16bd22f9d2a8f947",
+      "error": null,
+      "label": "apply",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "fcc9136a17ff46cf85cda17d8c09816f",
+      "request_sha256": "367902795e914e9625ab9b21ac8cccdee8732f640f22ff23b9958d6ac56050e1"
+    },
+    {
+      "command": "driver.blender.composition.inspect",
+      "elapsed_ms": 109,
+      "envelope_sha256": "0e3776294ef8b48f0a9fa8e139538d9acb0010e09bc847e2867e6aa05fe61349",
+      "error": null,
+      "label": "readback",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "74f2165bb2a544228ea9d45ba611ceda",
+      "request_sha256": "a7536d1b52d9fd52f7dffdd3ba30d2bafebaf1112ca3bb2e3e2d1fc694553615"
+    },
+    {
+      "command": "driver.blender.composition.inspect",
+      "elapsed_ms": 66,
+      "envelope_sha256": "8b74b63b4217d21a8bb741e97b87064f9bcdc9d6c767e9f969c14f5a262f1a12",
+      "error": null,
+      "label": "unmanaged-readback",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "ab3c0377a88d4aa7a84a24865dd5b26a",
+      "request_sha256": "769603842be3c7db6b91d47c72561cc1f239c3bb879f790d45ef5910afb82db3"
+    },
+    {
+      "command": "driver.blender.composition.persist",
+      "elapsed_ms": 93,
+      "envelope_sha256": "a01be782eb17919a57ec86cc1f0158ee780d1a125fa6c74341c7cb61d2a76356",
+      "error": null,
+      "label": "persist-library",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "fec83092fe60437289beb275470c4932",
+      "request_sha256": "ef04a155dc979d7a02b1f3184e9a5481f535556df1411b0f128489155d7ff557"
+    },
+    {
+      "command": "driver.blender.session.checkpoint_close",
+      "elapsed_ms": 1488,
+      "envelope_sha256": "135daa5a619c66f92c3566b9dc3a672ace840a4db7b28bb5b34daf63178655d9",
+      "error": null,
+      "label": "checkpoint-close",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "655544848a4d449e8918c4ea547e96c1",
+      "request_sha256": "26513d2c515d51b02bb860eb2371e24da66dc26549d26bbbd464fbef95a55ba2"
+    },
+    {
+      "command": "driver.blender.session.open",
+      "elapsed_ms": 13663,
+      "envelope_sha256": "7d2427842ccbac44c42ef0e972c78cd591f7be7bdf74d799b0e28bf17f870e51",
+      "error": null,
+      "label": "reopen",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "58c0a26d5458491981046de116dd7e4d",
+      "request_sha256": "fd844b1c8860ebf875dfab2a82f8abd2277a7d16034768d98e7c289afe6bdfbe"
+    },
+    {
+      "command": "driver.blender.composition.inspect",
+      "elapsed_ms": 97,
+      "envelope_sha256": "ae6cff1be3f3899d4125a48b5bd214e4b60e8b18eb0d7d806729798a1553dd1b",
+      "error": null,
+      "label": "reopened-readback",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "c7714658cc2f410abba5d739e331dbbe",
+      "request_sha256": "006274a14fa62b58f35662ee0895b40d882c5a6191deda756860081f24dd2fed"
+    },
+    {
+      "command": "driver.blender.export.glb",
+      "elapsed_ms": 2499,
+      "envelope_sha256": "6abe95647f2a9a60b6e356ca087caa4dc558d37982b2ca747f58f19a51fcfb59",
+      "error": null,
+      "label": "export",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "d1e56ad3c7aa4efc88a6dcdcb48f8c4a",
+      "request_sha256": "26a97e8b745b14eb75af653c48d4e5e0d31d055542e0ce4d5b8084e029619ed7"
+    },
+    {
+      "command": "driver.blender.session.checkpoint.inspect",
+      "elapsed_ms": 63,
+      "envelope_sha256": "aed73f39531b1d8398a9a9fe31d970a3eef61960398c210563a7bb93e7992d55",
+      "error": null,
+      "label": "cleanup-inspect",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "a702acafbc154a5dacaff7c9a829857d",
+      "request_sha256": "dcddba0c55d713ba1a8a1e037561c59a1f87e7900b13b2e855fe594eb85c6d28"
+    },
+    {
+      "command": "driver.blender.session.checkpoint_close",
+      "elapsed_ms": 1128,
+      "envelope_sha256": "dea4391ef756c66ebb9eddfacb6456fa6a003f6bddbbe57915eaa850832cfb8b",
+      "error": null,
+      "label": "final-close",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "c1165890d041455886ca66f2706d23a5",
+      "request_sha256": "ecd5040e2cbd107310dfada2ab4fcc5032895fed2ddf2f123094326efa66d02e"
+    }
+  ],
+  "result": {
+    "apply": {
+      "island": "c242f21a199d4bea914cd4405adc2d16",
+      "plan_ref": "78dc4b575726467b912401e4b26b3296",
+      "report": {
+        "effects_observed": [
+          {
+            "logical_id": "entity-bridge_threshold",
+            "property": "declared-native-state",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          },
+          {
+            "logical_id": "unmanaged-scene",
+            "property": "source-projection",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          }
+        ],
+        "effects_unobservable": [],
+        "execution_status": "completed",
+        "support_level": "native",
+        "validation": {
+          "base": [
+            {
+              "concurrency": "best_effort_revalidate",
+              "document_id": "blender-authoring-workspace",
+              "generation": "9f00d8b67d274086a63b3b2c503ce406",
+              "key": {
+                "provider": "driver:blender",
+                "resource": "authoring-workspace"
+              },
+              "provider_session": "1f0a0db827864811860b87e900d2e877",
+              "revision": {
+                "kind": "fingerprint",
+                "value": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4"
+              }
+            }
+          ],
+          "checks": [
+            {
+              "evidence": [
+                {
+                  "artifact": null,
+                  "base": [
+                    {
+                      "concurrency": "best_effort_revalidate",
+                      "document_id": "blender-authoring-workspace",
+                      "generation": "9f00d8b67d274086a63b3b2c503ce406",
+                      "key": {
+                        "provider": "driver:blender",
+                        "resource": "authoring-workspace"
+                      },
+                      "provider_session": "1f0a0db827864811860b87e900d2e877",
+                      "revision": {
+                        "kind": "fingerprint",
+                        "value": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4"
+                      }
+                    }
+                  ],
+                  "exhaustive": true,
+                  "id": "obs-blender.plan-native-readback.v1",
+                  "method": "blender-bounded-source-rna",
+                  "method_version": 1,
+                  "scope": [
+                    {
+                      "logical_id": "entity-bridge_threshold",
+                      "property": "declared-native-state",
+                      "resource": {
+                        "provider": "driver:blender",
+                        "resource": "authoring-workspace"
+                      }
+                    }
+                  ],
+                  "source": "native_api"
+                }
+              ],
+              "evidence_class": "DETERMINISTIC",
+              "reason": null,
+              "rule": "blender.plan-native-readback.v1",
+              "verdict": "PASS",
+              "version": 1
+            },
+            {
+              "evidence": [
+                {
+                  "artifact": null,
+                  "base": [
+                    {
+                      "concurrency": "best_effort_revalidate",
+                      "document_id": "blender-authoring-workspace",
+                      "generation": "9f00d8b67d274086a63b3b2c503ce406",
+                      "key": {
+                        "provider": "driver:blender",
+                        "resource": "authoring-workspace"
+                      },
+                      "provider_session": "1f0a0db827864811860b87e900d2e877",
+                      "revision": {
+                        "kind": "fingerprint",
+                        "value": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4"
+                      }
+                    }
+                  ],
+                  "exhaustive": true,
+                  "id": "obs-blender.unmanaged-preservation.v1",
+                  "method": "blender-unmanaged-source-projection",
+                  "method_version": 1,
+                  "scope": [
+                    {
+                      "logical_id": "unmanaged-scene",
+                      "property": "source-projection",
+                      "resource": {
+                        "provider": "driver:blender",
+                        "resource": "authoring-workspace"
+                      }
+                    }
+                  ],
+                  "source": "native_api"
+                }
+              ],
+              "evidence_class": "DETERMINISTIC",
+              "reason": null,
+              "rule": "blender.unmanaged-preservation.v1",
+              "verdict": "PASS",
+              "version": 1
+            }
+          ],
+          "plan_digest": "c8d98cb54156dc695aa3ad4191fe474f738a5f162c4a150fac9d770e66c53939",
+          "required_rules": [
+            "blender.plan-native-readback.v1",
+            "blender.unmanaged-preservation.v1"
+          ]
+        }
+      },
+      "snapshot": {
+        "drift": false,
+        "exhaustive": true,
+        "fingerprint": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4",
+        "island": "c242f21a199d4bea914cd4405adc2d16",
+        "items": [
+          {
+            "action": null,
+            "actions": [],
+            "attributes": [],
+            "collections": [
+              "SW_c242f21a199d_GEO01_FARO_THRESHOLD_R23"
+            ],
+            "constraints": [],
+            "data_library": false,
+            "data_name": "SW_c242f21a199d_bridge_threshold",
+            "data_users": 1,
+            "drivers": 0,
+            "entity": "bridge_threshold",
+            "geometry_digest": "d02c07f0c76efdb0141240ca9982b4f04db71912e698d5a6369249a6f8d89159",
+            "hidden_render": false,
+            "hidden_viewport": false,
+            "library": false,
+            "materials": [
+              {
+                "base_color": [
+                  0.48514994978904724,
+                  0.47353148460388184,
+                  0.33716362714767456,
+                  1.0
+                ],
+                "color": [
+                  0.48514994978904724,
+                  0.47353148460388184,
+                  0.33716362714767456,
+                  1.0
+                ],
+                "emission_color": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "emission_strength": 0.0,
+                "id": "limestone",
+                "library": false,
+                "links": [
+                  [
+                    "Principled BSDF",
+                    "BSDF",
+                    "Material Output",
+                    "Surface"
+                  ]
+                ],
+                "metallic": 0.0,
+                "name": "SW_c242f21a199d_limestone",
+                "nodes": [
+                  {
+                    "inputs": [
+                      [
+                        "Base Color",
+                        [
+                          0.48514994978904724,
+                          0.47353148460388184,
+                          0.33716362714767456,
+                          1.0
+                        ]
+                      ],
+                      [
+                        "Metallic",
+                        0.0
+                      ],
+                      [
+                        "Roughness",
+                        0.8799999952316284
+                      ],
+                      [
+                        "IOR",
+                        1.5
+                      ],
+                      [
+                        "Alpha",
+                        1.0
+                      ],
+                      [
+                        "Thin Wall",
+                        false
+                      ],
+                      [
+                        "Normal",
+                        [
+                          0.0,
+                          0.0,
+                          0.0
+                        ]
+                      ],
+                      [
+                        "Weight",
+                        0.0
+                      ],
+                      [
+                        "Diffuse Roughness",
+                        0.0
+                      ],
+                      [
+                        "Subsurface Weight",
+                        0.0
+                      ],
+                      [
+                        "Subsurface Radius",
+                        [
+                          1.0,
+                          0.20000000298023224,
+                          0.10000000149011612
+                        ]
+                      ],
+                      [
+                        "Subsurface Scale",
+                        0.004999999888241291
+                      ],
+                      [
+                        "Subsurface IOR",
+                        1.399999976158142
+                      ],
+                      [
+                        "Subsurface Anisotropy",
+                        0.0
+                      ],
+                      [
+                        "Specular IOR Level",
+                        0.5
+                      ],
+                      [
+                        "Specular Tint",
+                        [
+                          1.0,
+                          1.0,
+                          1.0,
+                          1.0
+                        ]
+                      ],
+                      [
+                        "Anisotropic",
+                        0.0
+                      ],
+                      [
+                        "Anisotropic Rotation",
+                        0.0
+                      ],
+                      [
+                        "Tangent",
+                        [
+                          0.0,
+                          0.0,
+                          0.0
+                        ]
+                      ],
+                      [
+                        "Transmission Weight",
+                        0.0
+                      ],
+                      [
+                        "Coat Weight",
+                        0.0
+                      ],
+                      [
+                        "Coat Roughness",
+                        0.029999999329447746
+                      ],
+                      [
+                        "Coat IOR",
+                        1.5
+                      ],
+                      [
+                        "Coat Tint",
+                        [
+                          1.0,
+                          1.0,
+                          1.0,
+                          1.0
+                        ]
+                      ],
+                      [
+                        "Coat Normal",
+                        [
+                          0.0,
+                          0.0,
+                          0.0
+                        ]
+                      ],
+                      [
+                        "Sheen Weight",
+                        0.0
+                      ],
+                      [
+                        "Sheen Roughness",
+                        0.5
+                      ],
+                      [
+                        "Sheen Tint",
+                        [
+                          1.0,
+                          1.0,
+                          1.0,
+                          1.0
+                        ]
+                      ],
+                      [
+                        "Emission Color",
+                        [
+                          0.0,
+                          0.0,
+                          0.0,
+                          1.0
+                        ]
+                      ],
+                      [
+                        "Emission Strength",
+                        0.0
+                      ],
+                      [
+                        "Thin Film Thickness",
+                        0.0
+                      ],
+                      [
+                        "Thin Film IOR",
+                        1.3300000429153442
+                      ]
+                    ],
+                    "name": "Principled BSDF",
+                    "type": "ShaderNodeBsdfPrincipled"
+                  },
+                  {
+                    "inputs": [
+                      [
+                        "Displacement",
+                        [
+                          0.0,
+                          0.0,
+                          0.0
+                        ]
+                      ],
+                      [
+                        "Thickness",
+                        0.0
+                      ]
+                    ],
+                    "name": "Material Output",
+                    "type": "ShaderNodeOutputMaterial"
+                  }
+                ],
+                "opacity": 1.0,
+                "roughness": 0.8799999952316284,
+                "texture_bindings": []
+              }
+            ],
+            "modifiers": [],
+            "name": "SW_c242f21a199d_bridge_threshold",
+            "native_island": "c242f21a199d4bea914cd4405adc2d16",
+            "nla_tracks": [],
+            "normal_digest": "b25c720dbb8e0de545b8068a3bd04f9bcb32b2c16923c04c7a7191f4d8aad536",
+            "normal_method": "source-polygon-normal-v1",
+            "parent": null,
+            "parent_bone": "",
+            "parent_inverse": [
+              [
+                1.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                0.0,
+                1.0,
+                0.0
+              ],
+              [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ]
+            ],
+            "parent_name": null,
+            "parent_type": "OBJECT",
+            "polygons": 12,
+            "rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "smooth_polygons": 0,
+            "translation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "type": "MESH",
+            "uv_layers": 0,
+            "vertices": 8
+          }
+        ],
+        "native_session": "9f00d8b67d274086a63b3b2c503ce406",
+        "source_only": true,
+        "total": 1
+      }
+    },
+    "checkpoint": {
+      "checkpoint": {
+        "bytes": 629460,
+        "contract": "static_mesh_scene_v1",
+        "copy": true,
+        "empty_runtime_image_placeholders": 2,
+        "path": "static-asset-attempt01/asset-scene.blend",
+        "retained_orphans": [
+          {
+            "name": "Dots Stroke",
+            "root": "materials"
+          }
+        ],
+        "sha256": "d7842da0216d796f98aea3d23234b74c8cd521f50c8b52a4dbd5abbbbb6f1ff9",
+        "source_fake_users_restored": true,
+        "undo_history_preserved": false
+      },
+      "close_state": "closed",
+      "closed": true
+    },
+    "export": {
+      "bytes": 2124,
+      "changed": true,
+      "format": "glb",
+      "objects": 1,
+      "path": "static-asset-attempt01/asset.glb",
+      "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+    },
+    "glb": {
+      "bytes": 2124,
+      "document": {
+        "accessors": [
+          {
+            "bufferView": 0,
+            "componentType": 5126,
+            "count": 24,
+            "max": [
+              -50.650001525878906,
+              10.5,
+              8.600000381469727
+            ],
+            "min": [
+              -52.099998474121094,
+              9.600000381469727,
+              5.400000095367432
+            ],
+            "type": "VEC3"
+          },
+          {
+            "bufferView": 1,
+            "componentType": 5126,
+            "count": 24,
+            "type": "VEC3"
+          },
+          {
+            "bufferView": 2,
+            "componentType": 5123,
+            "count": 36,
+            "type": "SCALAR"
+          }
+        ],
+        "asset": {
+          "generator": "Khronos glTF Blender I/O v5.2.40",
+          "version": "2.0"
+        },
+        "bufferViews": [
+          {
+            "buffer": 0,
+            "byteLength": 288,
+            "byteOffset": 0,
+            "target": 34962
+          },
+          {
+            "buffer": 0,
+            "byteLength": 288,
+            "byteOffset": 288,
+            "target": 34962
+          },
+          {
+            "buffer": 0,
+            "byteLength": 72,
+            "byteOffset": 576,
+            "target": 34963
+          }
+        ],
+        "buffers": [
+          {
+            "byteLength": 648
+          }
+        ],
+        "materials": [
+          {
+            "doubleSided": true,
+            "extras": {
+              "sw_authoring_island": "c242f21a199d4bea914cd4405adc2d16",
+              "sw_authoring_material": "limestone"
+            },
+            "name": "SW_c242f21a199d_limestone",
+            "pbrMetallicRoughness": {
+              "baseColorFactor": [
+                0.48514994978904724,
+                0.47353148460388184,
+                0.33716362714767456,
+                1
+              ],
+              "metallicFactor": 0,
+              "roughnessFactor": 0.8799999952316284
+            }
+          }
+        ],
+        "meshes": [
+          {
+            "extras": {
+              "sw_authoring_island": "c242f21a199d4bea914cd4405adc2d16"
+            },
+            "name": "SW_c242f21a199d_bridge_threshold",
+            "primitives": [
+              {
+                "attributes": {
+                  "NORMAL": 1,
+                  "POSITION": 0
+                },
+                "indices": 2,
+                "material": 0
+              }
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "extras": {
+              "sw_authoring_entity": "bridge_threshold",
+              "sw_authoring_island": "c242f21a199d4bea914cd4405adc2d16",
+              "sw_display_name": "Stone transition at lighthouse bridge"
+            },
+            "mesh": 0,
+            "name": "SW_c242f21a199d_bridge_threshold"
+          }
+        ],
+        "scene": 0,
+        "scenes": [
+          {
+            "name": "Scene",
+            "nodes": [
+              0
+            ]
+          }
+        ]
+      },
+      "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+    },
+    "human_edit_preservation_claimed": false,
+    "independent_readback": {
+      "drift": false,
+      "exhaustive": true,
+      "fingerprint": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4",
+      "island": "c242f21a199d4bea914cd4405adc2d16",
+      "items": [
+        {
+          "action": null,
+          "actions": [],
+          "attributes": [],
+          "collections": [
+            "SW_c242f21a199d_GEO01_FARO_THRESHOLD_R23"
+          ],
+          "constraints": [],
+          "data_library": false,
+          "data_name": "SW_c242f21a199d_bridge_threshold",
+          "data_users": 1,
+          "drivers": 0,
+          "entity": "bridge_threshold",
+          "geometry_digest": "d02c07f0c76efdb0141240ca9982b4f04db71912e698d5a6369249a6f8d89159",
+          "hidden_render": false,
+          "hidden_viewport": false,
+          "library": false,
+          "materials": [
+            {
+              "base_color": [
+                0.48514994978904724,
+                0.47353148460388184,
+                0.33716362714767456,
+                1.0
+              ],
+              "color": [
+                0.48514994978904724,
+                0.47353148460388184,
+                0.33716362714767456,
+                1.0
+              ],
+              "emission_color": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "emission_strength": 0.0,
+              "id": "limestone",
+              "library": false,
+              "links": [
+                [
+                  "Principled BSDF",
+                  "BSDF",
+                  "Material Output",
+                  "Surface"
+                ]
+              ],
+              "metallic": 0.0,
+              "name": "SW_c242f21a199d_limestone",
+              "nodes": [
+                {
+                  "inputs": [
+                    [
+                      "Base Color",
+                      [
+                        0.48514994978904724,
+                        0.47353148460388184,
+                        0.33716362714767456,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Metallic",
+                      0.0
+                    ],
+                    [
+                      "Roughness",
+                      0.8799999952316284
+                    ],
+                    [
+                      "IOR",
+                      1.5
+                    ],
+                    [
+                      "Alpha",
+                      1.0
+                    ],
+                    [
+                      "Thin Wall",
+                      false
+                    ],
+                    [
+                      "Normal",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Weight",
+                      0.0
+                    ],
+                    [
+                      "Diffuse Roughness",
+                      0.0
+                    ],
+                    [
+                      "Subsurface Weight",
+                      0.0
+                    ],
+                    [
+                      "Subsurface Radius",
+                      [
+                        1.0,
+                        0.20000000298023224,
+                        0.10000000149011612
+                      ]
+                    ],
+                    [
+                      "Subsurface Scale",
+                      0.004999999888241291
+                    ],
+                    [
+                      "Subsurface IOR",
+                      1.399999976158142
+                    ],
+                    [
+                      "Subsurface Anisotropy",
+                      0.0
+                    ],
+                    [
+                      "Specular IOR Level",
+                      0.5
+                    ],
+                    [
+                      "Specular Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Anisotropic",
+                      0.0
+                    ],
+                    [
+                      "Anisotropic Rotation",
+                      0.0
+                    ],
+                    [
+                      "Tangent",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Transmission Weight",
+                      0.0
+                    ],
+                    [
+                      "Coat Weight",
+                      0.0
+                    ],
+                    [
+                      "Coat Roughness",
+                      0.029999999329447746
+                    ],
+                    [
+                      "Coat IOR",
+                      1.5
+                    ],
+                    [
+                      "Coat Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Coat Normal",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Sheen Weight",
+                      0.0
+                    ],
+                    [
+                      "Sheen Roughness",
+                      0.5
+                    ],
+                    [
+                      "Sheen Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Emission Color",
+                      [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Emission Strength",
+                      0.0
+                    ],
+                    [
+                      "Thin Film Thickness",
+                      0.0
+                    ],
+                    [
+                      "Thin Film IOR",
+                      1.3300000429153442
+                    ]
+                  ],
+                  "name": "Principled BSDF",
+                  "type": "ShaderNodeBsdfPrincipled"
+                },
+                {
+                  "inputs": [
+                    [
+                      "Displacement",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Thickness",
+                      0.0
+                    ]
+                  ],
+                  "name": "Material Output",
+                  "type": "ShaderNodeOutputMaterial"
+                }
+              ],
+              "opacity": 1.0,
+              "roughness": 0.8799999952316284,
+              "texture_bindings": []
+            }
+          ],
+          "modifiers": [],
+          "name": "SW_c242f21a199d_bridge_threshold",
+          "native_island": "c242f21a199d4bea914cd4405adc2d16",
+          "nla_tracks": [],
+          "normal_digest": "b25c720dbb8e0de545b8068a3bd04f9bcb32b2c16923c04c7a7191f4d8aad536",
+          "normal_method": "source-polygon-normal-v1",
+          "parent": null,
+          "parent_bone": "",
+          "parent_inverse": [
+            [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "parent_name": null,
+          "parent_type": "OBJECT",
+          "polygons": 12,
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "smooth_polygons": 0,
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "type": "MESH",
+          "uv_layers": 0,
+          "vertices": 8
+        }
+      ],
+      "native_session": "9f00d8b67d274086a63b3b2c503ce406",
+      "source_only": true,
+      "total": 1
+    },
+    "island": "c242f21a199d4bea914cd4405adc2d16",
+    "library": {
+      "bytes": 64288,
+      "fresh_process_verified": false,
+      "inventory": {
+        "collection": "SW_c242f21a199d_GEO01_FARO_THRESHOLD_R23",
+        "objects": [
+          "SW_c242f21a199d_bridge_threshold"
+        ]
+      },
+      "island": "c242f21a199d4bea914cd4405adc2d16",
+      "method": "libraries-write-indirect-closure",
+      "path": "static-asset-attempt01/asset-library.blend",
+      "sha256": "61df35fc36b0f68f4a2554a3451f30fa4c67ef1dac1532dcb1f53984a76a29ab",
+      "source_fingerprint": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4"
+    },
+    "plan": {
+      "plan": {
+        "body": {
+          "base": [
+            {
+              "concurrency": "best_effort_revalidate",
+              "document_id": "blender-authoring-workspace",
+              "generation": "9f00d8b67d274086a63b3b2c503ce406",
+              "key": {
+                "provider": "driver:blender",
+                "resource": "authoring-workspace"
+              },
+              "provider_session": "1f0a0db827864811860b87e900d2e877",
+              "revision": {
+                "kind": "fingerprint",
+                "value": "f8a6ef4fd82b501bc0b91858a9b70ea7f66badc096c57da39cf331f77ece9e76"
+              }
+            }
+          ],
+          "budget": {
+            "max_elapsed_ms": 300000,
+            "max_findings": 512,
+            "max_iterations": 3,
+            "max_observations": 64,
+            "max_operations": 512
+          },
+          "changes": {
+            "atomicity": "non_atomic_sequence",
+            "operations": [
+              {
+                "depends_on": [],
+                "effects": [
+                  "create_owned_object"
+                ],
+                "id": "collection",
+                "payload": {
+                  "island": "c242f21a199d4bea914cd4405adc2d16",
+                  "kind": "collection",
+                  "name": "GEO01_FARO_THRESHOLD_R23"
+                },
+                "postconditions": [],
+                "reads": [
+                  {
+                    "logical_id": "collection",
+                    "property": "declared-native-state",
+                    "resource": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    }
+                  }
+                ],
+                "writes": [
+                  {
+                    "logical_id": "collection",
+                    "property": "declared-native-state",
+                    "resource": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    }
+                  }
+                ]
+              },
+              {
+                "depends_on": [
+                  "collection"
+                ],
+                "effects": [
+                  "create_owned_object"
+                ],
+                "id": "material-limestone",
+                "payload": {
+                  "island": "c242f21a199d4bea914cd4405adc2d16",
+                  "kind": "material",
+                  "material": {
+                    "base_color": [
+                      0.4851499400560704,
+                      0.47353149614800955,
+                      0.33716361504833037,
+                      1.0
+                    ],
+                    "base_color_texture": null,
+                    "emission_color": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "emission_strength": 0.0,
+                    "emission_texture": null,
+                    "id": "limestone",
+                    "metallic": 0.0,
+                    "metallic_texture": null,
+                    "normal_texture": null,
+                    "opacity": 1.0,
+                    "opacity_texture": null,
+                    "roughness": 0.88,
+                    "roughness_texture": null
+                  }
+                },
+                "postconditions": [],
+                "reads": [
+                  {
+                    "logical_id": "material-limestone",
+                    "property": "declared-native-state",
+                    "resource": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    }
+                  }
+                ],
+                "writes": [
+                  {
+                    "logical_id": "material-limestone",
+                    "property": "declared-native-state",
+                    "resource": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    }
+                  }
+                ]
+              },
+              {
+                "depends_on": [
+                  "material-limestone"
+                ],
+                "effects": [
+                  "create_owned_object"
+                ],
+                "id": "entity-bridge_threshold",
+                "payload": {
+                  "entity": {
+                    "attributes": [],
+                    "id": "bridge_threshold",
+                    "materials": [
+                      "limestone"
+                    ],
+                    "modifiers": [],
+                    "name": "Stone transition at lighthouse bridge",
+                    "shade_smooth": false,
+                    "shape": {
+                      "faces": [
+                        [
+                          0,
+                          2,
+                          1
+                        ],
+                        [
+                          0,
+                          3,
+                          2
+                        ],
+                        [
+                          4,
+                          5,
+                          6
+                        ],
+                        [
+                          4,
+                          6,
+                          7
+                        ],
+                        [
+                          0,
+                          1,
+                          5
+                        ],
+                        [
+                          0,
+                          5,
+                          4
+                        ],
+                        [
+                          1,
+                          2,
+                          6
+                        ],
+                        [
+                          1,
+                          6,
+                          5
+                        ],
+                        [
+                          2,
+                          3,
+                          7
+                        ],
+                        [
+                          2,
+                          7,
+                          6
+                        ],
+                        [
+                          3,
+                          0,
+                          4
+                        ],
+                        [
+                          3,
+                          4,
+                          7
+                        ]
+                      ],
+                      "kind": "mesh",
+                      "uv": null,
+                      "vertices": [
+                        [
+                          -52.1,
+                          -8.6,
+                          9.6
+                        ],
+                        [
+                          -50.65,
+                          -8.6,
+                          9.6
+                        ],
+                        [
+                          -50.65,
+                          -5.4,
+                          9.6
+                        ],
+                        [
+                          -52.1,
+                          -5.4,
+                          9.6
+                        ],
+                        [
+                          -52.1,
+                          -8.6,
+                          10.17
+                        ],
+                        [
+                          -50.65,
+                          -8.6,
+                          10.5
+                        ],
+                        [
+                          -50.65,
+                          -5.4,
+                          10.5
+                        ],
+                        [
+                          -52.1,
+                          -5.4,
+                          10.17
+                        ]
+                      ]
+                    },
+                    "transform": {
+                      "rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                      ],
+                      "scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                      ],
+                      "translation": [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    }
+                  },
+                  "island": "c242f21a199d4bea914cd4405adc2d16",
+                  "kind": "entity",
+                  "meters_per_unit": 1.0
+                },
+                "postconditions": [
+                  "blender.plan-native-readback.v1",
+                  "blender.unmanaged-preservation.v1"
+                ],
+                "reads": [
+                  {
+                    "logical_id": "entity-bridge_threshold",
+                    "property": "declared-native-state",
+                    "resource": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    }
+                  }
+                ],
+                "writes": [
+                  {
+                    "logical_id": "entity-bridge_threshold",
+                    "property": "declared-native-state",
+                    "resource": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "contract_version": 1,
+          "dependencies": {
+            "effects.contract": "b7e30c1d2f6e2943f6112c70a2ea6bc7ea53ee029f61cf5ed0f423c78701bc12"
+          },
+          "intent": {
+            "kind": "create",
+            "spec": {
+              "animation": null,
+              "collection": "GEO01_FARO_THRESHOLD_R23",
+              "entities": [
+                {
+                  "attributes": [],
+                  "id": "bridge_threshold",
+                  "materials": [
+                    "limestone"
+                  ],
+                  "modifiers": [],
+                  "name": "Stone transition at lighthouse bridge",
+                  "shade_smooth": false,
+                  "shape": {
+                    "faces": [
+                      [
+                        0,
+                        2,
+                        1
+                      ],
+                      [
+                        0,
+                        3,
+                        2
+                      ],
+                      [
+                        4,
+                        5,
+                        6
+                      ],
+                      [
+                        4,
+                        6,
+                        7
+                      ],
+                      [
+                        0,
+                        1,
+                        5
+                      ],
+                      [
+                        0,
+                        5,
+                        4
+                      ],
+                      [
+                        1,
+                        2,
+                        6
+                      ],
+                      [
+                        1,
+                        6,
+                        5
+                      ],
+                      [
+                        2,
+                        3,
+                        7
+                      ],
+                      [
+                        2,
+                        7,
+                        6
+                      ],
+                      [
+                        3,
+                        0,
+                        4
+                      ],
+                      [
+                        3,
+                        4,
+                        7
+                      ]
+                    ],
+                    "kind": "mesh",
+                    "uv": null,
+                    "vertices": [
+                      [
+                        -52.1,
+                        -8.6,
+                        9.6
+                      ],
+                      [
+                        -50.65,
+                        -8.6,
+                        9.6
+                      ],
+                      [
+                        -50.65,
+                        -5.4,
+                        9.6
+                      ],
+                      [
+                        -52.1,
+                        -5.4,
+                        9.6
+                      ],
+                      [
+                        -52.1,
+                        -8.6,
+                        10.17
+                      ],
+                      [
+                        -50.65,
+                        -8.6,
+                        10.5
+                      ],
+                      [
+                        -50.65,
+                        -5.4,
+                        10.5
+                      ],
+                      [
+                        -52.1,
+                        -5.4,
+                        10.17
+                      ]
+                    ]
+                  },
+                  "transform": {
+                    "rotation": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "scale": [
+                      1.0,
+                      1.0,
+                      1.0
+                    ],
+                    "translation": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ]
+                  }
+                }
+              ],
+              "materials": [
+                {
+                  "base_color": [
+                    0.4851499400560704,
+                    0.47353149614800955,
+                    0.33716361504833037,
+                    1.0
+                  ],
+                  "base_color_texture": null,
+                  "emission_color": [
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                  ],
+                  "emission_strength": 0.0,
+                  "emission_texture": null,
+                  "id": "limestone",
+                  "metallic": 0.0,
+                  "metallic_texture": null,
+                  "normal_texture": null,
+                  "opacity": 1.0,
+                  "opacity_texture": null,
+                  "roughness": 0.88,
+                  "roughness_texture": null
+                }
+              ],
+              "meters_per_unit": 1.0,
+              "relations": [],
+              "textures": [],
+              "version": 1
+            }
+          },
+          "intent_digest": "f055334f521cbc67bd9b73fdebb2a4a20990b70edf79fbe1c223768f4492711e",
+          "observation_scope": [
+            {
+              "logical_id": "collection",
+              "property": "declared-native-state",
+              "resource": {
+                "provider": "driver:blender",
+                "resource": "authoring-workspace"
+              }
+            },
+            {
+              "logical_id": "entity-bridge_threshold",
+              "property": "declared-native-state",
+              "resource": {
+                "provider": "driver:blender",
+                "resource": "authoring-workspace"
+              }
+            },
+            {
+              "logical_id": "material-limestone",
+              "property": "declared-native-state",
+              "resource": {
+                "provider": "driver:blender",
+                "resource": "authoring-workspace"
+              }
+            },
+            {
+              "logical_id": "unmanaged-scene",
+              "property": "source-projection",
+              "resource": {
+                "provider": "driver:blender",
+                "resource": "authoring-workspace"
+              }
+            }
+          ],
+          "owner": {
+            "principal": "host_session",
+            "session": "1f0a0db827864811860b87e900d2e877"
+          },
+          "profile": {
+            "id": "blender-native-authoring",
+            "intent_schema": "2289c624552c94a44de90654876655e5054ca7b0fc55b74259044d8dea29d5e8",
+            "operation_schema": "fee167754621bbb3f9a7c84bdad613dfea9b17bc316b6da1bd3d8be914fb0943",
+            "version": 1
+          },
+          "require_compare_and_swap": false,
+          "required_rules": [
+            "blender.plan-native-readback.v1",
+            "blender.unmanaged-preservation.v1"
+          ]
+        },
+        "digest": "c8d98cb54156dc695aa3ad4191fe474f738a5f162c4a150fac9d770e66c53939"
+      },
+      "plan_ref": "78dc4b575726467b912401e4b26b3296"
+    },
+    "recovered_readback": {
+      "drift": false,
+      "exhaustive": true,
+      "fingerprint": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4",
+      "island": "c242f21a199d4bea914cd4405adc2d16",
+      "items": [
+        {
+          "action": null,
+          "actions": [],
+          "attributes": [],
+          "collections": [
+            "SW_c242f21a199d_GEO01_FARO_THRESHOLD_R23"
+          ],
+          "constraints": [],
+          "data_library": false,
+          "data_name": "SW_c242f21a199d_bridge_threshold",
+          "data_users": 1,
+          "drivers": 0,
+          "entity": "bridge_threshold",
+          "geometry_digest": "d02c07f0c76efdb0141240ca9982b4f04db71912e698d5a6369249a6f8d89159",
+          "hidden_render": false,
+          "hidden_viewport": false,
+          "library": false,
+          "materials": [
+            {
+              "base_color": [
+                0.48514994978904724,
+                0.47353148460388184,
+                0.33716362714767456,
+                1.0
+              ],
+              "color": [
+                0.48514994978904724,
+                0.47353148460388184,
+                0.33716362714767456,
+                1.0
+              ],
+              "emission_color": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "emission_strength": 0.0,
+              "id": "limestone",
+              "library": false,
+              "links": [
+                [
+                  "Principled BSDF",
+                  "BSDF",
+                  "Material Output",
+                  "Surface"
+                ]
+              ],
+              "metallic": 0.0,
+              "name": "SW_c242f21a199d_limestone",
+              "nodes": [
+                {
+                  "inputs": [
+                    [
+                      "Base Color",
+                      [
+                        0.48514994978904724,
+                        0.47353148460388184,
+                        0.33716362714767456,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Metallic",
+                      0.0
+                    ],
+                    [
+                      "Roughness",
+                      0.8799999952316284
+                    ],
+                    [
+                      "IOR",
+                      1.5
+                    ],
+                    [
+                      "Alpha",
+                      1.0
+                    ],
+                    [
+                      "Thin Wall",
+                      false
+                    ],
+                    [
+                      "Normal",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Weight",
+                      0.0
+                    ],
+                    [
+                      "Diffuse Roughness",
+                      0.0
+                    ],
+                    [
+                      "Subsurface Weight",
+                      0.0
+                    ],
+                    [
+                      "Subsurface Radius",
+                      [
+                        1.0,
+                        0.20000000298023224,
+                        0.10000000149011612
+                      ]
+                    ],
+                    [
+                      "Subsurface Scale",
+                      0.004999999888241291
+                    ],
+                    [
+                      "Subsurface IOR",
+                      1.399999976158142
+                    ],
+                    [
+                      "Subsurface Anisotropy",
+                      0.0
+                    ],
+                    [
+                      "Specular IOR Level",
+                      0.5
+                    ],
+                    [
+                      "Specular Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Anisotropic",
+                      0.0
+                    ],
+                    [
+                      "Anisotropic Rotation",
+                      0.0
+                    ],
+                    [
+                      "Tangent",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Transmission Weight",
+                      0.0
+                    ],
+                    [
+                      "Coat Weight",
+                      0.0
+                    ],
+                    [
+                      "Coat Roughness",
+                      0.029999999329447746
+                    ],
+                    [
+                      "Coat IOR",
+                      1.5
+                    ],
+                    [
+                      "Coat Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Coat Normal",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Sheen Weight",
+                      0.0
+                    ],
+                    [
+                      "Sheen Roughness",
+                      0.5
+                    ],
+                    [
+                      "Sheen Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Emission Color",
+                      [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Emission Strength",
+                      0.0
+                    ],
+                    [
+                      "Thin Film Thickness",
+                      0.0
+                    ],
+                    [
+                      "Thin Film IOR",
+                      1.3300000429153442
+                    ]
+                  ],
+                  "name": "Principled BSDF",
+                  "type": "ShaderNodeBsdfPrincipled"
+                },
+                {
+                  "inputs": [
+                    [
+                      "Displacement",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Thickness",
+                      0.0
+                    ]
+                  ],
+                  "name": "Material Output",
+                  "type": "ShaderNodeOutputMaterial"
+                }
+              ],
+              "opacity": 1.0,
+              "roughness": 0.8799999952316284,
+              "texture_bindings": []
+            }
+          ],
+          "modifiers": [],
+          "name": "SW_c242f21a199d_bridge_threshold",
+          "native_island": "c242f21a199d4bea914cd4405adc2d16",
+          "nla_tracks": [],
+          "normal_digest": "b25c720dbb8e0de545b8068a3bd04f9bcb32b2c16923c04c7a7191f4d8aad536",
+          "normal_method": "source-polygon-normal-v1",
+          "parent": null,
+          "parent_bone": "",
+          "parent_inverse": [
+            [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "parent_name": null,
+          "parent_type": "OBJECT",
+          "polygons": 12,
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "smooth_polygons": 0,
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "type": "MESH",
+          "uv_layers": 0,
+          "vertices": 8
+        }
+      ],
+      "native_session": "c1c8005a989c4114bdd63b2c0e53751d",
+      "source_only": true,
+      "total": 1
+    },
+    "reopen": {
+      "bytes": 629460,
+      "fresh_session": true,
+      "opened": true,
+      "path": "static-asset-attempt01/asset-scene.blend",
+      "sha256": "d7842da0216d796f98aea3d23234b74c8cd521f50c8b52a4dbd5abbbbb6f1ff9",
+      "use_scripts": false
+    },
+    "unmanaged_fixture_preservation": "PASS",
+    "version": {
+      "arbitrary_python": false,
+      "available_addons": 13,
+      "enabled_addons": 8,
+      "generic_operator_invoke": false,
+      "operator_categories": 77,
+      "operators": 2499,
+      "rna_types": 6266,
+      "version": [
+        5,
+        2,
+        1
+      ],
+      "version_string": "5.2.1 LTS"
+    }
+  },
+  "schema": 1,
+  "spec_path": "E:\\Projects\\worldwright-archipelago\\art\\recipes\\20261029-r23\\faro_threshold.spec.json",
+  "spec_sha256": "d42304df12776030ad6692e864544c31ee72c29a23a7cd26ca291f5494b6894e"
+}

@@ -1,0 +1,1257 @@
+{
+  "command": "driver.blender.semantic.object.describe",
+  "data": {
+    "name": "Material",
+    "properties": [
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "RNA type definition",
+        "id": "rna_type",
+        "name": "RNA",
+        "reason": "RNA type metadata is runtime-owned",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Unique data-block ID name (within a same type and library)",
+        "id": "name",
+        "name": "Name",
+        "reason": "Names require rename semantics so revision-bound refs can rotate safely",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Unique data-block ID name, including library one if any",
+        "id": "name_full",
+        "name": "Full Name",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Type identifier of this data-block",
+        "enum": [
+          {
+            "id": "ACTION",
+            "name": "Action"
+          },
+          {
+            "id": "ARMATURE",
+            "name": "Armature"
+          },
+          {
+            "id": "BRUSH",
+            "name": "Brush"
+          },
+          {
+            "id": "CACHEFILE",
+            "name": "Cache File"
+          },
+          {
+            "id": "CAMERA",
+            "name": "Camera"
+          },
+          {
+            "id": "COLLECTION",
+            "name": "Collection"
+          },
+          {
+            "id": "CURVE",
+            "name": "Curve"
+          },
+          {
+            "id": "CURVES",
+            "name": "Curves"
+          },
+          {
+            "id": "FONT",
+            "name": "Font"
+          },
+          {
+            "id": "GREASEPENCIL",
+            "name": "Grease Pencil"
+          },
+          {
+            "id": "GREASEPENCIL_V3",
+            "name": "Grease Pencil v3"
+          },
+          {
+            "id": "IMAGE",
+            "name": "Image"
+          },
+          {
+            "id": "KEY",
+            "name": "Key"
+          },
+          {
+            "id": "LATTICE",
+            "name": "Lattice"
+          },
+          {
+            "id": "LIBRARY",
+            "name": "Library"
+          },
+          {
+            "id": "LIGHT",
+            "name": "Light"
+          },
+          {
+            "id": "LIGHT_PROBE",
+            "name": "Light Probe"
+          },
+          {
+            "id": "LINESTYLE",
+            "name": "Line Style"
+          },
+          {
+            "id": "MASK",
+            "name": "Mask"
+          },
+          {
+            "id": "MATERIAL",
+            "name": "Material"
+          },
+          {
+            "id": "MESH",
+            "name": "Mesh"
+          },
+          {
+            "id": "META",
+            "name": "Metaball"
+          },
+          {
+            "id": "MOVIECLIP",
+            "name": "Movie Clip"
+          },
+          {
+            "id": "NODETREE",
+            "name": "Node Tree"
+          },
+          {
+            "id": "OBJECT",
+            "name": "Object"
+          },
+          {
+            "id": "PAINTCURVE",
+            "name": "Paint Curve"
+          },
+          {
+            "id": "PALETTE",
+            "name": "Palette"
+          },
+          {
+            "id": "PARTICLE",
+            "name": "Particle"
+          },
+          {
+            "id": "POINTCLOUD",
+            "name": "Point Cloud"
+          },
+          {
+            "id": "SCENE",
+            "name": "Scene"
+          },
+          {
+            "id": "SCREEN",
+            "name": "Screen"
+          },
+          {
+            "id": "SOUND",
+            "name": "Sound"
+          },
+          {
+            "id": "SPEAKER",
+            "name": "Speaker"
+          },
+          {
+            "id": "TEXT",
+            "name": "Text"
+          },
+          {
+            "id": "TEXTURE",
+            "name": "Texture"
+          },
+          {
+            "id": "VOLUME",
+            "name": "Volume"
+          },
+          {
+            "id": "WINDOWMANAGER",
+            "name": "Window Manager"
+          },
+          {
+            "id": "WORKSPACE",
+            "name": "Workspace"
+          },
+          {
+            "id": "WORLD",
+            "name": "World"
+          }
+        ],
+        "id": "id_type",
+        "name": "Type",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+        "id": "session_uid",
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "name": "Session UID",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "INT",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+        "id": "is_evaluated",
+        "name": "Is Evaluated",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+        "id": "original",
+        "name": "Original ID",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Number of times this data-block is referenced",
+        "id": "users",
+        "maximum": 2147483647,
+        "minimum": 0,
+        "name": "Users",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "UNSIGNED",
+        "type": "INT",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Save this data-block even if it has no users",
+        "id": "use_fake_user",
+        "name": "Fake User",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+        "id": "use_extra_user",
+        "name": "Extra User",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+        "id": "is_embedded_data",
+        "name": "Embedded Data",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is linked and packed into the .blend file",
+        "id": "is_linked_packed",
+        "name": "Linked Packed",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+        "id": "is_missing",
+        "name": "Missing Data",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+        "id": "is_runtime_data",
+        "name": "Runtime Data",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+        "id": "is_editable",
+        "name": "Editable",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+        "id": "tag",
+        "name": "Tag",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Is this ID block linked indirectly",
+        "id": "is_library_indirect",
+        "name": "Is Indirect",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Library file the data-block is linked from",
+        "id": "library",
+        "name": "Library",
+        "reason": "Executable/external relation requires a dedicated trusted domain",
+        "status": "unsupported_by_design",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+        "id": "library_weak_reference",
+        "name": "Library Weak Reference",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Additional data for an asset data-block",
+        "id": "asset_data",
+        "name": "Asset Data",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Library override data",
+        "id": "override_library",
+        "name": "Library Override",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+        "id": "preview",
+        "name": "Preview",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Color tag of the node group which influences the header color",
+        "enum": [
+          {
+            "id": "NONE",
+            "name": "None"
+          },
+          {
+            "id": "ATTRIBUTE",
+            "name": "Attribute"
+          },
+          {
+            "id": "COLOR",
+            "name": "Color"
+          },
+          {
+            "id": "CONVERTER",
+            "name": "Converter"
+          },
+          {
+            "id": "DISTORT",
+            "name": "Distort"
+          },
+          {
+            "id": "FILTER",
+            "name": "Filter"
+          },
+          {
+            "id": "GEOMETRY",
+            "name": "Geometry"
+          },
+          {
+            "id": "INPUT",
+            "name": "Input"
+          },
+          {
+            "id": "MATTE",
+            "name": "Matte"
+          },
+          {
+            "id": "OUTPUT",
+            "name": "Output"
+          },
+          {
+            "id": "SCRIPT",
+            "name": "Script"
+          },
+          {
+            "id": "SHADER",
+            "name": "Shader"
+          },
+          {
+            "id": "TEXTURE",
+            "name": "Texture"
+          },
+          {
+            "id": "VECTOR",
+            "name": "Vector"
+          },
+          {
+            "id": "PATTERN",
+            "name": "Pattern"
+          },
+          {
+            "id": "INTERFACE",
+            "name": "Interface"
+          },
+          {
+            "id": "GROUP",
+            "name": "Group"
+          }
+        ],
+        "id": "color_tag",
+        "name": "Color Tag",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "The width for newly created group nodes",
+        "id": "default_group_node_width",
+        "maximum": 700,
+        "minimum": 60,
+        "name": "Default Group Node Width",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 2,
+        "description": "The current location (offset) of the view for this Node Tree",
+        "id": "view_center",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": -3.4028234663852886e+38,
+        "name": "View Center",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "XYZ",
+        "type": "FLOAT",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Description of the node tree",
+        "id": "description",
+        "name": "Description",
+        "reason": "Executable/external relation requires a dedicated trusted domain",
+        "status": "unsupported_by_design",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Animation data for this data-block",
+        "id": "animation_data",
+        "name": "Animation Data",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "nodes",
+        "name": "Nodes",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "links",
+        "name": "Links",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Annotation data",
+        "id": "annotation",
+        "name": "Annotation",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Node Tree type (deprecated, bl_idname is the actual node tree type identifier)",
+        "enum": [
+          {
+            "id": "UNDEFINED",
+            "name": "Undefined"
+          },
+          {
+            "id": "CUSTOM",
+            "name": "Custom"
+          },
+          {
+            "id": "SHADER",
+            "name": "Shader"
+          },
+          {
+            "id": "TEXTURE",
+            "name": "Texture"
+          },
+          {
+            "id": "COMPOSITING",
+            "name": "Compositing"
+          },
+          {
+            "id": "GEOMETRY",
+            "name": "Geometry"
+          }
+        ],
+        "id": "type",
+        "name": "Type",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Interface declaration for this node tree",
+        "id": "interface",
+        "name": "Interface",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "bl_idname",
+        "name": "ID Name",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "The node tree label",
+        "id": "bl_label",
+        "name": "Label",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "bl_description",
+        "name": "bl_description",
+        "reason": "Executable/external relation requires a dedicated trusted domain",
+        "status": "unsupported_by_design",
+        "subtype": "TRANSLATION",
+        "type": "STRING",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "The node tree icon",
+        "enum": [
+          {
+            "id": "NONE",
+            "name": "NONE"
+          },
+          {
+            "id": "CHAR_NOTDEF",
+            "name": "CHAR_NOTDEF"
+          },
+          {
+            "id": "CHAR_REPLACEMENT",
+            "name": "CHAR_REPLACEMENT"
+          },
+          {
+            "id": "NOT_FOUND",
+            "name": "NOT_FOUND"
+          },
+          {
+            "id": "BLANK1",
+            "name": "BLANK1"
+          },
+          {
+            "id": "AUTOMERGE_OFF",
+            "name": "AUTOMERGE_OFF"
+          },
+          {
+            "id": "AUTOMERGE_ON",
+            "name": "AUTOMERGE_ON"
+          },
+          {
+            "id": "CHECKBOX_DEHLT",
+            "name": "CHECKBOX_DEHLT"
+          },
+          {
+            "id": "CHECKBOX_HLT",
+            "name": "CHECKBOX_HLT"
+          },
+          {
+            "id": "CLIPUV_DEHLT",
+            "name": "CLIPUV_DEHLT"
+          },
+          {
+            "id": "CLIPUV_HLT",
+            "name": "CLIPUV_HLT"
+          },
+          {
+            "id": "DECORATE_UNLOCKED",
+            "name": "DECORATE_UNLOCKED"
+          },
+          {
+            "id": "DECORATE_LOCKED",
+            "name": "DECORATE_LOCKED"
+          },
+          {
+            "id": "FAKE_USER_OFF",
+            "name": "FAKE_USER_OFF"
+          },
+          {
+            "id": "FAKE_USER_ON",
+            "name": "FAKE_USER_ON"
+          },
+          {
+            "id": "HIDE_ON",
+            "name": "HIDE_ON"
+          },
+          {
+            "id": "HIDE_OFF",
+            "name": "HIDE_OFF"
+          },
+          {
+            "id": "INDIRECT_ONLY_OFF",
+            "name": "INDIRECT_ONLY_OFF"
+          },
+          {
+            "id": "INDIRECT_ONLY_ON",
+            "name": "INDIRECT_ONLY_ON"
+          },
+          {
+            "id": "ONIONSKIN_OFF",
+            "name": "ONIONSKIN_OFF"
+          },
+          {
+            "id": "ONIONSKIN_ON",
+            "name": "ONIONSKIN_ON"
+          },
+          {
+            "id": "UNPINNED",
+            "name": "UNPINNED"
+          },
+          {
+            "id": "PINNED",
+            "name": "PINNED"
+          },
+          {
+            "id": "RADIOBUT_OFF",
+            "name": "RADIOBUT_OFF"
+          },
+          {
+            "id": "RADIOBUT_ON",
+            "name": "RADIOBUT_ON"
+          },
+          {
+            "id": "RECORD_OFF",
+            "name": "RECORD_OFF"
+          },
+          {
+            "id": "RECORD_ON",
+            "name": "RECORD_ON"
+          },
+          {
+            "id": "RESTRICT_RENDER_ON",
+            "name": "RESTRICT_RENDER_ON"
+          },
+          {
+            "id": "RESTRICT_RENDER_OFF",
+            "name": "RESTRICT_RENDER_OFF"
+          },
+          {
+            "id": "RESTRICT_SELECT_ON",
+            "name": "RESTRICT_SELECT_ON"
+          },
+          {
+            "id": "RESTRICT_SELECT_OFF",
+            "name": "RESTRICT_SELECT_OFF"
+          },
+          {
+            "id": "RESTRICT_VIEW_ON",
+            "name": "RESTRICT_VIEW_ON"
+          },
+          {
+            "id": "RESTRICT_VIEW_OFF",
+            "name": "RESTRICT_VIEW_OFF"
+          },
+          {
+            "id": "RIGHTARROW",
+            "name": "RIGHTARROW"
+          },
+          {
+            "id": "DOWNARROW_HLT",
+            "name": "DOWNARROW_HLT"
+          },
+          {
+            "id": "SELECT_INTERSECT",
+            "name": "SELECT_INTERSECT"
+          },
+          {
+            "id": "SELECT_DIFFERENCE",
+            "name": "SELECT_DIFFERENCE"
+          },
+          {
+            "id": "SNAP_OFF",
+            "name": "SNAP_OFF"
+          },
+          {
+            "id": "SNAP_ON",
+            "name": "SNAP_ON"
+          },
+          {
+            "id": "PLAYHEAD_SNAP_OFF",
+            "name": "PLAYHEAD_SNAP_OFF"
+          },
+          {
+            "id": "PLAYHEAD_SNAP_ON",
+            "name": "PLAYHEAD_SNAP_ON"
+          },
+          {
+            "id": "UNLOCKED",
+            "name": "UNLOCKED"
+          },
+          {
+            "id": "LOCKED",
+            "name": "LOCKED"
+          },
+          {
+            "id": "VIS_SEL_11",
+            "name": "VIS_SEL_11"
+          },
+          {
+            "id": "VIS_SEL_10",
+            "name": "VIS_SEL_10"
+          },
+          {
+            "id": "VIS_SEL_01",
+            "name": "VIS_SEL_01"
+          },
+          {
+            "id": "VIS_SEL_00",
+            "name": "VIS_SEL_00"
+          },
+          {
+            "id": "CANCEL",
+            "name": "CANCEL"
+          },
+          {
+            "id": "ERROR",
+            "name": "ERROR"
+          },
+          {
+            "id": "QUESTION",
+            "name": "QUESTION"
+          },
+          {
+            "id": "STATUS_ERROR",
+            "name": "STATUS_ERROR"
+          },
+          {
+            "id": "STATUS_ERROR_FILLED",
+            "name": "STATUS_ERROR_FILLED"
+          },
+          {
+            "id": "STATUS_INFO",
+            "name": "STATUS_INFO"
+          },
+          {
+            "id": "STATUS_INFO_FILLED",
+            "name": "STATUS_INFO_FILLED"
+          },
+          {
+            "id": "STATUS_WARNING",
+            "name": "STATUS_WARNING"
+          },
+          {
+            "id": "STATUS_WARNING_FILLED",
+            "name": "STATUS_WARNING_FILLED"
+          },
+          {
+            "id": "ADD",
+            "name": "ADD"
+          },
+          {
+            "id": "ARROW_LEFTRIGHT",
+            "name": "ARROW_LEFTRIGHT"
+          },
+          {
+            "id": "AUTO",
+            "name": "AUTO"
+          },
+          {
+            "id": "BLENDER",
+            "name": "BLENDER"
+          },
+          {
+            "id": "BORDERMOVE",
+            "name": "BORDERMOVE"
+          },
+          {
+            "id": "BRUSHES_ALL",
+            "name": "BRUSHES_ALL"
+          },
+          {
+            "id": "CHECKMARK",
+            "name": "CHECKMARK"
+          },
+          {
+            "id": "COLLAPSEMENU",
+            "name": "COLLAPSEMENU"
+          },
+          {
+            "id": "COLLECTION_NEW",
+            "name": "COLLECTION_NEW"
+          },
+          {
+            "id": "COLOR",
+            "name": "COLOR"
+          },
+          {
+            "id": "COPY_ID",
+            "name": "COPY_ID"
+          },
+          {
+            "id": "DISCLOSURE_TRI_DOWN",
+            "name": "DISCLOSURE_TRI_DOWN"
+          },
+          {
+            "id": "DISCLOSURE_TRI_RIGHT",
+            "name": "DISCLOSURE_TRI_RIGHT"
+          },
+          {
+            "id": "DOT",
+            "name": "DOT"
+          },
+          {
+            "id": "DRIVER_DISTANCE",
+            "name": "DRIVER_DISTANCE"
+          },
+          {
+            "id": "DRIVER_ROTATIONAL_DIFFERENCE",
+            "name": "DRIVER_ROTATIONAL_DIFFERENCE"
+          },
+          {
+            "id": "DRIVER_TRANSFORM",
+            "name": "DRIVER_TRANSFORM"
+          },
+          {
+            "id": "DUPLICATE",
+            "name": "DUPLICATE"
+          },
+          {
+            "id": "EYEDROPPER",
+            "name": "EYEDROPPER"
+          },
+          {
+            "id": "FCURVE_SNAPSHOT",
+            "name": "FCURVE_SNAPSHOT"
+          },
+          {
+            "id": "FILE_NEW",
+            "name": "FILE_NEW"
+          },
+          {
+            "id": "FILE_TICK",
+            "name": "FILE_TICK"
+          },
+          {
+            "id": "FREEZE",
+            "name": "FREEZE"
+          },
+          {
+            "id": "FULLSCREEN_ENTER",
+            "name": "FULLSCREEN_ENTER"
+          },
+          {
+            "id": "FULLSCREEN_EXIT",
+            "name": "FULLSCREEN_EXIT"
+          },
+          {
+            "id": "GHOST_DISABLED",
+            "name": "GHOST_DISABLED"
+          },
+          {
+            "id": "GHOST_ENABLED",
+            "name": "GHOST_ENABLED"
+          },
+          {
+            "id": "GRIP",
+            "name": "GRIP"
+          },
+          {
+            "id": "GRIP_V",
+            "name": "GRIP_V"
+          },
+          {
+            "id": "GRIP_CORNER_BOTTOM_RIGHT",
+            "name": "GRIP_CORNER_BOTTOM_RIGHT"
+          },
+          {
+            "id": "HAND",
+            "name": "HAND"
+          },
+          {
+            "id": "HELP",
+            "name": "HELP"
+          },
+          {
+            "id": "LINKED",
+            "name": "LINKED"
+          },
+          {
+            "id": "MENU_PANEL",
+            "name": "MENU_PANEL"
+          },
+          {
+            "id": "NODE_SEL",
+            "name": "NODE_SEL"
+          },
+          {
+            "id": "NODE",
+            "name": "NODE"
+          },
+          {
+            "id": "OBJECT_HIDDEN",
+            "name": "OBJECT_HIDDEN"
+          },
+          {
+            "id": "OPTIONS",
+            "name": "OPTIONS"
+          },
+          {
+            "id": "PANEL_CLOSE",
+            "name": "PANEL_CLOSE"
+          },
+          {
+            "id": "PLUGIN",
+            "name": "PLUGIN"
+          },
+          {
+            "id": "PLUS",
+            "name": "PLUS"
+          },
+          {
+            "id": "PRESET_NEW",
+            "name": "PRESET_NEW"
+          },
+          {
+            "id": "PROJECT",
+            "name": "PROJECT"
+          },
+          {
+            "id": "QUIT",
+            "name": "QUIT"
+          },
+          {
+            "id": "RECOVER_LAST",
+            "name": "RECOVER_LAST"
+          },
+          {
+            "id": "REMOVE",
+            "name": "REMOVE"
+          },
+          {
+            "id": "RIGHTARROW_THIN",
+            "name": "RIGHTARROW_THIN"
+          },
+          {
+            "id": "SCREEN_BACK",
+            "name": "SCREEN_BACK"
+          },
+          {
+            "id": "STATUSBAR",
+            "name": "STATUSBAR"
+          },
+          {
+            "id": "STYLUS_PRESSURE",
+            "name": "STYLUS_PRESSURE"
+          },
+          {
+            "id": "THREE_DOTS",
+            "name": "THREE_DOTS"
+          },
+          {
+            "id": "TOPBAR",
+            "name": "TOPBAR"
+          },
+          {
+            "id": "TRASH",
+            "name": "TRASH"
+          },
+          {
+            "id": "TRIA_DOWN",
+            "name": "TRIA_DOWN"
+          },
+          {
+            "id": "TRIA_LEFT",
+            "name": "TRIA_LEFT"
+          },
+          {
+            "id": "TRIA_RIGHT",
+            "name": "TRIA_RIGHT"
+          },
+          {
+            "id": "TRIA_UP",
+            "name": "TRIA_UP"
+          },
+          {
+            "id": "UNLINKED",
+            "name": "UNLINKED"
+          },
+          {
+            "id": "URL",
+            "name": "URL"
+          },
+          {
+            "id": "VIEWZOOM",
+            "name": "VIEWZOOM"
+          },
+          {
+            "id": "WINDOW",
+            "name": "WINDOW"
+          },
+          {
+            "id": "WORKSPACE",
+            "name": "WORKSPACE"
+          },
+          {
+            "id": "X",
+            "name": "X"
+          },
+          {
+            "id": "ZOOM_ALL",
+            "name": "ZOOM_ALL"
+          },
+          {
+            "id": "ZOOM_IN",
+            "name": "ZOOM_IN"
+          },
+          {
+            "id": "ZOOM_OUT",
+            "name": "ZOOM_OUT"
+          },
+          {
+            "id": "ZOOM_PREVIOUS",
+            "name": "ZOOM_PREVIOUS"
+          },
+          {
+            "id": "ZOOM_SELECTED",
+            "name": "ZOOM_SELECTED"
+          },
+          {
+            "id": "MODIFIER",
+            "name": "MODIFIER"
+          },
+          {
+            "id": "PARTICLES",
+            "name": "PARTICLES"
+          },
+          {
+            "id": "PHYSICS",
+            "name": "PHYSICS"
+          },
+          {
+            "id": "SHADERFX",
+            "name": "SHADERFX"
+          }
+        ],
+        "id": "bl_icon",
+        "name": "Icon",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Determines the visibility of some UI elements related to node groups",
+        "id": "bl_use_group_interface",
+        "name": "Use Group Interface",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      }
+    ],
+    "ref": "blender-rna/v1/materials/TWF0ZXJpYWw/W1sicCIsIm5vZGVfdHJlZSJdXQ@9",
+    "rna_type": "ShaderNodeTree",
+    "root": "materials",
+    "truncated": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 43,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "4453b7deccbf6dfb6b9d2b05e44a31230787d6e01e0d014bd3b2dd1a2fbfb6cd",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "9a2cf20986f142f1b1f93d7b1c52e6e5",
+  "warnings": []
+}

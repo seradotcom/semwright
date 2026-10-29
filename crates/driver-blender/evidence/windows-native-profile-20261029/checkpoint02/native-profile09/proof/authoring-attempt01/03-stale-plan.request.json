@@ -1,0 +1,211 @@
+{
+  "args": {
+    "intent": {
+      "kind": "create",
+      "spec": {
+        "animation": null,
+        "collection": "native_authoring_proof",
+        "entities": [
+          {
+            "id": "tetra",
+            "materials": [
+              "earth"
+            ],
+            "modifiers": [],
+            "name": "Proof Tetrahedron",
+            "shade_smooth": false,
+            "shape": {
+              "faces": [
+                [
+                  0,
+                  2,
+                  1
+                ],
+                [
+                  0,
+                  1,
+                  3
+                ],
+                [
+                  0,
+                  3,
+                  2
+                ],
+                [
+                  1,
+                  2,
+                  3
+                ]
+              ],
+              "kind": "mesh",
+              "uv": null,
+              "vertices": [
+                [
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  2,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  3
+                ]
+              ]
+            },
+            "transform": {
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "id": "wedge",
+            "materials": [
+              "sea"
+            ],
+            "modifiers": [],
+            "name": "Proof Triangular Prism",
+            "shade_smooth": false,
+            "shape": {
+              "faces": [
+                [
+                  0,
+                  2,
+                  1
+                ],
+                [
+                  3,
+                  4,
+                  5
+                ],
+                [
+                  0,
+                  1,
+                  4,
+                  3
+                ],
+                [
+                  1,
+                  2,
+                  5,
+                  4
+                ],
+                [
+                  2,
+                  0,
+                  3,
+                  5
+                ]
+              ],
+              "kind": "mesh",
+              "uv": null,
+              "vertices": [
+                [
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  2,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  2,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1
+                ],
+                [
+                  2,
+                  0,
+                  1
+                ],
+                [
+                  0,
+                  2,
+                  1
+                ]
+              ]
+            },
+            "transform": {
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ],
+              "translation": [
+                4,
+                0,
+                0
+              ]
+            }
+          }
+        ],
+        "materials": [
+          {
+            "base_color": [
+              0.45,
+              0.24,
+              0.1,
+              1.0
+            ],
+            "id": "earth",
+            "metallic": 0.0,
+            "roughness": 0.7
+          },
+          {
+            "base_color": [
+              0.08,
+              0.32,
+              0.45,
+              1.0
+            ],
+            "id": "sea",
+            "metallic": 0.0,
+            "roughness": 0.5
+          }
+        ],
+        "meters_per_unit": 1.0,
+        "relations": [],
+        "textures": [],
+        "version": 1
+      }
+    }
+  },
+  "backend": null,
+  "command": "driver.blender.composition.plan",
+  "dry_run": false,
+  "request_id": "9c21f077dd034ec7bc2948442757b6d6"
+}

@@ -1,0 +1,9 @@
+{
+  "args": {
+    "path": "broker-source-copy.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.file.checkpoint",
+  "dry_run": false,
+  "request_id": "173768dc87bf4d5ea0aa359a13ba01da"
+}

@@ -1,0 +1,29 @@
+{
+  "command": "driver.blender.session.checkpoint.inspect",
+  "error": {
+    "code": "PluginProtocolError",
+    "message": "Driver reported an error; untrusted payload was redacted",
+    "outcome_known": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 32,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "6676fddcab69373bb9b191236452a3a32c1eb376dc6657c30ecd0cb942e1ebd4",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": false,
+  "request_id": "80958d5d94ce4da79a64d7bd7453f979",
+  "warnings": []
+}

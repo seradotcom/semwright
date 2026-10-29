@@ -1,0 +1,9 @@
+{
+  "args": {
+    "checkpoint_path": "broker-proof.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.session.checkpoint_close",
+  "dry_run": false,
+  "request_id": "8bafe17557d44e82a0f4eee8312c527c"
+}

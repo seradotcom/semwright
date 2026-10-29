@@ -1,0 +1,11 @@
+{
+  "args": {
+    "animations": false,
+    "collection": "SW_c242f21a199d_GEO01_FARO_THRESHOLD_R23",
+    "path": "static-asset-attempt01/asset.glb"
+  },
+  "backend": null,
+  "command": "driver.blender.export.glb",
+  "dry_run": false,
+  "request_id": "d1e56ad3c7aa4efc88a6dcdcb48f8c4a"
+}

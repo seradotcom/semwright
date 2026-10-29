@@ -1,0 +1,32 @@
+{
+  "command": "driver.blender.export.glb",
+  "data": {
+    "bytes": 2124,
+    "changed": true,
+    "format": "glb",
+    "objects": 1,
+    "path": "static-asset-attempt01/asset.glb",
+    "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 2493,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1.0",
+      "catalog_revision": 160,
+      "descriptor_sha256": "af1f082e8a2b5c70cba953a75e2dcf770f1a0962ccef9a3fd44da998ee13bc1a",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "d1e56ad3c7aa4efc88a6dcdcb48f8c4a",
+  "warnings": []
+}

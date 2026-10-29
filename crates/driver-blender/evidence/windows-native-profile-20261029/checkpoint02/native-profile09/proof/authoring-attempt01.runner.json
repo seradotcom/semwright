@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "utc_start": "2026-10-29T01:45:41.275652+00:00",
+  "candidate": "native-profile09",
+  "argv": [
+    "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\windows_broker_authoring-a9500905004d3cdf.exe",
+    "--ignored",
+    "--exact",
+    "windows_production_broker_typed_authoring",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "test_binary_sha256": "4aaba0f81f2393a55a1887de0f1746f2a455b0921c0c490dc8a45fb31164db4d",
+  "source_sha256": "5e0d2cac28d7699453c842cda3d0cc8ee0de1af0d72a4db83017ed64ff394b9e",
+  "compiled_source_log": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt04",
+  "exit_code": 0,
+  "timed_out": false,
+  "seconds": 39.73399999999674,
+  "log_sha256": "248503c4610b75bf8fe1bf87375684f5f188c692d881f48c50e7a8001aa3dfe2",
+  "receipts": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile09\\authoring-attempt01",
+  "artifact_directory": "E:\\Projects\\worldwright-archipelago\\.local\\native-profile09-workspace\\authoring-attempt01",
+  "broker_used": true,
+  "retry_performed": false,
+  "Linux_4_5_14": "NOT_RUN",
+  "art_approval": false
+}

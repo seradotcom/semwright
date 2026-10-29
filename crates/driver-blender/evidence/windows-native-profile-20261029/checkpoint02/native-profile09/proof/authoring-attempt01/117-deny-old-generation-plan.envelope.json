@@ -1,0 +1,29 @@
+{
+  "command": "driver.blender.composition.apply",
+  "error": {
+    "code": "PolicyDenied",
+    "message": "Driver reported an error; untrusted payload was redacted",
+    "outcome_known": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 54,
+    "fallbacks_attempted": [],
+    "policy_decision": "deny",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "a04f6b1c431a831a0f643df6391eebc9fb4ce73c83b7be4da752b5be4c75c131",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": false,
+  "request_id": "cde25edaa996437bb597ac8a340d0a4b",
+  "warnings": []
+}

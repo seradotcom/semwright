@@ -1,0 +1,9 @@
+{
+  "args": {
+    "checkpoint_path": "static-asset-attempt02/final-recovery.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.session.checkpoint_close",
+  "dry_run": false,
+  "request_id": "21f4a7d540ae4187bb67d1f5ec2d869c"
+}

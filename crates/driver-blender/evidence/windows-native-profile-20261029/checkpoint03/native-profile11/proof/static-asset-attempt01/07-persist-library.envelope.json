@@ -1,0 +1,39 @@
+{
+  "command": "driver.blender.composition.persist",
+  "data": {
+    "bytes": 64288,
+    "fresh_process_verified": false,
+    "inventory": {
+      "collection": "SW_c242f21a199d_GEO01_FARO_THRESHOLD_R23",
+      "objects": [
+        "SW_c242f21a199d_bridge_threshold"
+      ]
+    },
+    "island": "c242f21a199d4bea914cd4405adc2d16",
+    "method": "libraries-write-indirect-closure",
+    "path": "static-asset-attempt01/asset-library.blend",
+    "sha256": "61df35fc36b0f68f4a2554a3451f30fa4c67ef1dac1532dcb1f53984a76a29ab",
+    "source_fingerprint": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4"
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 89,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "8c3a0bfe8daa739ae0f507b38e8d2d214a3b7030225ddc5e72e29a236b670108",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "fec83092fe60437289beb275470c4932",
+  "warnings": []
+}

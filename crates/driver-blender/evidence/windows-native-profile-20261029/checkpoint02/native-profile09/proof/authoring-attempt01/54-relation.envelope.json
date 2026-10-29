@@ -1,0 +1,63 @@
+{
+  "command": "driver.blender.semantic.relations",
+  "data": {
+    "generation": 9,
+    "items": [
+      {
+        "index": 0,
+        "name": "Frame",
+        "ref": "blender-rna/v1/materials/RG90cyBTdHJva2U/W1sicCIsIm5vZGVfdHJlZSJdLFsiYyIsIm5vZGVzIiwwXV0@9",
+        "rna_type": "NodeFrame"
+      },
+      {
+        "index": 1,
+        "name": "Material Output",
+        "ref": "blender-rna/v1/materials/RG90cyBTdHJva2U/W1sicCIsIm5vZGVfdHJlZSJdLFsiYyIsIm5vZGVzIiwxXV0@9",
+        "rna_type": "ShaderNodeOutputMaterial"
+      },
+      {
+        "index": 2,
+        "name": "Principled BSDF",
+        "ref": "blender-rna/v1/materials/RG90cyBTdHJva2U/W1sicCIsIm5vZGVfdHJlZSJdLFsiYyIsIm5vZGVzIiwyXV0@9",
+        "rna_type": "ShaderNodeBsdfPrincipled"
+      },
+      {
+        "index": 3,
+        "name": "Material Output.001",
+        "ref": "blender-rna/v1/materials/RG90cyBTdHJva2U/W1sicCIsIm5vZGVfdHJlZSJdLFsiYyIsIm5vZGVzIiwzXV0@9",
+        "rna_type": "ShaderNodeOutputMaterial"
+      },
+      {
+        "index": 4,
+        "name": "Diffuse BSDF",
+        "ref": "blender-rna/v1/materials/RG90cyBTdHJva2U/W1sicCIsIm5vZGVfdHJlZSJdLFsiYyIsIm5vZGVzIiw0XV0@9",
+        "rna_type": "ShaderNodeBsdfDiffuse"
+      }
+    ],
+    "mutation": "domain_specific",
+    "offset": 0,
+    "relation": "nodes",
+    "truncated": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 31,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "7dfa15f2239d3e3ca783418f8a854e14e9466d171c69c957f9eae5eb4bd76466",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "9400757777bb495b853869801c44a560",
+  "warnings": []
+}

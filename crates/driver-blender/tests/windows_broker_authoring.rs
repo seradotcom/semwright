@@ -1,8 +1,8 @@
 //! Physical Windows proof through one official, memory-only broker client.
 #![cfg(target_os = "windows")]
 use semwright_protocol::Client;
-use semwright_types::{ErrorCode, ExecuteRequest, unique_id};
-use serde_json::{Value, json};
+use semwright_types::{unique_id, ErrorCode, ExecuteRequest};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     fs::{self, OpenOptions},
@@ -460,6 +460,7 @@ async fn authoring_exercise(
             && library["bytes"].as_u64() == Some(library_bytes.len() as u64),
         "Library hash differs",
     )?;
+    let static_before = static_structure_signature(&checkpoint_surface(proof).await?)?;
     let inspection = proof
         .op(
             "checkpoint-inspect",
@@ -498,6 +499,11 @@ async fn authoring_exercise(
     check(
         reopened["fresh_session"] == true && reopened["use_scripts"] == false,
         "Unsafe fresh reopen",
+    )?;
+    let static_after = static_structure_signature(&checkpoint_surface(proof).await?)?;
+    check(
+        static_before == static_after,
+        "Recovery changed static sequencer/shader structure",
     )?;
     let recovered = proof
         .op(
@@ -558,6 +564,8 @@ async fn authoring_exercise(
         "independent_readback":observed,"incremental_apply":edited,"recovered_readback":recovered,
         "checkpoint":closed,"reopen":reopened,"library":library,"export":exported,"glb":glb,
         "stale_plan":"DENIED_NO_EFFECT","replay":"DENIED_NO_EFFECT","old_generation_plan":"DENIED",
+        "static_structure_preservation":{"before":static_before,"after":static_after,"passed":true,
+            "scope":"RNA relation names/types and channel names/counts; not full shader socket-state equivalence"},
         "unmanaged_preservation":"PASS","human_edit_simulated":false,
         "intervening_edit_source":"authorized typed fixture operation; not human review"}),
     )
@@ -639,6 +647,37 @@ async fn windows_production_broker_typed_authoring() {
         json!({"passed":passed,"sha256":digest})
     );
     assert!(passed, "Inspect preserved physical authoring receipts");
+}
+
+fn static_structure_signature(surface: &Value) -> ProofResult<Value> {
+    let mut signature = serde_json::Map::new();
+    for observation in surface["observations"]
+        .as_array()
+        .ok_or("Missing surface observations")?
+    {
+        let label = observation["label"]
+            .as_str()
+            .ok_or("Missing surface label")?;
+        let mut fields = serde_json::Map::new();
+        for (property, value) in observation["observed"]
+            .as_object()
+            .ok_or("Missing observed fields")?
+        {
+            if let Some(rows) = value["items"].as_array() {
+                check(value["truncated"] == false, "Incomplete recovery relation")?;
+                let mut stable: Vec<Value> = rows
+                    .iter()
+                    .map(|row| json!({"name":row["name"],"rna_type":row["rna_type"]}))
+                    .collect();
+                stable.sort_by_key(|row| row.to_string());
+                fields.insert(property.clone(), Value::Array(stable));
+            } else {
+                fields.insert(property.clone(), value["value"].clone());
+            }
+        }
+        signature.insert(label.into(), Value::Object(fields));
+    }
+    Ok(Value::Object(signature))
 }
 
 async fn checkpoint_surface(proof: &mut SessionProof) -> ProofResult<Value> {
@@ -790,4 +829,304 @@ async fn windows_production_broker_checkpoint_surface() {
         "normal_close":false,"cleanup":"Owned technical fixture retirement required; no human scene loaded",
         "save_qualified":false})).expect("Save diagnostic");
     assert!(passed, "Inspect read-only diagnostic receipts");
+}
+
+async fn static_asset_exercise(
+    proof: &mut SessionProof,
+    workspace: &Path,
+    prefix: &str,
+    spec: &Value,
+) -> ProofResult<Value> {
+    let artifact = |name: &str| format!("{prefix}/{name}");
+    let entities = spec["entities"].as_array().ok_or("Missing entity list")?;
+    check((1..=128).contains(&entities.len()), "Static entity budget")?;
+    check(
+        spec["textures"] == json!([])
+            && spec["relations"] == json!([])
+            && spec["animation"].is_null(),
+        "Static asset contains unsupported dependencies",
+    )?;
+    for item in entities {
+        check(
+            item["shape"]["kind"] == "mesh" && item["modifiers"] == json!([]),
+            "Static asset requires concrete meshes without modifiers",
+        )?;
+    }
+    for name in [
+        "asset-library.blend",
+        "asset-scene.blend",
+        "asset.glb",
+        "final-recovery.blend",
+    ] {
+        require_absent(&workspace.join(artifact(name)))?;
+    }
+    let version = proof
+        .op("version", "driver.blender.introspect.summary", json!({}))
+        .await?;
+    check(
+        version["version"] == json!([5, 2, 1]) && version["arbitrary_python"] == false,
+        "Unexpected runtime authority",
+    )?;
+    let baseline = proof
+        .op("baseline", "driver.blender.composition.inspect", json!({}))
+        .await?;
+    let planned = proof
+        .op(
+            "plan",
+            "driver.blender.composition.plan",
+            json!({"intent":{"kind":"create","spec":spec}}),
+        )
+        .await?;
+    check(
+        proof
+            .op(
+                "plan-readonly",
+                "driver.blender.composition.inspect",
+                json!({}),
+            )
+            .await?
+            == baseline,
+        "Planning changed source state",
+    )?;
+    let applied = proof
+        .op(
+            "apply",
+            "driver.blender.composition.apply",
+            json!({"plan_ref":planned["plan_ref"]}),
+        )
+        .await?;
+    verify_report(&applied)?;
+    let island = applied["island"]
+        .as_str()
+        .ok_or("Missing island")?
+        .to_owned();
+    let observed = proof
+        .op(
+            "readback",
+            "driver.blender.composition.inspect",
+            json!({"island":island}),
+        )
+        .await?;
+    check(
+        observed == applied["snapshot"]
+            && observed["exhaustive"] == true
+            && observed["drift"] == false
+            && rows(&observed)?.len() == entities.len(),
+        "Independent asset readback differs",
+    )?;
+    for authored in entities {
+        let id = authored["id"].as_str().ok_or("Entity identity")?;
+        let row = entity(&observed, id)?;
+        check(
+            row["vertices"].as_u64()
+                == authored["shape"]["vertices"]
+                    .as_array()
+                    .map(|v| v.len() as u64)
+                && row["polygons"].as_u64()
+                    == authored["shape"]["faces"]
+                        .as_array()
+                        .map(|v| v.len() as u64),
+            "Native asset topology differs from source specification",
+        )?;
+    }
+    let whole = proof
+        .op(
+            "unmanaged-readback",
+            "driver.blender.composition.inspect",
+            json!({}),
+        )
+        .await?;
+    let unmanaged: Vec<_> = rows(&whole)?
+        .iter()
+        .filter(|v| v["entity"].is_null())
+        .cloned()
+        .collect();
+    check(
+        Value::Array(unmanaged) == baseline["items"],
+        "Unmanaged factory state changed",
+    )?;
+    let library = proof
+        .op(
+            "persist-library",
+            "driver.blender.composition.persist",
+            json!({"island":island,"path":artifact("asset-library.blend")}),
+        )
+        .await?;
+    let library_bytes = read(&workspace.join(artifact("asset-library.blend")))?;
+    check(
+        library["sha256"] == sha256(&library_bytes),
+        "Library bytes disagree",
+    )?;
+    let closed = proof
+        .op(
+            "checkpoint-close",
+            "driver.blender.session.checkpoint_close",
+            json!({"checkpoint_path":artifact("asset-scene.blend")}),
+        )
+        .await?;
+    check(
+        closed["closed"] == true && closed["close_state"] == "closed",
+        "Asset checkpoint close failed",
+    )?;
+    let saved = read(&workspace.join(artifact("asset-scene.blend")))?;
+    let saved_hash = sha256(&saved);
+    check(
+        closed["checkpoint"]["sha256"] == saved_hash,
+        "Scene checkpoint hash differs",
+    )?;
+    let reopened = proof
+        .op(
+            "reopen",
+            "driver.blender.session.open",
+            json!({"path":artifact("asset-scene.blend"),"expected_sha256":saved_hash}),
+        )
+        .await?;
+    check(
+        reopened["fresh_session"] == true && reopened["use_scripts"] == false,
+        "Unsafe asset reopen",
+    )?;
+    let recovered = proof
+        .op(
+            "reopened-readback",
+            "driver.blender.composition.inspect",
+            json!({"island":island}),
+        )
+        .await?;
+    check(
+        recovered["native_session"] != observed["native_session"]
+            && recovered["items"] == observed["items"]
+            && recovered["fingerprint"] == observed["fingerprint"],
+        "Saved asset changed across restart",
+    )?;
+    let collection = rows(&recovered)?[0]["collections"][0]
+        .as_str()
+        .ok_or("Asset collection absent")?;
+    let export = proof
+        .op(
+            "export",
+            "driver.blender.export.glb",
+            json!({"collection":collection,"path":artifact("asset.glb"),"animations":false}),
+        )
+        .await?;
+    let bytes = read(&workspace.join(artifact("asset.glb")))?;
+    check(
+        (20..=16 * 1024 * 1024).contains(&bytes.len()),
+        "Asset GLB size budget",
+    )?;
+    let word = |offset: usize| u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
+    check(
+        &bytes[..4] == b"glTF"
+            && word(4) == 2
+            && word(8) as usize == bytes.len()
+            && word(16) == 0x4e4f534a,
+        "Asset GLB header",
+    )?;
+    let end = 20usize
+        .checked_add(word(12) as usize)
+        .ok_or("Asset GLB length overflow")?;
+    check(end <= bytes.len(), "Asset GLB JSON bounds")?;
+    let document: Value = serde_json::from_slice(&bytes[20..end]).map_err(|e| e.to_string())?;
+    check(
+        document["meshes"]
+            .as_array()
+            .is_some_and(|v| v.len() == entities.len()),
+        "Asset GLB mesh count",
+    )?;
+    for field in ["buffers", "images"] {
+        if let Some(items) = document[field].as_array() {
+            check(
+                items.iter().all(|item| item.get("uri").is_none()),
+                "Asset external GLB URI",
+            )?;
+        }
+    }
+    check(
+        export["sha256"] == sha256(&bytes) && export["bytes"].as_u64() == Some(bytes.len() as u64),
+        "Export receipt disagrees with independent GLB bytes",
+    )?;
+    Ok(
+        json!({"version":version,"island":island,"plan":planned,"apply":applied,
+        "independent_readback":observed,"recovered_readback":recovered,"library":library,
+        "checkpoint":closed,"reopen":reopened,"export":export,
+        "glb":{"sha256":sha256(&bytes),"bytes":bytes.len(),"document":document},
+        "unmanaged_fixture_preservation":"PASS","human_edit_preservation_claimed":false}),
+    )
+}
+#[tokio::test]
+#[ignore = "Owner-authorized static original asset production through typed Windows broker operations"]
+async fn windows_production_broker_static_asset() {
+    let pipe =
+        PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_BROKER_PIPE").expect("Explicit pipe"));
+    let receipts =
+        PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_RECEIPTS").expect("New receipts"));
+    let workspace = PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_WORKSPACE").expect("Workspace"));
+    let prefix =
+        std::env::var("SEMWRIGHT_TEST_ARTIFACT_PREFIX").expect("Relative artifact directory");
+    assert!(
+        !prefix.is_empty()
+            && prefix.len() <= 48
+            && prefix
+                .bytes()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+    );
+    let spec_path =
+        PathBuf::from(std::env::var_os("SEMWRIGHT_ASSET_SPEC").expect("Explicit typed asset spec"));
+    let expected = std::env::var("SEMWRIGHT_ASSET_SPEC_SHA256").expect("Bound input hash");
+    let bytes = read(&spec_path).expect("Read typed spec");
+    assert!(spec_path.is_absolute() && bytes.len() <= 786432 && sha256(&bytes) == expected);
+    let spec: Value = serde_json::from_slice(&bytes).expect("Typed specification JSON");
+    fs::create_dir(&receipts).expect("Preserve prior receipts");
+    let client = Client::connect(&pipe, None)
+        .await
+        .expect("Authenticated client");
+    let mut proof = SessionProof {
+        client,
+        receipts,
+        trace: Vec::new(),
+    };
+    let work = match tokio::time::timeout(
+        Duration::from_secs(210),
+        static_asset_exercise(&mut proof, &workspace, &prefix, &spec),
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(_) => Err("Asset deadline; unknown outcome, no replay".into()),
+    };
+    let inspection = proof
+        .exchange(
+            "cleanup-inspect",
+            "driver.blender.session.checkpoint.inspect",
+            json!({}),
+            None,
+            Duration::from_secs(10),
+        )
+        .await;
+    let close = if inspection.as_ref().is_ok_and(|v| v["supported"] == true) {
+        proof
+            .exchange(
+                "final-close",
+                "driver.blender.session.checkpoint_close",
+                json!({"checkpoint_path":format!("{prefix}/final-recovery.blend")}),
+                None,
+                Duration::from_secs(15),
+            )
+            .await
+    } else {
+        Err(format!(
+            "No close after unsupported/unknown inspection: {inspection:?}"
+        ))
+    };
+    let close_ack = close
+        .as_ref()
+        .is_ok_and(|v| v["closed"] == true && v["close_state"] == "closed");
+    let passed = work.is_ok() && close_ack;
+    save_json(&proof.receipts.join("receipt.json"),&json!({"schema":1,
+        "proof_kind":"original_static_asset_broker_production","broker_used":true,"passed":passed,
+        "spec_path":spec_path,"spec_sha256":expected,"requests":proof.trace,
+        "result":work.as_ref().ok(),"error":work.as_ref().err(),
+        "close":close.as_ref().ok(),"close_error":close.as_ref().err(),"close_acknowledged":close_ack,
+        "art_approval":false,"human_edit_preservation_claimed":false,"G6":"NOT_COMPLETE",
+        "Linux_4_5_14":"NOT_RUN","Godot_import":"NOT_RUN"})).expect("Preserve asset receipt");
+    assert!(passed, "Inspect preserved static asset production receipt");
 }

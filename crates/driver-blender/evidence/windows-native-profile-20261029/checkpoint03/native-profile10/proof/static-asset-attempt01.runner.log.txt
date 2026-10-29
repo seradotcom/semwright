@@ -1,0 +1,20 @@
+
+running 1 test
+test windows_production_broker_static_asset ... BROKER_PROOF_STEP {"label":"version","ok":true,"request_id":"0866309ab58343a8a6748a751c52d8f3"}
+BROKER_PROOF_STEP {"label":"baseline","ok":true,"request_id":"d3df2033cf5a448db3f900c6df205e58"}
+BROKER_PROOF_STEP {"label":"plan","ok":false,"request_id":"832ad4ab84c445af9e3362a7491ea4de"}
+BROKER_PROOF_STEP {"label":"cleanup-inspect","ok":true,"request_id":"dc0a3f1c9dc64566b8f002604102d682"}
+BROKER_PROOF_STEP {"label":"final-close","ok":true,"request_id":"02c5705f2bb04b568b6a2c40c5e11a80"}
+
+thread 'windows_production_broker_static_asset' (42512) panicked at crates\driver-blender\tests\windows_broker_authoring.rs:1131:5:
+Inspect preserved static asset production receipt
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    windows_production_broker_static_asset
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 17.22s
+

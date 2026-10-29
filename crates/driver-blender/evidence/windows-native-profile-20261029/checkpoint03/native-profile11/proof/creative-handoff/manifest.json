@@ -1,0 +1,205 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T02:35:35.264044+00:00",
+  "candidate": "native-profile11",
+  "revision": "20261029-semwright-threshold-r23",
+  "files": [
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\art_review\\20261029-semwright-threshold-r23\\asset-admission.json",
+      "archive": "asset-admission.json",
+      "bytes": 1678,
+      "sha256": "2646a7a3bd0892994a6f3a663c413c93644767ecb94f1f767d1ce134c0bee9a0"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\game\\assets\\review_20261029-semwright-threshold-r23\\GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+      "archive": "assets/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+      "bytes": 2124,
+      "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\art\\blender\\semwright\\20261029-semwright-threshold-r23\\FARO_THRESHOLD_scene.blend",
+      "archive": "assets/FARO_THRESHOLD_scene.blend",
+      "bytes": 629460,
+      "sha256": "d7842da0216d796f98aea3d23234b74c8cd521f50c8b52a4dbd5abbbbb6f1ff9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\art\\blender\\semwright\\20261029-semwright-threshold-r23\\FARO_THRESHOLD_library.blend",
+      "archive": "assets/FARO_THRESHOLD_library.blend",
+      "bytes": 64288,
+      "sha256": "61df35fc36b0f68f4a2554a3451f30fa4c67ef1dac1532dcb1f53984a76a29ab"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\art\\recipes\\20261029-r23\\faro_threshold.spec.json",
+      "archive": "recipe/faro_threshold.spec.json",
+      "bytes": 779,
+      "sha256": "d42304df12776030ad6692e864544c31ee72c29a23a7cd26ca291f5494b6894e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\generate_faro_threshold_r23.py",
+      "archive": "source/generate_faro_threshold_r23.py.source.txt",
+      "bytes": 2727,
+      "sha256": "c818e52714507ec439f9183649de475005e0c11b1848acf341556240df801d97"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\faro_roundtrip01\\native.log",
+      "archive": "native-godot/faro_roundtrip01/native.log.txt",
+      "bytes": 259,
+      "sha256": "e05da683a023a70f1dbe6adbb8e29ccf3282a4cdc53218cf4de0736940e9c48f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\faro_roundtrip01\\native_faro_roundtrip.json",
+      "archive": "native-godot/faro_roundtrip01/native_faro_roundtrip.json",
+      "bytes": 76726,
+      "sha256": "8c59d8b218327736e9c045cbcea2cdc5661df6f8f2b3444f97b47e243d526d1f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\faro_roundtrip01\\previous_walk_readback.json",
+      "archive": "native-godot/faro_roundtrip01/previous_walk_readback.json",
+      "bytes": 73740,
+      "sha256": "aa2da251f5242bcc8c513c7a1443c1969375bb40f0f3803a811f39e59db7f8c6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\faro_roundtrip01\\runner.json",
+      "archive": "native-godot/faro_roundtrip01/runner.json",
+      "bytes": 1420,
+      "sha256": "c517f02bf83e81ba536e6ad2feebd92185d57258d4f8d3f94afb4247ffc33cd9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\faro_roundtrip01\\source\\faro_roundtrip.gd",
+      "archive": "native-godot/faro_roundtrip01/source/faro_roundtrip.gd",
+      "bytes": 457,
+      "sha256": "555e5f19ef517b8f092aecddbb0adf4ab80df6902e5149caa7743059ac91b6d3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\faro_roundtrip01\\source\\harbor_review.gd",
+      "archive": "native-godot/faro_roundtrip01/source/harbor_review.gd",
+      "bytes": 38496,
+      "sha256": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\faro_roundtrip01\\source\\native_bundle.json",
+      "archive": "native-godot/faro_roundtrip01/source/native_bundle.json",
+      "bytes": 25209,
+      "sha256": "1056e727006920ee2d69812c75bdaa449cabc00c77c1fb3d470def06e1498eac"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\faro_roundtrip01\\source\\review_faro_roundtrip.json",
+      "archive": "native-godot/faro_roundtrip01/source/review_faro_roundtrip.json",
+      "bytes": 633,
+      "sha256": "96c41b26be51fe8d96e19d4f34fbd3daf0090a2ecec3a5ad57be547768411ae1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\faro_roundtrip01\\source\\review_walker.gd",
+      "archive": "native-godot/faro_roundtrip01/source/review_walker.gd",
+      "bytes": 6124,
+      "sha256": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\comprender_1793241042_883.json",
+      "archive": "native-godot/review_01/comprender_1793241042_883.json",
+      "bytes": 245120,
+      "sha256": "eac17cbb4e91b3f9e877ead300c7b54d06cd8c2e2cb1a7e657149f5cfc7c7391"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\detail_1793241054_139.json",
+      "archive": "native-godot/review_01/detail_1793241054_139.json",
+      "bytes": 244788,
+      "sha256": "3e02c21b17268bcf677036f0c13c76ff1d5df5158eb4b595da2bf787a54ebb3b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\frame_profile.json",
+      "archive": "native-godot/review_01/frame_profile.json",
+      "bytes": 847312,
+      "sha256": "242221f65444ad6e49c6f8d942c4cd744a8274bdd860ddd8113ef0c5d83a42f4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\godot-import.log",
+      "archive": "native-godot/review_01/godot-import.log.txt",
+      "bytes": 2396,
+      "sha256": "49e814d186ec2851b97c3d65b8266ae6ba6be1fe3ac21ff538ce1c94148b6351"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\godot-physical-review.log",
+      "archive": "native-godot/review_01/godot-physical-review.log.txt",
+      "bytes": 154,
+      "sha256": "967af7ea3a1e16444f9ad7e6e7fddeb9e39d6fb3e3588f8a8ec41e6fdcdb78f1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\godot-readback.log",
+      "archive": "native-godot/review_01/godot-readback.log.txt",
+      "bytes": 75,
+      "sha256": "83cf0b082206af2aa236c83064fbcfa76be1e00a4aa3558574b2f65965d9481c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\godot_headless_import_readback.json",
+      "archive": "native-godot/review_01/godot_headless_import_readback.json",
+      "bytes": 63365,
+      "sha256": "bf26b6b2063d1ffcfdfc74bcb115e60de2bfcfbd896fb561825e30acf16ecf77"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\habitar_1793241031_495.json",
+      "archive": "native-godot/review_01/habitar_1793241031_495.json",
+      "bytes": 245346,
+      "sha256": "949229246472646faaf8e384c24b2e256d3627542e5620ae7209073235e63b4a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\llegar_1793241020_29.json",
+      "archive": "native-godot/review_01/llegar_1793241020_29.json",
+      "bytes": 244206,
+      "sha256": "ede6db2ce94c11010e8a1ce76f9737f6313b61c07a1f33bf16a5d3168bc90de1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\llegar_1793241020_29_godot.png",
+      "archive": "native-godot/review_01/llegar_1793241020_29_godot.png",
+      "bytes": 755180,
+      "sha256": "0e2f13a56ba8de4a84f90b371dfc9702fba2e37122267b465a7f96615a6b851a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\native_runs.json",
+      "archive": "native-godot/review_01/native_runs.json",
+      "bytes": 1366,
+      "sha256": "45723dcc6a3d7e2fb356ee13605fc047bcbdf357a005a2f68e6ee30788a0b34b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\nvidia-gpu-samples.csv",
+      "archive": "native-godot/review_01/nvidia-gpu-samples.csv",
+      "bytes": 5085,
+      "sha256": "5ee428c2049503d141e8be8664306c82aa6a11cfdb2d017ec5d0854b03a725ff"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\review_sequence_complete.json",
+      "archive": "native-godot/review_01/review_sequence_complete.json",
+      "bytes": 62,
+      "sha256": "e4208654e5721d750b5d441cc2f00313d709a782c32cd1fd55ccf4434579a80e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\source\\harbor_review.gd",
+      "archive": "native-godot/review_01/source/harbor_review.gd",
+      "bytes": 38496,
+      "sha256": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\source\\review_bridge_route.json",
+      "archive": "native-godot/review_01/source/review_bridge_route.json",
+      "bytes": 693,
+      "sha256": "a5cdc8c4c443f9084b36d4ab9520744970a7d6703b48d48781cc900ba3571592"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\source\\review_walk_route.json",
+      "archive": "native-godot/review_01/source/review_walk_route.json",
+      "bytes": 1158,
+      "sha256": "9cddebfb5bebc9c104bccd2ed9cf4fdbc77b2a621242110e628d4b8d0e0a3614"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-threshold-r23\\review_01\\source\\review_walker.gd",
+      "archive": "native-godot/review_01/source/review_walker.gd",
+      "bytes": 6124,
+      "sha256": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67"
+    }
+  ],
+  "godot_broker_used": false,
+  "human_edit_preservation": "NOT_DEMONSTRATED",
+  "art_status": "REVISE",
+  "linux_native": "NOT_RUN",
+  "external_publication": false
+}

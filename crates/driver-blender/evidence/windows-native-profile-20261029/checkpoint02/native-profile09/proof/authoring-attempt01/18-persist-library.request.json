@@ -1,0 +1,10 @@
+{
+  "args": {
+    "island": "cec43badb8114c179b8004ca426149a3",
+    "path": "authoring-attempt01/authoring-library.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.composition.persist",
+  "dry_run": false,
+  "request_id": "63c580c44d8a42f69cbd7a5ea769810a"
+}

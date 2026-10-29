@@ -1,0 +1,1028 @@
+{
+  "command": "driver.blender.semantic.object.describe",
+  "data": {
+    "name": "SW_cec43badb811_earth",
+    "properties": [
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "RNA type definition",
+        "id": "rna_type",
+        "name": "RNA",
+        "reason": "RNA type metadata is runtime-owned",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Unique data-block ID name (within a same type and library)",
+        "id": "name",
+        "name": "Name",
+        "reason": "Names require rename semantics so revision-bound refs can rotate safely",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Unique data-block ID name, including library one if any",
+        "id": "name_full",
+        "name": "Full Name",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Type identifier of this data-block",
+        "enum": [
+          {
+            "id": "ACTION",
+            "name": "Action"
+          },
+          {
+            "id": "ARMATURE",
+            "name": "Armature"
+          },
+          {
+            "id": "BRUSH",
+            "name": "Brush"
+          },
+          {
+            "id": "CACHEFILE",
+            "name": "Cache File"
+          },
+          {
+            "id": "CAMERA",
+            "name": "Camera"
+          },
+          {
+            "id": "COLLECTION",
+            "name": "Collection"
+          },
+          {
+            "id": "CURVE",
+            "name": "Curve"
+          },
+          {
+            "id": "CURVES",
+            "name": "Curves"
+          },
+          {
+            "id": "FONT",
+            "name": "Font"
+          },
+          {
+            "id": "GREASEPENCIL",
+            "name": "Grease Pencil"
+          },
+          {
+            "id": "GREASEPENCIL_V3",
+            "name": "Grease Pencil v3"
+          },
+          {
+            "id": "IMAGE",
+            "name": "Image"
+          },
+          {
+            "id": "KEY",
+            "name": "Key"
+          },
+          {
+            "id": "LATTICE",
+            "name": "Lattice"
+          },
+          {
+            "id": "LIBRARY",
+            "name": "Library"
+          },
+          {
+            "id": "LIGHT",
+            "name": "Light"
+          },
+          {
+            "id": "LIGHT_PROBE",
+            "name": "Light Probe"
+          },
+          {
+            "id": "LINESTYLE",
+            "name": "Line Style"
+          },
+          {
+            "id": "MASK",
+            "name": "Mask"
+          },
+          {
+            "id": "MATERIAL",
+            "name": "Material"
+          },
+          {
+            "id": "MESH",
+            "name": "Mesh"
+          },
+          {
+            "id": "META",
+            "name": "Metaball"
+          },
+          {
+            "id": "MOVIECLIP",
+            "name": "Movie Clip"
+          },
+          {
+            "id": "NODETREE",
+            "name": "Node Tree"
+          },
+          {
+            "id": "OBJECT",
+            "name": "Object"
+          },
+          {
+            "id": "PAINTCURVE",
+            "name": "Paint Curve"
+          },
+          {
+            "id": "PALETTE",
+            "name": "Palette"
+          },
+          {
+            "id": "PARTICLE",
+            "name": "Particle"
+          },
+          {
+            "id": "POINTCLOUD",
+            "name": "Point Cloud"
+          },
+          {
+            "id": "SCENE",
+            "name": "Scene"
+          },
+          {
+            "id": "SCREEN",
+            "name": "Screen"
+          },
+          {
+            "id": "SOUND",
+            "name": "Sound"
+          },
+          {
+            "id": "SPEAKER",
+            "name": "Speaker"
+          },
+          {
+            "id": "TEXT",
+            "name": "Text"
+          },
+          {
+            "id": "TEXTURE",
+            "name": "Texture"
+          },
+          {
+            "id": "VOLUME",
+            "name": "Volume"
+          },
+          {
+            "id": "WINDOWMANAGER",
+            "name": "Window Manager"
+          },
+          {
+            "id": "WORKSPACE",
+            "name": "Workspace"
+          },
+          {
+            "id": "WORLD",
+            "name": "World"
+          }
+        ],
+        "id": "id_type",
+        "name": "Type",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+        "id": "session_uid",
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "name": "Session UID",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "INT",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+        "id": "is_evaluated",
+        "name": "Is Evaluated",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+        "id": "original",
+        "name": "Original ID",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Number of times this data-block is referenced",
+        "id": "users",
+        "maximum": 2147483647,
+        "minimum": 0,
+        "name": "Users",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "UNSIGNED",
+        "type": "INT",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Save this data-block even if it has no users",
+        "id": "use_fake_user",
+        "name": "Fake User",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+        "id": "use_extra_user",
+        "name": "Extra User",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+        "id": "is_embedded_data",
+        "name": "Embedded Data",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is linked and packed into the .blend file",
+        "id": "is_linked_packed",
+        "name": "Linked Packed",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+        "id": "is_missing",
+        "name": "Missing Data",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+        "id": "is_runtime_data",
+        "name": "Runtime Data",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+        "id": "is_editable",
+        "name": "Editable",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+        "id": "tag",
+        "name": "Tag",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Is this ID block linked indirectly",
+        "id": "is_library_indirect",
+        "name": "Is Indirect",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Library file the data-block is linked from",
+        "id": "library",
+        "name": "Library",
+        "reason": "Executable/external relation requires a dedicated trusted domain",
+        "status": "unsupported_by_design",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+        "id": "library_weak_reference",
+        "name": "Library Weak Reference",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Additional data for an asset data-block",
+        "id": "asset_data",
+        "name": "Asset Data",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Library override data",
+        "id": "override_library",
+        "name": "Library Override",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+        "id": "preview",
+        "name": "Preview",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Controls the blending and the compatibility with certain features",
+        "enum": [
+          {
+            "id": "DITHERED",
+            "name": "Dithered"
+          },
+          {
+            "id": "BLENDED",
+            "name": "Blended"
+          }
+        ],
+        "id": "surface_render_method",
+        "name": "Surface Render Method",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Method to use for the displacement",
+        "enum": [
+          {
+            "id": "BUMP",
+            "name": "Bump Only"
+          },
+          {
+            "id": "DISPLACEMENT",
+            "name": "Displacement Only"
+          },
+          {
+            "id": "BOTH",
+            "name": "Displacement and Bump"
+          }
+        ],
+        "id": "displacement_method",
+        "name": "Displacement Method",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Blend Mode for Transparent Faces (Deprecated: use 'surface_render_method')",
+        "enum": [
+          {
+            "id": "OPAQUE",
+            "name": "Opaque"
+          },
+          {
+            "id": "CLIP",
+            "name": "Alpha Clip"
+          },
+          {
+            "id": "HASHED",
+            "name": "Alpha Hashed"
+          },
+          {
+            "id": "BLEND",
+            "name": "Alpha Blend"
+          }
+        ],
+        "id": "blend_method",
+        "name": "Blend Mode",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "A pixel is rendered only if its alpha value is above this threshold",
+        "id": "alpha_threshold",
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "name": "Clip Threshold",
+        "status": "managed",
+        "subtype": "FACTOR",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Render multiple transparent layers (may introduce transparency sorting problems)",
+        "id": "use_transparency_overlap",
+        "name": "Use Transparency Overlap",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Render multiple transparent layers (may introduce transparency sorting problems) (Deprecated: use 'use_tranparency_overlap')",
+        "id": "show_transparent_back",
+        "name": "Show Backface",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Use back face culling to hide the back side of faces",
+        "id": "use_backface_culling",
+        "name": "Backface Culling",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Use back face culling when casting shadows",
+        "id": "use_backface_culling_shadow",
+        "name": "Shadow Backface Culling",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Consider material single sided for light probe volume capture. Additionally helps rejecting probes inside the object to avoid light leaks.",
+        "id": "use_backface_culling_lightprobe_volume",
+        "name": "Light Probe Volume Backface Culling",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Use transparent shadows for this material if it contains a Transparent BSDF, disabling will render faster but not give accurate shadows",
+        "id": "use_transparent_shadow",
+        "name": "Transparent Shadows",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Use raytracing to determine transmitted color instead of using only light probes. This prevents the surface from contributing to the lighting of surfaces not using this setting.",
+        "id": "use_raytrace_refraction",
+        "name": "Raytrace Transmission",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Use raytracing to determine transmitted color instead of using only light probes. This prevents the surface from contributing to the lighting of surfaces not using this setting. Deprecated: use 'use_raytrace_refraction'.",
+        "id": "use_screen_refraction",
+        "name": "Raytrace Transmission",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Add translucency effect to subsurface (Deprecated)",
+        "id": "use_sss_translucency",
+        "name": "Subsurface Translucency",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Approximate the thickness of the object to compute two refraction events (0 is disabled) (Deprecated)",
+        "id": "refraction_depth",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.0,
+        "name": "Refraction Depth",
+        "status": "managed",
+        "subtype": "DISTANCE",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Approximation used to model the light interactions inside the object",
+        "enum": [
+          {
+            "id": "SPHERE",
+            "name": "Sphere"
+          },
+          {
+            "id": "SLAB",
+            "name": "Slab"
+          }
+        ],
+        "id": "thickness_mode",
+        "name": "Thickness Mode",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Use the shadow maps from shadow casting lights to refine the thickness defined by the material node tree",
+        "id": "use_thickness_from_shadow",
+        "name": "Thickness From Shadow",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Determines which inner part of the mesh will produce volumetric effect",
+        "enum": [
+          {
+            "id": "FAST",
+            "name": "Fast"
+          },
+          {
+            "id": "ACCURATE",
+            "name": "Accurate"
+          }
+        ],
+        "id": "volume_intersection_method",
+        "name": "Volume Intersection Method",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "The max distance a vertex can be displaced. Displacements over this threshold may cause visibility issues.",
+        "id": "max_vertex_displacement",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.0,
+        "name": "Max Vertex Displacement",
+        "status": "managed",
+        "subtype": "DISTANCE",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Type of preview render",
+        "enum": [
+          {
+            "id": "FLAT",
+            "name": "Flat"
+          },
+          {
+            "id": "SPHERE",
+            "name": "Sphere"
+          },
+          {
+            "id": "CUBE",
+            "name": "Cube"
+          },
+          {
+            "id": "HAIR",
+            "name": "Hair"
+          },
+          {
+            "id": "SHADERBALL",
+            "name": "Shader Ball"
+          },
+          {
+            "id": "CLOTH",
+            "name": "Cloth"
+          },
+          {
+            "id": "FLUID",
+            "name": "Fluid"
+          }
+        ],
+        "id": "preview_render_type",
+        "name": "Preview Render Type",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Use the current world background to light the preview render",
+        "id": "use_preview_world",
+        "name": "Preview World",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Index number for the \"Material Index\" render pass",
+        "id": "pass_index",
+        "maximum": 32767,
+        "minimum": 0,
+        "name": "Pass Index",
+        "status": "managed",
+        "subtype": "UNSIGNED",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Node tree for node based materials",
+        "id": "node_tree",
+        "name": "Node Tree",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Use shader nodes to render the material",
+        "id": "use_nodes",
+        "name": "Use Nodes",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Animation data for this data-block",
+        "id": "animation_data",
+        "name": "Animation Data",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Texture images used for texture painting",
+        "id": "texture_paint_images",
+        "name": "Texture Slot Images",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Texture slots defining the mapping and influence of textures",
+        "id": "texture_paint_slots",
+        "name": "Texture Slots",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Index of active texture paint slot",
+        "id": "paint_active_slot",
+        "maximum": 32767,
+        "minimum": 0,
+        "name": "Active Paint Texture Index",
+        "status": "managed",
+        "subtype": "UNSIGNED",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Index of clone texture paint slot",
+        "id": "paint_clone_slot",
+        "maximum": 32767,
+        "minimum": 0,
+        "name": "Clone Paint Texture Index",
+        "status": "managed",
+        "subtype": "UNSIGNED",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 4,
+        "description": "Diffuse color of the material",
+        "id": "diffuse_color",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.0,
+        "name": "Diffuse Color",
+        "status": "managed",
+        "subtype": "COLOR",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 3,
+        "description": "Specular color of the material",
+        "id": "specular_color",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.0,
+        "name": "Specular Color",
+        "status": "managed",
+        "subtype": "COLOR",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Roughness of the material",
+        "id": "roughness",
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "name": "Roughness",
+        "status": "managed",
+        "subtype": "FACTOR",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "How intense (bright) the specular reflection is",
+        "id": "specular_intensity",
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "name": "Specular",
+        "status": "managed",
+        "subtype": "FACTOR",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Amount of mirror reflection for raytrace",
+        "id": "metallic",
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "name": "Metallic",
+        "status": "managed",
+        "subtype": "FACTOR",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 4,
+        "description": "Line color used for Freestyle line rendering",
+        "id": "line_color",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.0,
+        "name": "Line Color",
+        "status": "managed",
+        "subtype": "COLOR",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "The line color of a higher priority is used at material boundaries",
+        "id": "line_priority",
+        "maximum": 32767,
+        "minimum": 0,
+        "name": "Line Priority",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Grease Pencil color settings for material",
+        "id": "grease_pencil",
+        "name": "Grease Pencil Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "True if this material has Grease Pencil data",
+        "id": "is_grease_pencil",
+        "name": "Is Grease Pencil",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Line Art settings for material",
+        "id": "lineart",
+        "name": "Line Art Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Cycles material settings",
+        "id": "cycles",
+        "name": "Cycles Material Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      }
+    ],
+    "ref": "blender-rna/v1/materials/U1dfY2VjNDNiYWRiODExX2VhcnRo@1",
+    "rna_type": "Material",
+    "root": "materials",
+    "truncated": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 45,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "4453b7deccbf6dfb6b9d2b05e44a31230787d6e01e0d014bd3b2dd1a2fbfb6cd",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "28200b62159442148f432d290b19dc83",
+  "warnings": []
+}

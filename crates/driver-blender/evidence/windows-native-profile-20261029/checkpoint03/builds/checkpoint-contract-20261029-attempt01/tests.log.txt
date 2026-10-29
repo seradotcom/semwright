@@ -1,0 +1,100 @@
+test_dirty_image_and_unknown_category_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_dirty_image_and_unknown_category_rejected_before_save) ... ERROR
+test_existing_file_preserved (test_blender_checkpoint.CheckpointTests.test_existing_file_preserved) ... ERROR
+test_failed_native_save_is_typed_and_preserves_session (test_blender_checkpoint.CheckpointTests.test_failed_native_save_is_typed_and_preserves_session) ... ERROR
+test_initial_open_hash_failure_consumes_one_shot_without_loading (test_blender_checkpoint.CheckpointTests.test_initial_open_hash_failure_consumes_one_shot_without_loading) ... ok
+test_initial_open_uses_fixed_safe_flags (test_blender_checkpoint.CheckpointTests.test_initial_open_uses_fixed_safe_flags) ... ok
+test_mode_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_mode_rejected_before_save) ... ERROR
+test_modifier_cache_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_modifier_cache_rejected_before_save) ... ERROR
+test_new_copy_verified_and_preferences_restored (test_blender_checkpoint.CheckpointTests.test_new_copy_verified_and_preferences_restored) ... ERROR
+test_orphan_mesh_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_orphan_mesh_rejected_before_save) ... ERROR
+
+======================================================================
+ERROR: test_dirty_image_and_unknown_category_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_dirty_image_and_unknown_category_rejected_before_save)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\Projects\semwright-blender52\tests\python\test_blender_checkpoint.py", line 58, in test_dirty_image_and_unknown_category_rejected_before_save
+    self.reject_before_save("Unsupported")
+  File "E:\Projects\semwright-blender52\tests\python\test_blender_checkpoint.py", line 47, in reject_before_save
+    self.commands("blender.file.checkpoint",{"path":"recovery.blend"})
+  File "E:\Projects\semwright-blender52\adapters\blender\semwright_blender\commands.py", line 250, in __call__
+    scene = bpy.context.scene
+            ^^^^^^^^^^^^^^^^^
+AttributeError: 'types.SimpleNamespace' object has no attribute 'scene'
+
+======================================================================
+ERROR: test_existing_file_preserved (test_blender_checkpoint.CheckpointTests.test_existing_file_preserved)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\Projects\semwright-blender52\tests\python\test_blender_checkpoint.py", line 76, in test_existing_file_preserved
+    self.commands("blender.file.checkpoint",{"path":"recovery.blend"})
+  File "E:\Projects\semwright-blender52\adapters\blender\semwright_blender\commands.py", line 250, in __call__
+    scene = bpy.context.scene
+            ^^^^^^^^^^^^^^^^^
+AttributeError: 'types.SimpleNamespace' object has no attribute 'scene'
+
+======================================================================
+ERROR: test_failed_native_save_is_typed_and_preserves_session (test_blender_checkpoint.CheckpointTests.test_failed_native_save_is_typed_and_preserves_session)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\Projects\semwright-blender52\tests\python\test_blender_checkpoint.py", line 95, in test_failed_native_save_is_typed_and_preserves_session
+    self.commands("blender.file.checkpoint",{"path":"recovery.blend"})
+  File "E:\Projects\semwright-blender52\adapters\blender\semwright_blender\commands.py", line 250, in __call__
+    scene = bpy.context.scene
+            ^^^^^^^^^^^^^^^^^
+AttributeError: 'types.SimpleNamespace' object has no attribute 'scene'
+
+======================================================================
+ERROR: test_mode_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_mode_rejected_before_save)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\Projects\semwright-blender52\tests\python\test_blender_checkpoint.py", line 54, in test_mode_rejected_before_save
+    self.reject_before_save("Conflict")
+  File "E:\Projects\semwright-blender52\tests\python\test_blender_checkpoint.py", line 47, in reject_before_save
+    self.commands("blender.file.checkpoint",{"path":"recovery.blend"})
+  File "E:\Projects\semwright-blender52\adapters\blender\semwright_blender\commands.py", line 250, in __call__
+    scene = bpy.context.scene
+            ^^^^^^^^^^^^^^^^^
+AttributeError: 'types.SimpleNamespace' object has no attribute 'scene'
+
+======================================================================
+ERROR: test_modifier_cache_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_modifier_cache_rejected_before_save)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\Projects\semwright-blender52\tests\python\test_blender_checkpoint.py", line 66, in test_modifier_cache_rejected_before_save
+    self.reject_before_save("Unsupported")
+  File "E:\Projects\semwright-blender52\tests\python\test_blender_checkpoint.py", line 47, in reject_before_save
+    self.commands("blender.file.checkpoint",{"path":"recovery.blend"})
+  File "E:\Projects\semwright-blender52\adapters\blender\semwright_blender\commands.py", line 250, in __call__
+    scene = bpy.context.scene
+            ^^^^^^^^^^^^^^^^^
+AttributeError: 'types.SimpleNamespace' object has no attribute 'scene'
+
+======================================================================
+ERROR: test_new_copy_verified_and_preferences_restored (test_blender_checkpoint.CheckpointTests.test_new_copy_verified_and_preferences_restored)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\Projects\semwright-blender52\tests\python\test_blender_checkpoint.py", line 82, in test_new_copy_verified_and_preferences_restored
+    receipt=self.commands("blender.file.checkpoint",{"path":"recovery.blend"})
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Projects\semwright-blender52\adapters\blender\semwright_blender\commands.py", line 250, in __call__
+    scene = bpy.context.scene
+            ^^^^^^^^^^^^^^^^^
+AttributeError: 'types.SimpleNamespace' object has no attribute 'scene'
+
+======================================================================
+ERROR: test_orphan_mesh_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_orphan_mesh_rejected_before_save)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\Projects\semwright-blender52\tests\python\test_blender_checkpoint.py", line 70, in test_orphan_mesh_rejected_before_save
+    self.reject_before_save("Unsupported")
+  File "E:\Projects\semwright-blender52\tests\python\test_blender_checkpoint.py", line 47, in reject_before_save
+    self.commands("blender.file.checkpoint",{"path":"recovery.blend"})
+  File "E:\Projects\semwright-blender52\adapters\blender\semwright_blender\commands.py", line 250, in __call__
+    scene = bpy.context.scene
+            ^^^^^^^^^^^^^^^^^
+AttributeError: 'types.SimpleNamespace' object has no attribute 'scene'
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.039s
+
+FAILED (errors=7)

@@ -1,0 +1,9 @@
+{
+  "args": {
+    "checkpoint_path": "authoring-attempt01/authoring-scene.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.session.checkpoint_close",
+  "dry_run": false,
+  "request_id": "859389e625104b76818af8dfe365e200"
+}

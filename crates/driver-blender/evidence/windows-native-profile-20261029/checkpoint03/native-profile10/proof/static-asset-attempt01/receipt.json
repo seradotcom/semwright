@@ -1,0 +1,98 @@
+{
+  "G6": "NOT_COMPLETE",
+  "Godot_import": "NOT_RUN",
+  "Linux_4_5_14": "NOT_RUN",
+  "art_approval": false,
+  "broker_used": true,
+  "close": {
+    "checkpoint": {
+      "bytes": 597557,
+      "contract": "static_mesh_scene_v1",
+      "copy": true,
+      "empty_runtime_image_placeholders": 2,
+      "path": "static-asset-attempt01/final-recovery.blend",
+      "retained_orphans": [
+        {
+          "name": "Dots Stroke",
+          "root": "materials"
+        }
+      ],
+      "sha256": "54b5814cfc15ba45a2fdcff617d734f2f1611fb1055d36b84c01b7ac4ff112f2",
+      "source_fake_users_restored": true,
+      "undo_history_preserved": false
+    },
+    "close_state": "closed",
+    "closed": true
+  },
+  "close_acknowledged": true,
+  "close_error": null,
+  "error": "plan: broker operation failed",
+  "human_edit_preservation_claimed": false,
+  "passed": false,
+  "proof_kind": "original_static_asset_broker_production",
+  "requests": [
+    {
+      "command": "driver.blender.introspect.summary",
+      "elapsed_ms": 15840,
+      "envelope_sha256": "6df5271fd9299a185ee67911e0933d51e718db424c49053b7bebcfbe96ee42ae",
+      "error": null,
+      "label": "version",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "0866309ab58343a8a6748a751c52d8f3",
+      "request_sha256": "296b0c0cc60ec39f90c44c6847faa6bb978596792faf089b9705861fb116fc1e"
+    },
+    {
+      "command": "driver.blender.composition.inspect",
+      "elapsed_ms": 96,
+      "envelope_sha256": "de452113611ecc16bc69479604a2189f2375e9a9a2ddaf5c9c527e68c2fef14f",
+      "error": null,
+      "label": "baseline",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "d3df2033cf5a448db3f900c6df205e58",
+      "request_sha256": "a47d6b9d4df5e4e81b0828f0888ab9eb1f3be9f3da362a0b8b9fd95e09f3a9dc"
+    },
+    {
+      "command": "driver.blender.composition.plan",
+      "elapsed_ms": 23,
+      "envelope_sha256": "0db004eb25adaebe24c285f6f8b73c2167c73508734017a72a4c8909dd367b79",
+      "error": {
+        "code": "ResourceExhausted",
+        "message": "JSON structural budget exceeded",
+        "outcome_known": true
+      },
+      "label": "plan",
+      "ok": false,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "832ad4ab84c445af9e3362a7491ea4de",
+      "request_sha256": "9d896ac109ac4a347929c72e270be786475c2bd59f8cc22071f96cf26b680e76"
+    },
+    {
+      "command": "driver.blender.session.checkpoint.inspect",
+      "elapsed_ms": 33,
+      "envelope_sha256": "81fe14700c517f853a14115f7695a888cbae4c6ef6622d12b9d9c0209bb826e5",
+      "error": null,
+      "label": "cleanup-inspect",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "dc0a3f1c9dc64566b8f002604102d682",
+      "request_sha256": "20ec1fc6d9056ec92b3a012667b36a5d403687544b0e09c0a83acc88f58091cf"
+    },
+    {
+      "command": "driver.blender.session.checkpoint_close",
+      "elapsed_ms": 1157,
+      "envelope_sha256": "c45b1d53ef42cfecbe92b37a7a72d8d955ca7b92a00c2af1807a2a8f453cfe37",
+      "error": null,
+      "label": "final-close",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "02c5705f2bb04b568b6a2c40c5e11a80",
+      "request_sha256": "e47ba590db0ec5cee962a4cfece4df18c3b0b660c861bbf3bd3948688a3f126c"
+    }
+  ],
+  "result": null,
+  "schema": 1,
+  "spec_path": "E:\\Projects\\worldwright-archipelago\\art\\recipes\\20261029-r22\\faro_rock.spec.json",
+  "spec_sha256": "ebeda65f9d0ed374421c62b603d94a48e2393f0bb8a0fa84b7f052df7f0912e5"
+}

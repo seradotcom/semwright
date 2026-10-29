@@ -1,0 +1,10 @@
+{
+  "args": {
+    "expected_sha256": "683d2e2f2f5e944df3902bdeac96a30eb30cb821d9ba0d2e8a4dd45ba7098383",
+    "path": "authoring-attempt01/authoring-scene.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.session.open",
+  "dry_run": false,
+  "request_id": "e7984ae363a343708eaffba467f13142"
+}

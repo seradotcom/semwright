@@ -1,0 +1,48 @@
+[
+  {
+    "command": [
+      "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+      "--path",
+      "E:\\Projects\\worldwright-archipelago\\game",
+      "--headless",
+      "--editor",
+      "--import"
+    ],
+    "utc_start": "2026-10-29T02:12:22.730591+00:00",
+    "elapsed_s": 8.312999999994645,
+    "exit_code": 0,
+    "log": "godot-import.log"
+  },
+  {
+    "command": [
+      "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+      "--path",
+      "E:\\Projects\\worldwright-archipelago\\game",
+      "--headless",
+      "--quit-after",
+      "180",
+      "--",
+      "--verify-assets"
+    ],
+    "utc_start": "2026-10-29T02:12:31.044896+00:00",
+    "elapsed_s": 2.312000000005355,
+    "exit_code": 0,
+    "log": "godot-readback.log"
+  },
+  {
+    "command": [
+      "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+      "--path",
+      "E:\\Projects\\worldwright-archipelago\\game",
+      "--resolution",
+      "1920x1080",
+      "--windowed",
+      "--",
+      "--capture-review"
+    ],
+    "utc_start": "2026-10-29T02:12:33.354989+00:00",
+    "elapsed_s": 51.10899999999674,
+    "exit_code": 0,
+    "log": "godot-physical-review.log"
+  }
+]

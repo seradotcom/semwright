@@ -10,12 +10,12 @@ Status: **experimental WIP; local review only**. This checkpoint contains a real
 | Explicit owner grant | PASS | False rejects before native preparation/launch. Disabled by default. |
 | Broker typed scene operations | PASS | One official authenticated protocol Client; collection/object creation, transform and independent readback. |
 | GLB and output boundaries | PASS | Independent bytes/hash/JSON/TRS; duplicate target and ../ traversal rejected; bytes/outside absence checked. |
-| Native Godot consumer | PASS for candidate03 artifact | Exact GLB imported/rendered by Godot 4.7.2; expected mesh and converted TRS. Godot broker was not used. |
+| Native Godot consumer | PASS for candidate03 and candidate09 artifacts | Exact GLBs imported/rendered by Godot 4.7.2. Candidate09 checks two meshes, 12 triangles, AABBs, TRS, two materials and linear base colors. Godot broker was not used. |
 | Cancellation during readiness | PASS on candidate04 | Correlated PID/nonce, real Cancel, Host-observed exit, no Ready/adoption; no injected native delay. |
-| P1: complete persistence | PARTIAL | Preflight still rejects factory state. No passing full save/close/reopen run at this checkpoint. |
-| P2: composition and creative edit | NOT_RUN physically | Two-mesh/material proof compiled. Diagnostic RNA reads are not composition acceptance. |
-| P3 / G6 | PARTIAL / NOT_COMPLETE | Mediated Godot integration, real project revisions and human-edit preservation remain pending. |
-| P4 / art | PAUSED / REVISE | No new artistic production or human approval is claimed. |
+| P1: complete persistence | PASS on candidate09 | New-only checkpoint, source flag restoration, confirmed close/reap, fresh hash-bound reopen and retained state; overwrite/live-replacement denials preserve the scene. |
+| P2: bounded composition | PASS on candidate09 | Two original meshes/materials, trusted Effect Conformance, independent readback, incremental transform, stale/replay rejection without effects, save/reopen and static structural preservation. Candidates10/11 additionally produced original Archipelago rock and threshold components through the same typed route. |
+| P3 / G6 | PARTIAL / NOT_COMPLETE | Real project revisions r22/r23 exist; mediated Godot integration and human-edit preservation remain pending. |
+| P4 / art | IN_PROGRESS / REVISE | Original assets were made through the broker; the lighthouse mass remains conical and the overall scene remains far below the references. No human acceptance. |
 | Linux 4.5.14 / 5.2.1 native | NOT_RUN | Existing route retained; Windows results cannot certify Linux. |
 
 The original Semwright installation and interactive Blender were not replaced. Candidates use private local binaries, configuration, mounts, state and pipes. No upstream push, PR, merge, release or external CI was performed.
@@ -62,10 +62,28 @@ Observed checks include 19 checkpoint unit tests, three bundle tests, Windows SD
 
 Native candidates have binary pins/source snapshots, authenticated request/envelope records, Host PID/nonce attestations and preserved failures. Acceptance must use the exact tested candidate, not inherit results from another build.
 
-Candidate08 reached the new inspection response but the closed driver output schema rejected the two added inventory counts. It remains a failed fixture, with no checkpoint save. The schema now declares those exact bounded counts; 17 driver tests and build10 passed. This correction has not yet earned a physical lifecycle PASS.
+Candidate08 reached the new inspection response but the closed driver output schema rejected the two added inventory counts. It remains a failed fixture, with no checkpoint save. The schema now declares those exact bounded counts; 17 driver tests and build10 passed. Candidate09 subsequently passed the full physical lifecycle fixture on build10.
 
 Frozen evidence for retired candidates03–07 is under crates/driver-blender/evidence/windows-native-profile-20261029/checkpoint01. It preserves raw payloads, original failures, base-plus-overlay source snapshots and local audit/request/envelope correlation. See its manifest and README for scope.
 
-## Next closure
+## Physical closure on candidate09
 
-Obtain a passing physical checkpoint/close/reopen run on build10. Execute the prepared composition proof and correlate requests with broker audit. Subsequent creative production must use Semwright and update the existing Godot project while preserving human cameras.
+Full lifecycle fixture: PASS, receipt SHA-256 5502aa846937c004beccd9d4684157abbb3864a4a6b48adaca55f26b4670290a.
+Typed authoring fixture: PASS, receipt SHA-256 ef8b99af8b9c5894f8bbe1687e8b9cc961ff5ad2ff31467f2cd6de01ae3a8ab0.
+Its recovery .blend is 660,355 bytes, SHA-256 683d2e2f2f5e944df3902bdeac96a30eb30cb821d9ba0d2e8a4dd45ba7098383.
+The exported GLB is 3,232 bytes, SHA-256 4662b0d93ef7e6187c79e5d83829f8ed5dc75ef4153ab8080f021480ac672b52.
+Native Godot 1280x720 capture SHA-256 f25155383f6719aa819ee7266c28f06248ee6b0eda2f8544731744c80b78da51.
+
+The authoring proof compares fresh-session structure by RNA relation names/types and channel names/counts; it does not promise full shader socket/UI state equality. The content preserved outside the managed composition is a factory fixture, not a human edit. Expected Host termination follows verified saving; observed native exit code 1 accompanies kill_completed/wait_completed, not a claim of graceful Blender shutdown.
+
+Frozen candidate08 failure and candidate09 success are in checkpoint02 beside checkpoint01. Source overlays identify their base commits in the build reports. The archive correlates 156 request/envelope pairs with local audit records. Published-feature readiness, Linux native regression, whole-product G6 and artistic acceptance remain open.
+
+## Creative project revisions and next closure
+
+Candidate10/static-asset-attempt03 produced the original r22 lighthouse rock: 518 source vertices, 1,024 triangles, three meshes and one material. Receipt f540a2b0265d4df55359bbdc9d9d23be6ce5c6b7976f49fd5f66ab932cb33f5f; GLB 6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3. Two prior attempts exceeded unchanged structural budgets; both failures are retained. The successful plan contained 12,751 JSON nodes.
+
+Native Godot consumed the exact artifact in the existing project. A 16-point forward route passed, but an added 15-point return/three-lane route found a real 0.325 m deck lip and failed. Candidate11/static-asset-attempt01 then produced a separate eight-vertex, 12-triangle threshold via typed composition, persistence, fresh reopen and export. Receipt e3606a8eea0f2d06d0604eb278fc8109a658098a3414d9550a4ba4d9fb8e0c6f; GLB def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8. The unchanged route and controller passed all 15 points after this geometric repair.
+
+Four existing 1920x1080 views were captured in each revision. Art remains REVISE. No human camera-plan file exists, so unchanged agent camera definitions are only a technical preservation check. Godot was still a direct native consumer, not broker-mediated. Candidates10/11 were retired with every recorded PID absent.
+
+Next: qualify the existing first-party Godot Windows Host pipe plus trusted EditorPlugin for bounded reimport and readback. The Godot driver compiled successfully; compilation is not execution or platform certification. Its editor process must be described separately from the confined driver. Full Windows authoring, real human-edit preservation and Linux regression remain open.

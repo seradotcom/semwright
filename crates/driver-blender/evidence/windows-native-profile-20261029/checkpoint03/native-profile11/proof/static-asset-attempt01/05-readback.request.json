@@ -1,0 +1,9 @@
+{
+  "args": {
+    "island": "c242f21a199d4bea914cd4405adc2d16"
+  },
+  "backend": null,
+  "command": "driver.blender.composition.inspect",
+  "dry_run": false,
+  "request_id": "74f2165bb2a544228ea9d45ba611ceda"
+}

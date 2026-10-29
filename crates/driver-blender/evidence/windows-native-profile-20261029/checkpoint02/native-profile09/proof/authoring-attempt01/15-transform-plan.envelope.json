@@ -1,0 +1,166 @@
+{
+  "command": "driver.blender.composition.plan",
+  "data": {
+    "plan": {
+      "body": {
+        "base": [
+          {
+            "concurrency": "best_effort_revalidate",
+            "document_id": "blender-authoring-workspace",
+            "generation": "d575b41811af4975ab5d333156edf72f",
+            "key": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            },
+            "provider_session": "078cc0a7a9134a86ba5fe711cd35e569",
+            "revision": {
+              "kind": "fingerprint",
+              "value": "285fb5db8623baf3ee7cf9baf7ccf5b313cfb3ae117926860d1d93d01c38758b"
+            }
+          }
+        ],
+        "budget": {
+          "max_elapsed_ms": 300000,
+          "max_findings": 512,
+          "max_iterations": 3,
+          "max_observations": 64,
+          "max_operations": 512
+        },
+        "changes": {
+          "atomicity": "non_atomic_sequence",
+          "operations": [
+            {
+              "depends_on": [],
+              "effects": [
+                "update_owned_object"
+              ],
+              "id": "transform-tetra",
+              "payload": {
+                "entity": "tetra",
+                "island": "cec43badb8114c179b8004ca426149a3",
+                "kind": "transform",
+                "meters_per_unit": 1.0,
+                "transform": {
+                  "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ],
+                  "translation": [
+                    1.0,
+                    2.0,
+                    0.5
+                  ]
+                }
+              },
+              "postconditions": [
+                "blender.plan-native-readback.v1"
+              ],
+              "reads": [
+                {
+                  "logical_id": "transform-tetra",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ],
+              "writes": [
+                {
+                  "logical_id": "transform-tetra",
+                  "property": "declared-native-state",
+                  "resource": {
+                    "provider": "driver:blender",
+                    "resource": "authoring-workspace"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "contract_version": 1,
+        "dependencies": {
+          "effects.contract": "0c397671d7b78bd2c453543c9258cb8e77af9a2b91772a869c878359d85acb24"
+        },
+        "intent": {
+          "entity": "tetra",
+          "expected_fingerprint": "285fb5db8623baf3ee7cf9baf7ccf5b313cfb3ae117926860d1d93d01c38758b",
+          "island": "cec43badb8114c179b8004ca426149a3",
+          "kind": "transform",
+          "meters_per_unit": 1.0,
+          "transform": {
+            "rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "translation": [
+              1.0,
+              2.0,
+              0.5
+            ]
+          }
+        },
+        "intent_digest": "3b7cdaa4dc12a40fd5615c9d0393e667e6260926c3ca90534683958d97d49b6f",
+        "observation_scope": [
+          {
+            "logical_id": "transform-tetra",
+            "property": "declared-native-state",
+            "resource": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            }
+          }
+        ],
+        "owner": {
+          "principal": "host_session",
+          "session": "078cc0a7a9134a86ba5fe711cd35e569"
+        },
+        "profile": {
+          "id": "blender-native-authoring",
+          "intent_schema": "2289c624552c94a44de90654876655e5054ca7b0fc55b74259044d8dea29d5e8",
+          "operation_schema": "fee167754621bbb3f9a7c84bdad613dfea9b17bc316b6da1bd3d8be914fb0943",
+          "version": 1
+        },
+        "require_compare_and_swap": false,
+        "required_rules": [
+          "blender.plan-native-readback.v1"
+        ]
+      },
+      "digest": "6d851d858f4549efa011600dc93311c207b20d4fcbb4c4ce1c62d07bf5b548df"
+    },
+    "plan_ref": "c63249bf9a9a4c0cb76c0ea581d839d2"
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 251,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "216bb335fb5828bbff3d8d8e514f28042910395fb877cce6447ef71705e6cde6",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "167a27b2696646158dd8945e2fd1b8fc",
+  "warnings": []
+}

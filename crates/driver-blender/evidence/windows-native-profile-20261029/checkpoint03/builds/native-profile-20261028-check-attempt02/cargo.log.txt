@@ -1,0 +1,100 @@
+    Checking semwright-platform-windows-sys v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows-sys)
+    Checking log v0.4.34
+    Checking icu_properties v2.3.0
+    Checking semwright-platform-services v1.0.0 (E:\Projects\semwright-blender52\crates\platform-services)
+    Checking semwright-protocol v1.0.0 (E:\Projects\semwright-blender52\crates\protocol)
+    Checking semwright-policy v1.0.0 (E:\Projects\semwright-blender52\crates\policy)
+    Checking semwright-driver-sdk v1.0.0 (E:\Projects\semwright-blender52\crates\driver-sdk)
+    Checking semwright-project-graph v1.0.0 (E:\Projects\semwright-blender52\crates\project-graph)
+    Checking semwright-driver-host v1.0.0 (E:\Projects\semwright-blender52\crates\driver-host)
+    Checking semwright-plugin-sdk v1.0.0 (E:\Projects\semwright-blender52\crates\plugin-sdk)
+    Checking semwright-plugin-host v1.0.0 (E:\Projects\semwright-blender52\crates\plugin-host)
+    Checking semwright-core v1.0.0 (E:\Projects\semwright-blender52\crates\core)
+    Checking semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+    Checking icu_normalizer v2.3.0
+    Checking chacha20 v0.10.2
+    Checking tracing v0.1.44
+    Checking rand v0.10.3
+    Checking idna_adapter v1.2.2
+    Checking httparse v1.10.1
+    Checking sha1 v0.11.0
+    Checking futures-executor v0.3.34
+    Checking http v1.5.0
+    Checking base64 v0.23.1
+    Checking anstyle v1.0.14
+    Checking utf8parse v0.2.2
+    Checking once_cell_polyfill v1.70.2
+    Checking anstyle-wincon v3.0.11
+    Checking tungstenite v0.30.0
+    Checking anstyle-parse v1.0.0
+    Checking futures v0.3.34
+    Checking idna v1.1.0
+    Checking form_urlencoded v1.2.2
+    Checking anstyle-query v1.1.5
+    Checking is_terminal_polyfill v1.70.2
+    Checking colorchoice v1.0.5
+    Checking winnow v1.0.4
+    Checking anstream v1.0.0
+    Checking uiautomation v0.25.1
+    Checking toml_parser v1.1.3+spec-1.1.0
+    Checking tokio-tungstenite v0.30.0
+    Checking url v2.5.8
+    Checking process-wrap v10.0.1
+    Checking semwright-platform-common v1.0.0 (E:\Projects\semwright-blender52\crates\platform-common)
+    Checking tokio-stream v0.1.19
+    Checking toml_datetime v1.1.1+spec-1.1.0
+    Checking serde_spanned v1.1.1
+    Checking toml_writer v1.1.2+spec-1.1.0
+    Checking clap_lex v1.1.1
+    Checking lazy_static v1.5.0
+    Checking strsim v0.11.1
+    Checking sharded-slab v0.1.7
+    Checking clap_builder v4.6.7
+    Checking rmcp v3.5.0
+    Checking toml v1.1.6+spec-1.1.0
+    Checking semwright-platform-windows v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows)
+    Checking semwright-adapters v1.0.0 (E:\Projects\semwright-blender52\crates\adapters)
+    Checking tracing-log v0.2.0
+    Checking tracing-serde v0.2.0
+    Checking matchers v0.2.0
+    Checking nu-ansi-term v0.50.3
+    Checking thread_local v1.1.10
+    Checking tracing-subscriber v0.3.23
+    Checking clap v4.6.7
+    Checking semwright-platform-host v1.0.0 (E:\Projects\semwright-blender52\crates\platform-host)
+    Checking semwright-backends v1.0.0 (E:\Projects\semwright-blender52\crates\backends)
+error[E0433]: cannot find `unix` in `os`
+  --> crates\driver-blender\tests\live.rs:11:9
+   |
+11 |     os::unix::fs::PermissionsExt,
+   |         ^^^^ could not find `unix` in `os`
+
+error[E0599]: no associated function or constant named `from_mode` found for struct `Permissions` in the current scope
+  --> crates\driver-blender\tests\live.rs:60:71
+   |
+60 |     std::fs::set_permissions(binary_dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+   |                                                                       ^^^^^^^^^ associated function or constant not found in `Permissions`
+
+error[E0599]: no associated function or constant named `from_mode` found for struct `Permissions` in the current scope
+  --> crates\driver-blender\tests\live.rs:63:65
+   |
+63 |     std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+   |                                                                 ^^^^^^^^^ associated function or constant not found in `Permissions`
+
+error[E0599]: no associated function or constant named `from_mode` found for struct `Permissions` in the current scope
+  --> crates\driver-blender\tests\live.rs:66:69
+   |
+66 |     std::fs::set_permissions(&session_runner, std::fs::Permissions::from_mode(0o700)).unwrap();
+   |                                                                     ^^^^^^^^^ associated function or constant not found in `Permissions`
+
+error[E0599]: no associated function or constant named `from_mode` found for struct `Permissions` in the current scope
+  --> crates\driver-blender\tests\live.rs:93:66
+   |
+93 |     std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+   |                                                                  ^^^^^^^^^ associated function or constant not found in `Permissions`
+
+    Checking semwright-federation v1.0.0 (E:\Projects\semwright-blender52\crates\federation)
+Some errors have detailed explanations: E0433, E0599.
+For more information about an error, try `rustc --explain E0433`.
+error: could not compile `semwright-driver-blender` (test "live") due to 5 previous errors
+warning: build failed, waiting for other jobs to finish...

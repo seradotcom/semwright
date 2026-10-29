@@ -1,0 +1,156 @@
+{
+  "A05": "BLOCKED_PENDING_GODOT_AND_LIFECYCLE_EVIDENCE",
+  "Godot_import": "NOT_RUN",
+  "art_approval": false,
+  "broker_used": true,
+  "client": "semwright_protocol::Client",
+  "close_acknowledged": false,
+  "close_error": "Cleanup declined after read-only inspection: Err(\"cleanup-inspect: broker operation failed\")",
+  "connection": "single authenticated connection; ticket in memory only",
+  "elapsed_ms": 16688,
+  "error": "checkpoint-inspect: broker operation failed",
+  "native_attestation": "VERIFY_CORRELATED_HOST_LOG",
+  "physical_reap": "VERIFY_HOST_PID",
+  "proof": null,
+  "requests": [
+    {
+      "command": "driver.blender.introspect.summary",
+      "elapsed_ms": 15136,
+      "envelope_sha256": "9f1bde78648428ebe301ba124b365f0b69d5f1e76b8b32d14e74f8de0161f0d9",
+      "error": null,
+      "label": "summary",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "ae3f7362d1e444cfbca64350cd3d8059",
+      "request_sha256": "821565e96887cb9119b16a09b1fdef46e17a63cbea3a6631c9878f5ad71e974e"
+    },
+    {
+      "command": "driver.blender.collection.create",
+      "elapsed_ms": 83,
+      "envelope_sha256": "81eff6a266ed8af1559d12fb84edc3a1bd0a79f5cc87b3316853d344ff9c2ada",
+      "error": null,
+      "label": "collection",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "e3f58d8b739e464e92af5e3e6816bc72",
+      "request_sha256": "95e82d1df8dcc42d2872283f1b4c2f2a2e91619198d1c9efaae0860161d15ee3"
+    },
+    {
+      "command": "driver.blender.object.create",
+      "elapsed_ms": 76,
+      "envelope_sha256": "51816249b3f0b3b279be6a96f014f1e2355d3d37abd27a20d98961c89f2cf97d",
+      "error": null,
+      "label": "object",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "a76526289dda4f6b8b71b52b647946e9",
+      "request_sha256": "dbc652df75f3eee6f1cf5fbcf9816d49787ef630816e391b9f04c317500f950f"
+    },
+    {
+      "command": "driver.blender.collection.link",
+      "elapsed_ms": 68,
+      "envelope_sha256": "991ab2ac7640f72d01a34d2fefb5d4a8ec36957568244db97944b21f7d401378",
+      "error": null,
+      "label": "link",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "4273bc09c9a9460e8b8090eac6f60c3a",
+      "request_sha256": "8aa4c817acf2ed094d1dbd2d3db18b5d451cfb0cf28e3b2b76fb23b04d77e60b"
+    },
+    {
+      "command": "driver.blender.object.transform",
+      "elapsed_ms": 81,
+      "envelope_sha256": "8a0a89252d43733d4d3555bdb8b1b44ee90eabea79cf693153de9a77c9f57e1b",
+      "error": null,
+      "label": "transform",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "73ce5df44a1c4b0783a8e218b586c91e",
+      "request_sha256": "3bd240cfdbd0b53c7ae5c89b23fba6a2f1dde441b892d16c02ec16c7657913d1"
+    },
+    {
+      "command": "driver.blender.object.get",
+      "elapsed_ms": 99,
+      "envelope_sha256": "e05af94f64b0650cbf389093e997b48322f700e0017aa9047b24cca7fb5ae5a0",
+      "error": null,
+      "label": "readback",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "5e5e66c7fe2548939fd1cf8ea33d3340",
+      "request_sha256": "02372b610006dedeabce6cf90d429bd03a7898df14aa74864964d478beb2f407"
+    },
+    {
+      "command": "driver.blender.export.glb",
+      "elapsed_ms": 870,
+      "envelope_sha256": "3b22b6ad286106856d32d92b59832f56f9a599c3d1325f9c59932a7b4e16f47c",
+      "error": null,
+      "label": "export",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "32faed9d31b949e0b473350a42188802",
+      "request_sha256": "cea40633095f467c1d2aa81902152952e23671d8d47413c3eae582ff150c5ac6"
+    },
+    {
+      "command": "driver.blender.export.glb",
+      "elapsed_ms": 68,
+      "envelope_sha256": "4f35e9d5e95d988de97093f9df71339af9986072f85b51c5f409a4cdfea61528",
+      "error": {
+        "code": "Conflict",
+        "message": "Driver reported an error; untrusted payload was redacted",
+        "outcome_known": false
+      },
+      "label": "deny-overwrite",
+      "ok": false,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "8a2cc3c70a9d45ecb46617f7ea45a831",
+      "request_sha256": "9b7ebdc32bf968b9246b3380766685bda78d08808bf82b06fc36a425bf75b039"
+    },
+    {
+      "command": "driver.blender.export.glb",
+      "elapsed_ms": 60,
+      "envelope_sha256": "955e9f8d7c61128b07ee18b92146e2d119e783a2c3669156235db7fe507db2bf",
+      "error": {
+        "code": "PolicyDenied",
+        "message": "Driver reported an error; untrusted payload was redacted",
+        "outcome_known": false
+      },
+      "label": "deny-traversal",
+      "ok": false,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "5685d479244240e6bc62f1c8af88209e",
+      "request_sha256": "f948fd365267bfb447bcaeb781f65ea55430185c8f83486cff3ef9e4fbc52452"
+    },
+    {
+      "command": "driver.blender.session.checkpoint.inspect",
+      "elapsed_ms": 65,
+      "envelope_sha256": "88feeb189c0972f7d6f88526c45662d3d4bef10cd0ba1f9d7d3ea04e5de98c22",
+      "error": {
+        "code": "PluginProtocolError",
+        "message": "Driver reported an error; untrusted payload was redacted",
+        "outcome_known": false
+      },
+      "label": "checkpoint-inspect",
+      "ok": false,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "236c2f0390c148119eb65db228205aff",
+      "request_sha256": "0110d95ed9a2e295a42a77e1b0d4e2b1748e0e8886cf06f0cd73d1664333309c"
+    },
+    {
+      "command": "driver.blender.session.checkpoint.inspect",
+      "elapsed_ms": 34,
+      "envelope_sha256": "40faf8f52bf76d1c5d8ec18915182dad3522d8f57ce7550deb194548751f0ac4",
+      "error": {
+        "code": "PluginProtocolError",
+        "message": "Driver reported an error; untrusted payload was redacted",
+        "outcome_known": false
+      },
+      "label": "cleanup-inspect",
+      "ok": false,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "80958d5d94ce4da79a64d7bd7453f979",
+      "request_sha256": "ec72ea1e4f14cc17ea9b2388328972dc76d9780af216579f7034c4d446d4650a"
+    }
+  ],
+  "schema": 1,
+  "typed_fixture": "FAIL"
+}

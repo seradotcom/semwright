@@ -1,0 +1,41 @@
+{
+  "command": "driver.blender.composition.persist",
+  "data": {
+    "bytes": 82494,
+    "fresh_process_verified": false,
+    "inventory": {
+      "collection": "SW_dc08abe78a2a_GEO01_FARO_SEMWRIGHT_R22",
+      "objects": [
+        "SW_dc08abe78a2a_coastal_toe",
+        "SW_dc08abe78a2a_integrated_limestone",
+        "SW_dc08abe78a2a_low_shelf"
+      ]
+    },
+    "island": "dc08abe78a2a455b89291e196b92f586",
+    "method": "libraries-write-indirect-closure",
+    "path": "static-asset-attempt03/asset-library.blend",
+    "sha256": "f1d703361504b2603a396e29a93691604489b2bac07f0f69fcf5866b557f610b",
+    "source_fingerprint": "f94e92d7b33768d8ec91c22511cfcd5fb4b7f62e60c94577d002d660530bc816"
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 172,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "8c3a0bfe8daa739ae0f507b38e8d2d214a3b7030225ddc5e72e29a236b670108",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "29f31d8eeb164d5497c0fa3efcb83d38",
+  "warnings": []
+}

@@ -1,0 +1,11 @@
+{
+  "args": {
+    "animations": false,
+    "collection": "SW_dc08abe78a2a_GEO01_FARO_SEMWRIGHT_R22",
+    "path": "static-asset-attempt03/asset.glb"
+  },
+  "backend": null,
+  "command": "driver.blender.export.glb",
+  "dry_run": false,
+  "request_id": "7130649de9a84eb9ad626a6b6566800c"
+}

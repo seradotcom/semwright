@@ -1,0 +1,30 @@
+
+running 1 test
+test windows_production_broker_persistent_typed_fixture ... BROKER_PROOF_STEP {"label":"summary","ok":true,"request_id":"5149cf474e54427b86c426b185110f08"}
+BROKER_PROOF_STEP {"label":"collection","ok":true,"request_id":"067b0a3f9aa54e23ad22d931e178635f"}
+BROKER_PROOF_STEP {"label":"object","ok":true,"request_id":"5eb1b64a5cf44a5c8b98e7701e378592"}
+BROKER_PROOF_STEP {"label":"link","ok":true,"request_id":"f7c1d3023e6d42649e02504d0b007e34"}
+BROKER_PROOF_STEP {"label":"transform","ok":true,"request_id":"7dcb7305acaa43258db047d67fa67ffd"}
+BROKER_PROOF_STEP {"label":"readback","ok":true,"request_id":"479c4f19f6f545cb9567c4a302b98984"}
+BROKER_PROOF_STEP {"label":"export","ok":true,"request_id":"dec4ea0fd43742a3ab5f71ce252f90d1"}
+BROKER_PROOF_STEP {"label":"deny-overwrite","ok":false,"request_id":"7eba08dddf3c4098bfd6c0e3b150a8c8"}
+BROKER_PROOF_STEP {"label":"deny-traversal","ok":false,"request_id":"30a78828fa114982989765e74396e4b4"}
+BROKER_PROOF_STEP {"label":"checkpoint-inspect","ok":true,"request_id":"6833f639a992442ba8519dd6c4652309"}
+BROKER_PROOF_STEP {"label":"checkpoint-copy","ok":true,"request_id":"173768dc87bf4d5ea0aa359a13ba01da"}
+BROKER_PROOF_STEP {"label":"source-orphan","ok":true,"request_id":"c612486ab150425999f692694913716c"}
+BROKER_PROOF_STEP {"label":"source-orphan-flag","ok":true,"request_id":"3fb6a1703f5a449fbee248627dcd240a"}
+BROKER_PROOF_STEP {"label":"checkpoint-close","ok":true,"request_id":"8bafe17557d44e82a0f4eee8312c527c"}
+BROKER_PROOF_STEP {"label":"reopen-fresh","ok":true,"request_id":"92bc35d5e7b84192af8986d3e0ca0097"}
+BROKER_PROOF_STEP {"label":"recovered-orphan","ok":true,"request_id":"8e56e20429494f83b2f6c18fedb00f34"}
+BROKER_PROOF_STEP {"label":"recovered-orphan-flag","ok":true,"request_id":"f5cd6369526f44f6bf527cebcee79ab2"}
+BROKER_PROOF_STEP {"label":"reopen-readback","ok":true,"request_id":"8e2081db5aef4442a71c8d131a488e4b"}
+BROKER_PROOF_STEP {"label":"deny-replace-live-session","ok":false,"request_id":"46c0adeb7dc04efca3cc6d991f54020a"}
+BROKER_PROOF_STEP {"label":"deny-checkpoint-overwrite","ok":false,"request_id":"e9c3a33b971f4101868c9f274cabe3a8"}
+BROKER_PROOF_STEP {"label":"retained-readback","ok":true,"request_id":"40355032f90a468b8b8148ff47206d64"}
+BROKER_PROOF_STEP {"label":"cleanup-inspect","ok":true,"request_id":"f427541eb9714b4dbdf954c2a51c5926"}
+BROKER_PROOF_STEP {"label":"close","ok":true,"request_id":"c05dc14ece734c6cb257d435f9cb25db"}
+BROKER_PROOF_RECEIPT {"close_ack":true,"passed":true,"receipt_sha256":"5502aa846937c004beccd9d4684157abbb3864a4a6b48adaca55f26b4670290a"}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 38.45s
+

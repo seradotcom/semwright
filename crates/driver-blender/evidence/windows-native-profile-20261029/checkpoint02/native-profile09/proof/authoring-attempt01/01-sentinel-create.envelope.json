@@ -1,0 +1,49 @@
+{
+  "command": "driver.blender.object.create",
+  "data": {
+    "changed": true,
+    "object": {
+      "collections": [
+        "Scene Collection"
+      ],
+      "location": [
+        1.0,
+        2.0,
+        3.0
+      ],
+      "name": "AuthoringSentinel",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "type": "EMPTY"
+    }
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 60,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1.0",
+      "catalog_revision": 160,
+      "descriptor_sha256": "049b4b96776e2f03592be0759e90ae2e42343fd506d8ae74d626b560438d2b99",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "991876e80edf4d24850a7c731459a7c9",
+  "warnings": []
+}

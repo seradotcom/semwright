@@ -1,0 +1,2353 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T02:36:25.608205+00:00",
+  "archive": "E:\\Projects\\semwright-blender52\\crates\\driver-blender\\evidence\\windows-native-profile-20261029\\checkpoint03",
+  "candidates": [
+    {
+      "candidate": "native-profile10",
+      "audit_sha256": "dca1bc24ccac5c291e6c6fd959cdafcc5fd00973821c6b2b0c18b73e418fd9bd",
+      "records": 48,
+      "chain_valid": true,
+      "tail_hash": "42d02afa3fd65dc6496337853fab32e0c1e788a785a622dd31d349c2470d29b2",
+      "matched_requests": [
+        {
+          "request": "static-asset-attempt01/00-version.request.json",
+          "request_id": "0866309ab58343a8a6748a751c52d8f3",
+          "command": "driver.blender.introspect.summary",
+          "start_sequence": 1,
+          "finish_sequence": 2,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/01-baseline.request.json",
+          "request_id": "d3df2033cf5a448db3f900c6df205e58",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 3,
+          "finish_sequence": 4,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/02-plan.request.json",
+          "request_id": "832ad4ab84c445af9e3362a7491ea4de",
+          "command": "driver.blender.composition.plan",
+          "start_sequence": 5,
+          "finish_sequence": 6,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/03-cleanup-inspect.request.json",
+          "request_id": "dc0a3f1c9dc64566b8f002604102d682",
+          "command": "driver.blender.session.checkpoint.inspect",
+          "start_sequence": 7,
+          "finish_sequence": 8,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/04-final-close.request.json",
+          "request_id": "02c5705f2bb04b568b6a2c40c5e11a80",
+          "command": "driver.blender.session.checkpoint_close",
+          "start_sequence": 9,
+          "finish_sequence": 10,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt02/00-version.request.json",
+          "request_id": "849e0051e2264107b4678cc17adb5a16",
+          "command": "driver.blender.introspect.summary",
+          "start_sequence": 11,
+          "finish_sequence": 12,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt02/01-baseline.request.json",
+          "request_id": "20a6acae155a49ac9429df504f89ad80",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 13,
+          "finish_sequence": 14,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt02/02-plan.request.json",
+          "request_id": "f44a56a0374c4bd584bfc9ec78458bfa",
+          "command": "driver.blender.composition.plan",
+          "start_sequence": 15,
+          "finish_sequence": 16,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt02/03-cleanup-inspect.request.json",
+          "request_id": "b37ab83aac50493db265a4b0a8e8f62f",
+          "command": "driver.blender.session.checkpoint.inspect",
+          "start_sequence": 17,
+          "finish_sequence": 18,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt02/04-final-close.request.json",
+          "request_id": "21f4a7d540ae4187bb67d1f5ec2d869c",
+          "command": "driver.blender.session.checkpoint_close",
+          "start_sequence": 19,
+          "finish_sequence": 20,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/00-version.request.json",
+          "request_id": "6d00df890bde491e97af2309db17a841",
+          "command": "driver.blender.introspect.summary",
+          "start_sequence": 21,
+          "finish_sequence": 22,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/01-baseline.request.json",
+          "request_id": "7db036c7b2644826b32d2b9be70e6161",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 23,
+          "finish_sequence": 24,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/02-plan.request.json",
+          "request_id": "ead08a0a33884a9f8a536090e346f659",
+          "command": "driver.blender.composition.plan",
+          "start_sequence": 25,
+          "finish_sequence": 26,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/03-plan-readonly.request.json",
+          "request_id": "71f0009d8d694dbc939727bc70ff8f59",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 27,
+          "finish_sequence": 28,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/04-apply.request.json",
+          "request_id": "4dcd8808c1934961bc90ed13f37fc501",
+          "command": "driver.blender.composition.apply",
+          "start_sequence": 29,
+          "finish_sequence": 30,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/05-readback.request.json",
+          "request_id": "76807609d12343229fe7e1b63de30c0f",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 31,
+          "finish_sequence": 32,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/06-unmanaged-readback.request.json",
+          "request_id": "207bc3f3f38742c59a5bd00fb2cb04c8",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 33,
+          "finish_sequence": 34,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/07-persist-library.request.json",
+          "request_id": "29f31d8eeb164d5497c0fa3efcb83d38",
+          "command": "driver.blender.composition.persist",
+          "start_sequence": 35,
+          "finish_sequence": 36,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/08-checkpoint-close.request.json",
+          "request_id": "e8a41a838620473f9bda88030437d417",
+          "command": "driver.blender.session.checkpoint_close",
+          "start_sequence": 37,
+          "finish_sequence": 38,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/09-reopen.request.json",
+          "request_id": "c63770cadc494d84bc4d7a7a13815208",
+          "command": "driver.blender.session.open",
+          "start_sequence": 39,
+          "finish_sequence": 40,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/10-reopened-readback.request.json",
+          "request_id": "e24a1cf5b82d47c2b207ae5e3c1cf049",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 41,
+          "finish_sequence": 42,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/11-export.request.json",
+          "request_id": "7130649de9a84eb9ad626a6b6566800c",
+          "command": "driver.blender.export.glb",
+          "start_sequence": 43,
+          "finish_sequence": 44,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/12-cleanup-inspect.request.json",
+          "request_id": "2fab1be48d3949febf2156132467f02f",
+          "command": "driver.blender.session.checkpoint.inspect",
+          "start_sequence": 45,
+          "finish_sequence": 46,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt03/13-final-close.request.json",
+          "request_id": "f0c759f4104e40dfa2397216dbdc3f53",
+          "command": "driver.blender.session.checkpoint_close",
+          "start_sequence": 47,
+          "finish_sequence": 48,
+          "envelope_correlated": true
+        }
+      ],
+      "unmatched_requests": []
+    },
+    {
+      "candidate": "native-profile11",
+      "audit_sha256": "ccf162c42c86c20108cc1c490c24647d0872a4c66c17211fed55772d7860cb9d",
+      "records": 28,
+      "chain_valid": true,
+      "tail_hash": "3a009e4c81fe86efbaf60ae2bde137a82ad4f5ef7db3d564f521c40161162416",
+      "matched_requests": [
+        {
+          "request": "static-asset-attempt01/00-version.request.json",
+          "request_id": "c5c062afcfb14581bc2d96c10dcb434d",
+          "command": "driver.blender.introspect.summary",
+          "start_sequence": 1,
+          "finish_sequence": 2,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/01-baseline.request.json",
+          "request_id": "36a3e6cc242d4d9cb223821d56e3ae8e",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 3,
+          "finish_sequence": 4,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/02-plan.request.json",
+          "request_id": "3f3071f3a2294f2d94dd24832c47883a",
+          "command": "driver.blender.composition.plan",
+          "start_sequence": 5,
+          "finish_sequence": 6,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/03-plan-readonly.request.json",
+          "request_id": "c0d337e7da0c494582e5bcfb6a67b6f3",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 7,
+          "finish_sequence": 8,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/04-apply.request.json",
+          "request_id": "fcc9136a17ff46cf85cda17d8c09816f",
+          "command": "driver.blender.composition.apply",
+          "start_sequence": 9,
+          "finish_sequence": 10,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/05-readback.request.json",
+          "request_id": "74f2165bb2a544228ea9d45ba611ceda",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 11,
+          "finish_sequence": 12,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/06-unmanaged-readback.request.json",
+          "request_id": "ab3c0377a88d4aa7a84a24865dd5b26a",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 13,
+          "finish_sequence": 14,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/07-persist-library.request.json",
+          "request_id": "fec83092fe60437289beb275470c4932",
+          "command": "driver.blender.composition.persist",
+          "start_sequence": 15,
+          "finish_sequence": 16,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/08-checkpoint-close.request.json",
+          "request_id": "655544848a4d449e8918c4ea547e96c1",
+          "command": "driver.blender.session.checkpoint_close",
+          "start_sequence": 17,
+          "finish_sequence": 18,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/09-reopen.request.json",
+          "request_id": "58c0a26d5458491981046de116dd7e4d",
+          "command": "driver.blender.session.open",
+          "start_sequence": 19,
+          "finish_sequence": 20,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/10-reopened-readback.request.json",
+          "request_id": "c7714658cc2f410abba5d739e331dbbe",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 21,
+          "finish_sequence": 22,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/11-export.request.json",
+          "request_id": "d1e56ad3c7aa4efc88a6dcdcb48f8c4a",
+          "command": "driver.blender.export.glb",
+          "start_sequence": 23,
+          "finish_sequence": 24,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/12-cleanup-inspect.request.json",
+          "request_id": "a702acafbc154a5dacaff7c9a829857d",
+          "command": "driver.blender.session.checkpoint.inspect",
+          "start_sequence": 25,
+          "finish_sequence": 26,
+          "envelope_correlated": true
+        },
+        {
+          "request": "static-asset-attempt01/13-final-close.request.json",
+          "request_id": "c1165890d041455886ca66f2706d23a5",
+          "command": "driver.blender.session.checkpoint_close",
+          "start_sequence": 27,
+          "finish_sequence": 28,
+          "envelope_correlated": true
+        }
+      ],
+      "unmatched_requests": []
+    }
+  ],
+  "files": [
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-software\\semwright-native-profile10.json",
+      "archive": "native-profile10/candidate.json",
+      "bytes": 94079,
+      "sha256": "5eec987440ca1ca12d64e20fbadbb2bebac62519035ae9a8a1e9fbe429cd1fd7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile10-config\\candidate.toml",
+      "archive": "native-profile10/configuration/candidate.toml",
+      "bytes": 857,
+      "sha256": "f61a4a68669a9bfff6876f3a874bfa4fd7e3a60fe5d6cb72140bf4a7e54b3bb4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile10-config\\blender-windows52.manifest.json",
+      "archive": "native-profile10/configuration/blender-windows52.manifest.json",
+      "bytes": 2865,
+      "sha256": "61ddfd1cbbf8ed113d19ed784bcdd461b93c844d9984137e5265b95315a5964d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile10-config\\mcp-upstreams.toml",
+      "archive": "native-profile10/configuration/mcp-upstreams.toml",
+      "bytes": 27,
+      "sha256": "c9dc7501089bc272c5ded1315d32a8e1c30af4118a5f63fb72b999c3faf59218"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-host-baseline\\native-profile10-launch.json",
+      "archive": "native-profile10/launch.json",
+      "bytes": 1108,
+      "sha256": "7b97df11875f729425a67fdd4838287db8dbc7d8f8d1f0de91e901ee5277adb7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-host-baseline\\native-profile10-broker.stdout.log",
+      "archive": "native-profile10/host-stdout.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-host-baseline\\native-profile10-broker.stderr.log",
+      "archive": "native-profile10/host-stderr.txt",
+      "bytes": 9074,
+      "sha256": "ce9c853313df0764f700dca4400562f294d2188f2325b5392eac4340fa009724"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\b52p10\\state\\audit\\audit.jsonl",
+      "archive": "native-profile10/audit.jsonl",
+      "bytes": 36367,
+      "sha256": "dca1bc24ccac5c291e6c6fd959cdafcc5fd00973821c6b2b0c18b73e418fd9bd"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\controlled-retirement.json",
+      "archive": "native-profile10/proof/controlled-retirement.json",
+      "bytes": 1206,
+      "sha256": "0fee714b35779b2668a47111fd0856050498be1f8f47c030ba16f3686b7f8bd2"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\asset-admission.json",
+      "archive": "native-profile10/proof/creative-handoff/asset-admission.json",
+      "bytes": 3243,
+      "sha256": "111ab02e135937bf2650ceec8834103683cf447d4ef0382856a45815a8c1bad2"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\assets\\FARO_ROCK_library.blend",
+      "archive": "native-profile10/proof/creative-handoff/assets/FARO_ROCK_library.blend",
+      "bytes": 82494,
+      "sha256": "f1d703361504b2603a396e29a93691604489b2bac07f0f69fcf5866b557f610b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\assets\\FARO_ROCK_scene.blend",
+      "archive": "native-profile10/proof/creative-handoff/assets/FARO_ROCK_scene.blend",
+      "bytes": 699546,
+      "sha256": "8c49ad77ba0e6d571f0cfafd45cebb4a6aa45ac380f64afcb705df08415a3d91"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\assets\\GEO01_FARO_SEMWRIGHT_R22.glb",
+      "archive": "native-profile10/proof/creative-handoff/assets/GEO01_FARO_SEMWRIGHT_R22.glb",
+      "bytes": 64288,
+      "sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\manifest.json",
+      "archive": "native-profile10/proof/creative-handoff/manifest.json",
+      "bytes": 15541,
+      "sha256": "d412b2412d2677da7ed8822e88713d57b7e539a70da043a4e39d51f7ba997a1e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_probe01\\faro_native_probe.gd",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_probe01/faro_native_probe.gd",
+      "bytes": 7837,
+      "sha256": "6f66c3c4d8f82f5487a4cf903819bfa87b1e881c5431281f4a1d31e6bf34fc18"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_probe01\\faro_probe.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_probe01/faro_probe.json",
+      "bytes": 72043,
+      "sha256": "c11f3367939d19db84363fbb0aed88df3505cb8254a3d9c3c05a3b2cb1b592fb"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_probe01\\faro_probe.png",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_probe01/faro_probe.png",
+      "bytes": 936384,
+      "sha256": "f01e3513f5722cbbd9f86fc4a9064bc764d71731721e2f8461d9ba5fad5e3dc1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_probe01\\native.log.txt",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_probe01/native.log.txt",
+      "bytes": 196,
+      "sha256": "b23d3ecaec26af791151c4720e923b97119c04017fda6eb43cb7bccc093fae24"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_probe01\\runner.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_probe01/runner.json",
+      "bytes": 738,
+      "sha256": "e8c46e709e222c26d56d31cf830273b1f6d01d81d116bd17dc5247fcbab690bb"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_roundtrip01\\native.log.txt",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_roundtrip01/native.log.txt",
+      "bytes": 259,
+      "sha256": "986f5e82ceea2a12472583b4b96b8dc2170f2eb38e4892f00215fdb62d78e23f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_roundtrip01\\native_faro_roundtrip.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_roundtrip01/native_faro_roundtrip.json",
+      "bytes": 73740,
+      "sha256": "aa2da251f5242bcc8c513c7a1443c1969375bb40f0f3803a811f39e59db7f8c6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_roundtrip01\\previous_walk_readback.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_roundtrip01/previous_walk_readback.json",
+      "bytes": 99207,
+      "sha256": "c5610274dbbf8cefee108a05b84fe6c14209e9282a220c6760a41c5e33d578c5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_roundtrip01\\runner.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_roundtrip01/runner.json",
+      "bytes": 1410,
+      "sha256": "f024229528ff7de0620a8bb8dfc8469e191b93700a2c0ca5b342ad077336656b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_roundtrip01\\source\\faro_roundtrip.gd",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_roundtrip01/source/faro_roundtrip.gd",
+      "bytes": 457,
+      "sha256": "555e5f19ef517b8f092aecddbb0adf4ab80df6902e5149caa7743059ac91b6d3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_roundtrip01\\source\\harbor_review.gd",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_roundtrip01/source/harbor_review.gd",
+      "bytes": 38496,
+      "sha256": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_roundtrip01\\source\\native_bundle.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_roundtrip01/source/native_bundle.json",
+      "bytes": 23996,
+      "sha256": "4fc215826f5b57d0e0c3aea079df0edb62ca75718f7f6a0a5a9cc9cee7d91189"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_roundtrip01\\source\\review_faro_roundtrip.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_roundtrip01/source/review_faro_roundtrip.json",
+      "bytes": 633,
+      "sha256": "96c41b26be51fe8d96e19d4f34fbd3daf0090a2ecec3a5ad57be547768411ae1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\faro_roundtrip01\\source\\review_walker.gd",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/faro_roundtrip01/source/review_walker.gd",
+      "bytes": 6124,
+      "sha256": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\comprender_1793239992_309.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/comprender_1793239992_309.json",
+      "bytes": 243442,
+      "sha256": "635e6f577498e96fadd3b7294fa9b4e06a24dbb1967c7ce45c6d46a0ea2f7332"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\detail_1793240003_439.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/detail_1793240003_439.json",
+      "bytes": 243589,
+      "sha256": "bc61d166799d2bce10bf1d51dc197af4fe04115fe8f4b37813e264ef7517a373"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\frame_profile.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/frame_profile.json",
+      "bytes": 847753,
+      "sha256": "11962111f395d5e2073c593e7384cdf140822f4fe2c1e10f0fc0f6074172bb5c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\godot-import.log.txt",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/godot-import.log.txt",
+      "bytes": 2103,
+      "sha256": "0c21d2d6771a810575075d52d67655e5cbf6d6ba0b746f84c1169ff840d8b039"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\godot-physical-review.log.txt",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/godot-physical-review.log.txt",
+      "bytes": 154,
+      "sha256": "967af7ea3a1e16444f9ad7e6e7fddeb9e39d6fb3e3588f8a8ec41e6fdcdb78f1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\godot-readback.log.txt",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/godot-readback.log.txt",
+      "bytes": 75,
+      "sha256": "83cf0b082206af2aa236c83064fbcfa76be1e00a4aa3558574b2f65965d9481c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\godot_headless_import_readback.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/godot_headless_import_readback.json",
+      "bytes": 61762,
+      "sha256": "1a155a2478c8e46a795086579f5a0b8fca2849e3485151698288b41fc296e91c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\habitar_1793239981_002.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/habitar_1793239981_002.json",
+      "bytes": 243520,
+      "sha256": "421837541ed7652d9ef09060eedd426919ad961de003989505f71c03dde7a37c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\llegar_1793239969_794.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/llegar_1793239969_794.json",
+      "bytes": 242982,
+      "sha256": "058758ef8c8e4e0eb4f1a42d4cf00c692f39ff3d40061c75c5aa5f1d4f50f8c5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\llegar_1793239969_794_godot.png",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/llegar_1793239969_794_godot.png",
+      "bytes": 755050,
+      "sha256": "dd470ee6d403dcfa57bfbf91bff3b7288c6c76c9bd056545b6ad530b77ecf1ba"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\native_runs.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/native_runs.json",
+      "bytes": 1365,
+      "sha256": "d5d7b2adddadd834789dee1af45266ca93bed22b9593f9b221cad40d600b6ade"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\nvidia-gpu-samples.csv",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/nvidia-gpu-samples.csv",
+      "bytes": 5085,
+      "sha256": "37b94107883ac5b31c954df16658cd0a1d40c17c9793f547595dbace1ac19523"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\review_sequence_complete.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/review_sequence_complete.json",
+      "bytes": 62,
+      "sha256": "e4208654e5721d750b5d441cc2f00313d709a782c32cd1fd55ccf4434579a80e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\source\\harbor_review.gd",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/source/harbor_review.gd",
+      "bytes": 38496,
+      "sha256": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\source\\review_bridge_route.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/source/review_bridge_route.json",
+      "bytes": 693,
+      "sha256": "a5cdc8c4c443f9084b36d4ab9520744970a7d6703b48d48781cc900ba3571592"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\source\\review_walk_route.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/source/review_walk_route.json",
+      "bytes": 1158,
+      "sha256": "9cddebfb5bebc9c104bccd2ed9cf4fdbc77b2a621242110e628d4b8d0e0a3614"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\review_01\\source\\review_walker.gd",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/review_01/source/review_walker.gd",
+      "bytes": 6124,
+      "sha256": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\support_bridge01\\godot-bridge-walk.log.txt",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/support_bridge01/godot-bridge-walk.log.txt",
+      "bytes": 259,
+      "sha256": "a58f656bcd45d17c78b645502b748884ce421f82d9ff7fcac204a110d8f5ecbe"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\support_bridge01\\native_bridge_readback.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/support_bridge01/native_bridge_readback.json",
+      "bytes": 125307,
+      "sha256": "83568faa8104f67fbd422c8dd4e51a592b172a1cece004e68d85723dfb383efe"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\support_bridge01\\runs.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/support_bridge01/runs.json",
+      "bytes": 509,
+      "sha256": "862d1f0f0ee7b43174b6fe5ef869d02c812fcf2ebb240b5ece1ea5615f4b5168"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\support_bridge01\\source\\harbor_review.gd",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/support_bridge01/source/harbor_review.gd",
+      "bytes": 38496,
+      "sha256": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\support_bridge01\\source\\review_bridge_route.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/support_bridge01/source/review_bridge_route.json",
+      "bytes": 693,
+      "sha256": "a5cdc8c4c443f9084b36d4ab9520744970a7d6703b48d48781cc900ba3571592"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\support_bridge01\\source\\review_walk_route.json",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/support_bridge01/source/review_walk_route.json",
+      "bytes": 1158,
+      "sha256": "9cddebfb5bebc9c104bccd2ed9cf4fdbc77b2a621242110e628d4b8d0e0a3614"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\native-godot\\support_bridge01\\source\\review_walker.gd",
+      "archive": "native-profile10/proof/creative-handoff/native-godot/support_bridge01/source/review_walker.gd",
+      "bytes": 6124,
+      "sha256": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\recipe\\faro_rock.bounded.spec.json",
+      "archive": "native-profile10/proof/creative-handoff/recipe/faro_rock.bounded.spec.json",
+      "bytes": 64371,
+      "sha256": "8de79c861dd6b3f054f75065cffbe06042b23ec897f675470d57c0406396d304"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\recipe\\faro_rock.spec.json",
+      "archive": "native-profile10/proof/creative-handoff/recipe/faro_rock.spec.json",
+      "bytes": 108269,
+      "sha256": "ebeda65f9d0ed374421c62b603d94a48e2393f0bb8a0fa84b7f052df7f0912e5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\recipe\\faro_rock.transport.spec.json",
+      "archive": "native-profile10/proof/creative-handoff/recipe/faro_rock.transport.spec.json",
+      "bytes": 30641,
+      "sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\creative-handoff\\source\\generate_faro_semwright_r22.py.source.txt",
+      "archive": "native-profile10/proof/creative-handoff/source/generate_faro_semwright_r22.py.source.txt",
+      "bytes": 9354,
+      "sha256": "34345f06b8a1da1996ad52abd5ee2ae31eeb9653be826bf7a7289453b5748c66"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01\\00-version.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt01/00-version.envelope.json",
+      "bytes": 998,
+      "sha256": "6df5271fd9299a185ee67911e0933d51e718db424c49053b7bebcfbe96ee42ae"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01\\00-version.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt01/00-version.request.json",
+      "bytes": 158,
+      "sha256": "296b0c0cc60ec39f90c44c6847faa6bb978596792faf089b9705861fb116fc1e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01\\01-baseline.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt01/01-baseline.envelope.json",
+      "bytes": 11591,
+      "sha256": "de452113611ecc16bc69479604a2189f2375e9a9a2ddaf5c9c527e68c2fef14f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01\\01-baseline.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt01/01-baseline.request.json",
+      "bytes": 159,
+      "sha256": "a47d6b9d4df5e4e81b0828f0888ab9eb1f3be9f3da362a0b8b9fd95e09f3a9dc"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01\\02-plan.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt01/02-plan.envelope.json",
+      "bytes": 813,
+      "sha256": "0db004eb25adaebe24c285f6f8b73c2167c73508734017a72a4c8909dd367b79"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01\\02-plan.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt01/02-plan.request.json",
+      "bytes": 582576,
+      "sha256": "9d896ac109ac4a347929c72e270be786475c2bd59f8cc22071f96cf26b680e76"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01\\03-cleanup-inspect.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt01/03-cleanup-inspect.envelope.json",
+      "bytes": 1080,
+      "sha256": "81fe14700c517f853a14115f7695a888cbae4c6ef6622d12b9d9c0209bb826e5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01\\03-cleanup-inspect.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt01/03-cleanup-inspect.request.json",
+      "bytes": 166,
+      "sha256": "20ec1fc6d9056ec92b3a012667b36a5d403687544b0e09c0a83acc88f58091cf"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01\\04-final-close.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt01/04-final-close.envelope.json",
+      "bytes": 1270,
+      "sha256": "c45b1d53ef42cfecbe92b37a7a72d8d955ca7b92a00c2af1807a2a8f453cfe37"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01\\04-final-close.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt01/04-final-close.request.json",
+      "bytes": 236,
+      "sha256": "e47ba590db0ec5cee962a4cfece4df18c3b0b660c861bbf3bd3948688a3f126c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01\\receipt.json",
+      "archive": "native-profile10/proof/static-asset-attempt01/receipt.json",
+      "bytes": 3488,
+      "sha256": "b70661d5ad4b6a5fae88abe0821631d08cec08e9f6ff82bf0013c0ebfa9ada26"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01.runner.json",
+      "archive": "native-profile10/proof/static-asset-attempt01.runner.json",
+      "bytes": 1451,
+      "sha256": "46cabe77e3c38ae22ebaf7adb2348350da66445da776f79d266867edf553e2db"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt01.runner.log",
+      "archive": "native-profile10/proof/static-asset-attempt01.runner.log.txt",
+      "bytes": 989,
+      "sha256": "3f161fe779be2274df6e1466427cc541da77c34ab5323aad5f7ba3dc8c8e4fe1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02\\00-version.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt02/00-version.envelope.json",
+      "bytes": 998,
+      "sha256": "44d2dbeeffd09f683eb5720c0c3497f4ed6150e9a08e050c6f32a022157f47bd"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02\\00-version.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt02/00-version.request.json",
+      "bytes": 158,
+      "sha256": "cfe8a3495535eaa865a48acb08f1a25f65de750c7529c7673963554657368e12"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02\\01-baseline.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt02/01-baseline.envelope.json",
+      "bytes": 11591,
+      "sha256": "c48daea6b5d8d409b2ea91c48bd7b216e32db426c078673b862fdbf35479213b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02\\01-baseline.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt02/01-baseline.request.json",
+      "bytes": 159,
+      "sha256": "2cde6afb3ebfeb5e4b5a30b6111649778f81223a345c1d3d63537dcdd5bfa09e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02\\02-plan.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt02/02-plan.envelope.json",
+      "bytes": 822,
+      "sha256": "ce9efa48d672ab7c171dc0c0ddcadc01dad14834cd99fd970a5cac4c9c3ea210"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02\\02-plan.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt02/02-plan.request.json",
+      "bytes": 355222,
+      "sha256": "b3daa71aa81ead1029bdaaf36f194155cbe100d3279401a7fd7c4431276243b3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02\\03-cleanup-inspect.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt02/03-cleanup-inspect.envelope.json",
+      "bytes": 1080,
+      "sha256": "b62ff8432043b63d8926f937eaf1db351edf87ceefacc7a6e871218a77f6ddd1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02\\03-cleanup-inspect.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt02/03-cleanup-inspect.request.json",
+      "bytes": 166,
+      "sha256": "9901a4cc58d77dfeccc6464811003803ab1871da457ea45f6cd3d7c4918c40e2"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02\\04-final-close.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt02/04-final-close.envelope.json",
+      "bytes": 1270,
+      "sha256": "a2ec1cc40c257114546644611db61ff6520bebde8662e9d66f2e5632a8324fed"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02\\04-final-close.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt02/04-final-close.request.json",
+      "bytes": 236,
+      "sha256": "3ae71b002bb9d10eb920d7e9cb69fa09db5f7b4a38c0ff1ba3305e7210e75d3c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02\\receipt.json",
+      "archive": "native-profile10/proof/static-asset-attempt02/receipt.json",
+      "bytes": 3497,
+      "sha256": "1b0e306dc5f83b5730a1ef727e6f4919ced60de1ab53eb0b6c2f986371157826"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02.runner.json",
+      "archive": "native-profile10/proof/static-asset-attempt02.runner.json",
+      "bytes": 1472,
+      "sha256": "8c3d5eb8c634fe7b4b736068f7e32dc213653a4345119750df68550ba6835cb3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt02.runner.log",
+      "archive": "native-profile10/proof/static-asset-attempt02.runner.log.txt",
+      "bytes": 989,
+      "sha256": "47fceb7405332525d32c53badf9d609c87f31a2b070229a333b044a5fb5cc304"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\00-version.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/00-version.envelope.json",
+      "bytes": 998,
+      "sha256": "e7cada97bbdeb25dab4ebc14e581f0c76479ac3bebf4b6291b60e508b88f9397"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\00-version.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/00-version.request.json",
+      "bytes": 158,
+      "sha256": "ce3c5d69e42bdfd155d2f4219affcdedadabf906147f26d60fc0d9f39087a631"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\01-baseline.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/01-baseline.envelope.json",
+      "bytes": 11592,
+      "sha256": "f5ef7fcaac9fcaa7c5bbc2ed2e78ec1f0dfcb306f9dc29060dd8f5bb6a68eee8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\01-baseline.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/01-baseline.request.json",
+      "bytes": 159,
+      "sha256": "e681aa2431d3bbedad770106cf0919775b1539772433c1a78cf29eb3160ae080"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\02-plan.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/02-plan.envelope.json",
+      "bytes": 434877,
+      "sha256": "669e58c757f2863e82eaf0f1764d9aa54b979a4cbb35ea87ae80bbb95a009919"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\02-plan.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/02-plan.request.json",
+      "bytes": 172980,
+      "sha256": "ae14d98b9cf6a61db3f674647630256c6d93c8c93e81f6349fd34c6fc200d517"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\03-plan-readonly.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/03-plan-readonly.envelope.json",
+      "bytes": 11592,
+      "sha256": "398ee0f3279beb5f7b6e27b44ca05a41a9a817e42786de415c0da79cb88fcc44"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\03-plan-readonly.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/03-plan-readonly.request.json",
+      "bytes": 159,
+      "sha256": "c570c8063112339c48eac23dd4060c58f9ca33b010553bf9b2f1f368837aa7ee"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\04-apply.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/04-apply.envelope.json",
+      "bytes": 31308,
+      "sha256": "a41834c9a0b1cd05c065f98a139062ec67bb18bb9bf291a9d5d1106200dc8bf3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\04-apply.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/04-apply.request.json",
+      "bytes": 211,
+      "sha256": "362db98d7cac34f81645ab648cc5b4964288b5a866ea2ade02501edee31a7069"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\05-readback.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/05-readback.envelope.json",
+      "bytes": 24565,
+      "sha256": "5bf8d202f7c6f03cb5ec3bb2d116f1b5dbdfdfddbbb7852b821bcf1917197d55"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\05-readback.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/05-readback.request.json",
+      "bytes": 211,
+      "sha256": "01961ea9c2ea06c28548ba87a7733d19a86e7286b0894f218ac09f06afaa7152"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\06-unmanaged-readback.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/06-unmanaged-readback.envelope.json",
+      "bytes": 35143,
+      "sha256": "7a5a0e9fb8d9dc52ac78e0e1e5b3a4ff4cf1b4fcf0a8101d9c6d5c6ab592716d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\06-unmanaged-readback.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/06-unmanaged-readback.request.json",
+      "bytes": 159,
+      "sha256": "ab4cad371f34e14221e265614b9824b8ff4eee5adba291b999c07c61a5a3a103"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\07-persist-library.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/07-persist-library.envelope.json",
+      "bytes": 1344,
+      "sha256": "7fd83a5df8dfd2e2e06dac18d4a7332c1f91737568587356dcc2e650d97ad735"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\07-persist-library.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/07-persist-library.request.json",
+      "bytes": 269,
+      "sha256": "58daf03eb0ea9f9874ed6034b7247cb4f5c344856d0fa7b92b9b6d5f9d1aea84"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\08-checkpoint-close.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/08-checkpoint-close.envelope.json",
+      "bytes": 1267,
+      "sha256": "8b19b32131f6e34387b1e84e5d8083170cc995327bd1109946c630f01288d17f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\08-checkpoint-close.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/08-checkpoint-close.request.json",
+      "bytes": 233,
+      "sha256": "f7b2b0d242127d0204ef4f945d69bd958784791e5d67b3e1adf42149d3a550f8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\09-reopen.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/09-reopen.envelope.json",
+      "bytes": 940,
+      "sha256": "3ecfd14221a35d372c12dad2f86f2ef7fce6f52c7fd476a0a0146aa4baf50c26"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\09-reopen.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/09-reopen.request.json",
+      "bytes": 301,
+      "sha256": "1cc160a5f5f8b61ae567d40e15fabe6cebb7331e8fe160d8b74fd8301864847f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\10-reopened-readback.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/10-reopened-readback.envelope.json",
+      "bytes": 24565,
+      "sha256": "cfaf1f8f3fca24362e4cc27c3eb1d8d800c363e68443c08ea4c467e352fc5e58"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\10-reopened-readback.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/10-reopened-readback.request.json",
+      "bytes": 211,
+      "sha256": "25a72bc26806dfd879064d8c44362308376fa5a04e24c824f763b262e78db7b9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\11-export.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/11-export.envelope.json",
+      "bytes": 917,
+      "sha256": "abbebf5cb2f0626614519748e79f254f6140735212cc4690ab85e908fb3cee2d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\11-export.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/11-export.request.json",
+      "bytes": 287,
+      "sha256": "3c9d36d2edcd33254721d2d529fd2a3f149c068a503002318c60b92eb8c6dec3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\12-cleanup-inspect.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/12-cleanup-inspect.envelope.json",
+      "bytes": 1081,
+      "sha256": "643e6803800052013ad69d4357e4dda23fd80ee5849ee0b24f577daa28c91f2d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\12-cleanup-inspect.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/12-cleanup-inspect.request.json",
+      "bytes": 166,
+      "sha256": "7e2a94f9570e27f7162e1b2f8658c11145a7409f9292f1bc6092b860b6b90cc5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\13-final-close.envelope.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/13-final-close.envelope.json",
+      "bytes": 1180,
+      "sha256": "bb2e84b6df00fb37e53780732249a14085d82f545826dc4d200cc5d62c5e0a57"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\13-final-close.request.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/13-final-close.request.json",
+      "bytes": 236,
+      "sha256": "82e1743b110a5b87545ad9172f820c94c3c701d7f4b0a09940b550abf351e22b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03\\receipt.json",
+      "archive": "native-profile10/proof/static-asset-attempt03/receipt.json",
+      "bytes": 566778,
+      "sha256": "f540a2b0265d4df55359bbdc9d9d23be6ce5c6b7976f49fd5f66ab932cb33f5f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03.runner.json",
+      "archive": "native-profile10/proof/static-asset-attempt03.runner.json",
+      "bytes": 1472,
+      "sha256": "e34782a37d0b30d562b0d67c100070fc594dfe8acba1b810532fea9e8950b659"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile10\\static-asset-attempt03.runner.log",
+      "archive": "native-profile10/proof/static-asset-attempt03.runner.log.txt",
+      "bytes": 1559,
+      "sha256": "64712b868e89ffd59cbb29c67ebf698757097a1c3f5720e18d2511f57e89672e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-software\\semwright-native-profile11.json",
+      "archive": "native-profile11/candidate.json",
+      "bytes": 94227,
+      "sha256": "4fcb2d27524fab1c9fcd57c70af6362b3f79d3f8fa2a0ef6216b4295442bd367"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile11-config\\candidate.toml",
+      "archive": "native-profile11/configuration/candidate.toml",
+      "bytes": 857,
+      "sha256": "24a36412757d9114ef110ebfff445f4097ed91f407e5149dcb9965b3570457ee"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile11-config\\blender-windows52.manifest.json",
+      "archive": "native-profile11/configuration/blender-windows52.manifest.json",
+      "bytes": 2865,
+      "sha256": "75532eb25be0bb7c841a3cd68474caf313090b27b6246bd323eb958e97a58080"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile11-config\\mcp-upstreams.toml",
+      "archive": "native-profile11/configuration/mcp-upstreams.toml",
+      "bytes": 27,
+      "sha256": "c9dc7501089bc272c5ded1315d32a8e1c30af4118a5f63fb72b999c3faf59218"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-host-baseline\\native-profile11-launch.json",
+      "archive": "native-profile11/launch.json",
+      "bytes": 1108,
+      "sha256": "b9a34d53fd3953e62c8c86833c5a054ef408a48a6891e208f4e7f1313d5d7a21"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-host-baseline\\native-profile11-broker.stdout.log",
+      "archive": "native-profile11/host-stdout.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-host-baseline\\native-profile11-broker.stderr.log",
+      "archive": "native-profile11/host-stderr.txt",
+      "bytes": 5447,
+      "sha256": "7637a1c4896d3d3b86426865cf5a7ff779507047cc288698dbb8ec6ab05a31ba"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\b52p11\\state\\audit\\audit.jsonl",
+      "archive": "native-profile11/audit.jsonl",
+      "bytes": 21146,
+      "sha256": "ccf162c42c86c20108cc1c490c24647d0872a4c66c17211fed55772d7860cb9d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\controlled-retirement.json",
+      "archive": "native-profile11/proof/controlled-retirement.json",
+      "bytes": 1206,
+      "sha256": "30e49154369095c87572474bf370ebb02ee776cbcc155ffcdcef8726af51b4b3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\asset-admission.json",
+      "archive": "native-profile11/proof/creative-handoff/asset-admission.json",
+      "bytes": 1678,
+      "sha256": "2646a7a3bd0892994a6f3a663c413c93644767ecb94f1f767d1ce134c0bee9a0"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\assets\\FARO_THRESHOLD_library.blend",
+      "archive": "native-profile11/proof/creative-handoff/assets/FARO_THRESHOLD_library.blend",
+      "bytes": 64288,
+      "sha256": "61df35fc36b0f68f4a2554a3451f30fa4c67ef1dac1532dcb1f53984a76a29ab"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\assets\\FARO_THRESHOLD_scene.blend",
+      "archive": "native-profile11/proof/creative-handoff/assets/FARO_THRESHOLD_scene.blend",
+      "bytes": 629460,
+      "sha256": "d7842da0216d796f98aea3d23234b74c8cd521f50c8b52a4dbd5abbbbb6f1ff9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\assets\\GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+      "archive": "native-profile11/proof/creative-handoff/assets/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+      "bytes": 2124,
+      "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\manifest.json",
+      "archive": "native-profile11/proof/creative-handoff/manifest.json",
+      "bytes": 11133,
+      "sha256": "e4d19748bdf343ee392636029e2874e54513b1eb60ed6fec2ad2c804cf2b95d7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\faro_roundtrip01\\native.log.txt",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/faro_roundtrip01/native.log.txt",
+      "bytes": 259,
+      "sha256": "e05da683a023a70f1dbe6adbb8e29ccf3282a4cdc53218cf4de0736940e9c48f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\faro_roundtrip01\\native_faro_roundtrip.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/faro_roundtrip01/native_faro_roundtrip.json",
+      "bytes": 76726,
+      "sha256": "8c59d8b218327736e9c045cbcea2cdc5661df6f8f2b3444f97b47e243d526d1f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\faro_roundtrip01\\previous_walk_readback.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/faro_roundtrip01/previous_walk_readback.json",
+      "bytes": 73740,
+      "sha256": "aa2da251f5242bcc8c513c7a1443c1969375bb40f0f3803a811f39e59db7f8c6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\faro_roundtrip01\\runner.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/faro_roundtrip01/runner.json",
+      "bytes": 1420,
+      "sha256": "c517f02bf83e81ba536e6ad2feebd92185d57258d4f8d3f94afb4247ffc33cd9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\faro_roundtrip01\\source\\faro_roundtrip.gd",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/faro_roundtrip01/source/faro_roundtrip.gd",
+      "bytes": 457,
+      "sha256": "555e5f19ef517b8f092aecddbb0adf4ab80df6902e5149caa7743059ac91b6d3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\faro_roundtrip01\\source\\harbor_review.gd",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/faro_roundtrip01/source/harbor_review.gd",
+      "bytes": 38496,
+      "sha256": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\faro_roundtrip01\\source\\native_bundle.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/faro_roundtrip01/source/native_bundle.json",
+      "bytes": 25209,
+      "sha256": "1056e727006920ee2d69812c75bdaa449cabc00c77c1fb3d470def06e1498eac"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\faro_roundtrip01\\source\\review_faro_roundtrip.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/faro_roundtrip01/source/review_faro_roundtrip.json",
+      "bytes": 633,
+      "sha256": "96c41b26be51fe8d96e19d4f34fbd3daf0090a2ecec3a5ad57be547768411ae1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\faro_roundtrip01\\source\\review_walker.gd",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/faro_roundtrip01/source/review_walker.gd",
+      "bytes": 6124,
+      "sha256": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\comprender_1793241042_883.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/comprender_1793241042_883.json",
+      "bytes": 245120,
+      "sha256": "eac17cbb4e91b3f9e877ead300c7b54d06cd8c2e2cb1a7e657149f5cfc7c7391"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\detail_1793241054_139.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/detail_1793241054_139.json",
+      "bytes": 244788,
+      "sha256": "3e02c21b17268bcf677036f0c13c76ff1d5df5158eb4b595da2bf787a54ebb3b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\frame_profile.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/frame_profile.json",
+      "bytes": 847312,
+      "sha256": "242221f65444ad6e49c6f8d942c4cd744a8274bdd860ddd8113ef0c5d83a42f4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\godot-import.log.txt",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/godot-import.log.txt",
+      "bytes": 2396,
+      "sha256": "49e814d186ec2851b97c3d65b8266ae6ba6be1fe3ac21ff538ce1c94148b6351"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\godot-physical-review.log.txt",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/godot-physical-review.log.txt",
+      "bytes": 154,
+      "sha256": "967af7ea3a1e16444f9ad7e6e7fddeb9e39d6fb3e3588f8a8ec41e6fdcdb78f1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\godot-readback.log.txt",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/godot-readback.log.txt",
+      "bytes": 75,
+      "sha256": "83cf0b082206af2aa236c83064fbcfa76be1e00a4aa3558574b2f65965d9481c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\godot_headless_import_readback.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/godot_headless_import_readback.json",
+      "bytes": 63365,
+      "sha256": "bf26b6b2063d1ffcfdfc74bcb115e60de2bfcfbd896fb561825e30acf16ecf77"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\habitar_1793241031_495.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/habitar_1793241031_495.json",
+      "bytes": 245346,
+      "sha256": "949229246472646faaf8e384c24b2e256d3627542e5620ae7209073235e63b4a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\llegar_1793241020_29.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/llegar_1793241020_29.json",
+      "bytes": 244206,
+      "sha256": "ede6db2ce94c11010e8a1ce76f9737f6313b61c07a1f33bf16a5d3168bc90de1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\llegar_1793241020_29_godot.png",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/llegar_1793241020_29_godot.png",
+      "bytes": 755180,
+      "sha256": "0e2f13a56ba8de4a84f90b371dfc9702fba2e37122267b465a7f96615a6b851a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\native_runs.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/native_runs.json",
+      "bytes": 1366,
+      "sha256": "45723dcc6a3d7e2fb356ee13605fc047bcbdf357a005a2f68e6ee30788a0b34b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\nvidia-gpu-samples.csv",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/nvidia-gpu-samples.csv",
+      "bytes": 5085,
+      "sha256": "5ee428c2049503d141e8be8664306c82aa6a11cfdb2d017ec5d0854b03a725ff"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\review_sequence_complete.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/review_sequence_complete.json",
+      "bytes": 62,
+      "sha256": "e4208654e5721d750b5d441cc2f00313d709a782c32cd1fd55ccf4434579a80e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\source\\harbor_review.gd",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/source/harbor_review.gd",
+      "bytes": 38496,
+      "sha256": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\source\\review_bridge_route.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/source/review_bridge_route.json",
+      "bytes": 693,
+      "sha256": "a5cdc8c4c443f9084b36d4ab9520744970a7d6703b48d48781cc900ba3571592"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\source\\review_walk_route.json",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/source/review_walk_route.json",
+      "bytes": 1158,
+      "sha256": "9cddebfb5bebc9c104bccd2ed9cf4fdbc77b2a621242110e628d4b8d0e0a3614"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\native-godot\\review_01\\source\\review_walker.gd",
+      "archive": "native-profile11/proof/creative-handoff/native-godot/review_01/source/review_walker.gd",
+      "bytes": 6124,
+      "sha256": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\recipe\\faro_threshold.spec.json",
+      "archive": "native-profile11/proof/creative-handoff/recipe/faro_threshold.spec.json",
+      "bytes": 779,
+      "sha256": "d42304df12776030ad6692e864544c31ee72c29a23a7cd26ca291f5494b6894e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\creative-handoff\\source\\generate_faro_threshold_r23.py.source.txt",
+      "archive": "native-profile11/proof/creative-handoff/source/generate_faro_threshold_r23.py.source.txt",
+      "bytes": 2727,
+      "sha256": "c818e52714507ec439f9183649de475005e0c11b1848acf341556240df801d97"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\00-version.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/00-version.envelope.json",
+      "bytes": 998,
+      "sha256": "85b89c64a61f12949d1fe2a9b1bab1f17c17425e2e642a49cdd66d41fdff77e5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\00-version.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/00-version.request.json",
+      "bytes": 158,
+      "sha256": "ec705031724c01a332800e3f64a23c670fc3aafd8ff01383a525adc4603b0338"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\01-baseline.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/01-baseline.envelope.json",
+      "bytes": 11592,
+      "sha256": "e2e6f8c0fbdbdb88e07e1e62768a5a08e3c50d5e04c7dbe229163d7f26bda90b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\01-baseline.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/01-baseline.request.json",
+      "bytes": 159,
+      "sha256": "c722bf00b35ffe583467470cc5c885ec1a8896c1e64b081e741294037a458654"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\02-plan.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/02-plan.envelope.json",
+      "bytes": 16288,
+      "sha256": "e1e303c820c592075f43ea7b397b293d09e4373eb10f40a4303b1e4de10c9a4c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\02-plan.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/02-plan.request.json",
+      "bytes": 3588,
+      "sha256": "bbaf65b59de27956715d96c5de0fb4b43289ed84692f167f1b806ba3dd7fd6c6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\03-plan-readonly.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/03-plan-readonly.envelope.json",
+      "bytes": 11591,
+      "sha256": "9a3e896cb95c875f17fb76d642ae130dc00330362222df137a1004a622c765a6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\03-plan-readonly.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/03-plan-readonly.request.json",
+      "bytes": 159,
+      "sha256": "305d0e23072503ae12cf1a8f2152cbf56c5a52a855e75a7351ec71bb393f9059"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\04-apply.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/04-apply.envelope.json",
+      "bytes": 14398,
+      "sha256": "878638d36463493efb5871c5f548be464a4dd16f19e33cad16bd22f9d2a8f947"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\04-apply.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/04-apply.request.json",
+      "bytes": 211,
+      "sha256": "367902795e914e9625ab9b21ac8cccdee8732f640f22ff23b9958d6ac56050e1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\05-readback.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/05-readback.envelope.json",
+      "bytes": 8870,
+      "sha256": "0e3776294ef8b48f0a9fa8e139538d9acb0010e09bc847e2867e6aa05fe61349"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\05-readback.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/05-readback.request.json",
+      "bytes": 211,
+      "sha256": "a7536d1b52d9fd52f7dffdd3ba30d2bafebaf1112ca3bb2e3e2d1fc694553615"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\06-unmanaged-readback.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/06-unmanaged-readback.envelope.json",
+      "bytes": 19447,
+      "sha256": "8b74b63b4217d21a8bb741e97b87064f9bcdc9d6c767e9f969c14f5a262f1a12"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\06-unmanaged-readback.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/06-unmanaged-readback.request.json",
+      "bytes": 159,
+      "sha256": "769603842be3c7db6b91d47c72561cc1f239c3bb879f790d45ef5910afb82db3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\07-persist-library.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/07-persist-library.envelope.json",
+      "bytes": 1263,
+      "sha256": "a01be782eb17919a57ec86cc1f0158ee780d1a125fa6c74341c7cb61d2a76356"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\07-persist-library.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/07-persist-library.request.json",
+      "bytes": 269,
+      "sha256": "ef04a155dc979d7a02b1f3184e9a5481f535556df1411b0f128489155d7ff557"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\08-checkpoint-close.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/08-checkpoint-close.envelope.json",
+      "bytes": 1267,
+      "sha256": "135daa5a619c66f92c3566b9dc3a672ace840a4db7b28bb5b34daf63178655d9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\08-checkpoint-close.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/08-checkpoint-close.request.json",
+      "bytes": 233,
+      "sha256": "26513d2c515d51b02bb860eb2371e24da66dc26549d26bbbd464fbef95a55ba2"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\09-reopen.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/09-reopen.envelope.json",
+      "bytes": 940,
+      "sha256": "7d2427842ccbac44c42ef0e972c78cd591f7be7bdf74d799b0e28bf17f870e51"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\09-reopen.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/09-reopen.request.json",
+      "bytes": 301,
+      "sha256": "fd844b1c8860ebf875dfab2a82f8abd2277a7d16034768d98e7c289afe6bdfbe"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\10-reopened-readback.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/10-reopened-readback.envelope.json",
+      "bytes": 8869,
+      "sha256": "ae6cff1be3f3899d4125a48b5bd214e4b60e8b18eb0d7d806729798a1553dd1b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\10-reopened-readback.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/10-reopened-readback.request.json",
+      "bytes": 211,
+      "sha256": "006274a14fa62b58f35662ee0895b40d882c5a6191deda756860081f24dd2fed"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\11-export.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/11-export.envelope.json",
+      "bytes": 916,
+      "sha256": "6abe95647f2a9a60b6e356ca087caa4dc558d37982b2ca747f58f19a51fcfb59"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\11-export.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/11-export.request.json",
+      "bytes": 287,
+      "sha256": "26a97e8b745b14eb75af653c48d4e5e0d31d055542e0ce4d5b8084e029619ed7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\12-cleanup-inspect.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/12-cleanup-inspect.envelope.json",
+      "bytes": 1080,
+      "sha256": "aed73f39531b1d8398a9a9fe31d970a3eef61960398c210563a7bb93e7992d55"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\12-cleanup-inspect.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/12-cleanup-inspect.request.json",
+      "bytes": 166,
+      "sha256": "dcddba0c55d713ba1a8a1e037561c59a1f87e7900b13b2e855fe594eb85c6d28"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\13-final-close.envelope.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/13-final-close.envelope.json",
+      "bytes": 1180,
+      "sha256": "dea4391ef756c66ebb9eddfacb6456fa6a003f6bddbbe57915eaa850832cfb8b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\13-final-close.request.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/13-final-close.request.json",
+      "bytes": 236,
+      "sha256": "ecd5040e2cbd107310dfada2ab4fcc5032895fed2ddf2f123094326efa66d02e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01\\receipt.json",
+      "archive": "native-profile11/proof/static-asset-attempt01/receipt.json",
+      "bytes": 61461,
+      "sha256": "e3606a8eea0f2d06d0604eb278fc8109a658098a3414d9550a4ba4d9fb8e0c6f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01.runner.json",
+      "archive": "native-profile11/proof/static-asset-attempt01.runner.json",
+      "bytes": 1466,
+      "sha256": "edf4bb17b637097c341e7b0575ed51f9ce4d438785657d6efbdb0cb94cb9fcef"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile11\\static-asset-attempt01.runner.log",
+      "archive": "native-profile11/proof/static-asset-attempt01.runner.log.txt",
+      "bytes": 1559,
+      "sha256": "20adb9978c954a8199d1c98c59f9045bdab30b64e5d8c627c4896a23c544d7f7"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt01\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt01/run.json",
+      "bytes": 744,
+      "sha256": "ba2ef94a5e2975a7ec6bcf819e4c962dc18131a9a7dcd087f582dab74b0ee28b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt01\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt01/tests.log.txt",
+      "bytes": 7543,
+      "sha256": "d91aa9671dd2b4e6a69dbfd172f520b89f0a8f3776fd3bfb3a1887eafd8d190c"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt02\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt02/run.json",
+      "bytes": 760,
+      "sha256": "ac53777c29d1efd28e3e768cf4923b93f035b9f7e270b67fdf8d516fda69467b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt02\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt02/tests.log.txt",
+      "bytes": 1365,
+      "sha256": "a35d8be4dae8fc9210803b704d3a3a0cc4aaaf03a44b6f71fff68cd052d3dc2b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt03\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt03/run.json",
+      "bytes": 759,
+      "sha256": "82a057b791d5ddc63b86cd22c58b0e45dd18f0492141e7db3882ca548752f2de"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt03\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt03/tests.log.txt",
+      "bytes": 1888,
+      "sha256": "94faf493abaf5164a42109c186dc50a5f206b1db8bd24b72a11e45d01ec94067"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt04\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt04/run.json",
+      "bytes": 835,
+      "sha256": "a87b7aede608ae1f63efc9a5fc77d81d58bafc41646ee9fc30927673d04139c5"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt04\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt04/tests.log.txt",
+      "bytes": 2362,
+      "sha256": "c3dc20bf382406461c5c42007363c366c4b30c2bef708aca641eda8ce61ccadc"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt05\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt05/run.json",
+      "bytes": 835,
+      "sha256": "8a6d86f44bbe221a1e4262ae1437b682f2c076d0677a087cfad44ad16874e7c0"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt05\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt05/tests.log.txt",
+      "bytes": 2542,
+      "sha256": "8185f6869d95e2f5af61832145c252f9141e3cd74d4d510ff125255e8860ff61"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt06\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt06/run.json",
+      "bytes": 835,
+      "sha256": "d11db15811e4335ed09b184e738da3a3523d5b278c790ee3e53dd0039c085a17"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt06\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt06/tests.log.txt",
+      "bytes": 3092,
+      "sha256": "bee764296546c47cedf2a7f74b597981c52126de2f65979914b2f49c70a0346d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt06\\source\\adapters\\blender\\semwright_blender\\commands.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt06/source/adapters/blender/semwright_blender/commands.json",
+      "bytes": 6998,
+      "sha256": "4b50f436722b1c24318b1c88a7b629b7f43698781b8418cde0da1e7f811cf1c0"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt06\\source\\adapters\\blender\\semwright_blender\\commands.py",
+      "archive": "builds/checkpoint-contract-20261029-attempt06/source/adapters/blender/semwright_blender/commands.py",
+      "bytes": 41467,
+      "sha256": "f0a4efe5f43e094fd6a10d0eb7573100c5460013be795d82ce8e245c9716582d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt06\\source\\tests\\python\\test_blender_checkpoint.py",
+      "archive": "builds/checkpoint-contract-20261029-attempt06/source/tests/python/test_blender_checkpoint.py",
+      "bytes": 12794,
+      "sha256": "e5b76485b6e293bc2d98cccfc6548d1d7188e01dbc0af936b2e0393c8404d797"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt01/run.json",
+      "bytes": 13142,
+      "sha256": "3123ed1357a1689be444a52b231b3e6a1668c1884812e96d1e59c17e0079608c"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt01/cargo.log.txt",
+      "bytes": 400,
+      "sha256": "6a0b536700602d0337c983fd8b7decc140af288158d2bf53b1cdc17cb2e686f7"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt02/run.json",
+      "bytes": 13141,
+      "sha256": "e4af7750229466c1fbdebbba614717a7aaf423e0270ef0ffa5621228fdd580e8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt02/cargo.log.txt",
+      "bytes": 305,
+      "sha256": "0c9bc89edbfccac4842b828d7dcaa40bceeae8b6dc2a618e686cdeba12859b1b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt03/run.json",
+      "bytes": 13141,
+      "sha256": "090344b0d800c9b2a0bfe8b84666082204bb881bdea557e496a069f37894cb20"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt03/cargo.log.txt",
+      "bytes": 304,
+      "sha256": "2ed3f56ea7bd359acad71b62b31905608ef14eebbea37ba9ea384750c6b0dc30"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt04/run.json",
+      "bytes": 1688,
+      "sha256": "2b6488ab7fa3c0bbe460183bf39f12d917dcb0581cc077508c4f3d3eba4f1c55"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt04/cargo.log.txt",
+      "bytes": 305,
+      "sha256": "1209683caf8072649bcc2defc6140bd064f1a00a1cd174b1324426c6bb4a514c"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt04\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt04/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 29325,
+      "sha256": "5e0d2cac28d7699453c842cda3d0cc8ee0de1af0d72a4db83017ed64ff394b9e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt04\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt04/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt04\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt04/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt05\\run.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt05/run.json",
+      "bytes": 1688,
+      "sha256": "2c37c6fe46ecd8b14f4c3f4def2c0d246c3c22561ff3f5806bc04f771ab22040"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt05\\cargo.log",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt05/cargo.log.txt",
+      "bytes": 304,
+      "sha256": "260cbf47f361d8955186aa63f02118519d36723f6c848266a94da4085fedd0c4"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt05\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt05/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 40167,
+      "sha256": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt05\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt05/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt05\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt05/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt01/run.json",
+      "bytes": 7586,
+      "sha256": "a60901b706361c9d5217ffa2b57b717728041e39de6c785cc54af599eacccfec"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt01/cargo.log.txt",
+      "bytes": 437,
+      "sha256": "03fab309bfed57db9fb20d2c1d509765685e3befe46070ab1ef4dfccac5a6d07"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt02/run.json",
+      "bytes": 8538,
+      "sha256": "ce06da78a6985b69f7ffdd7dbca9364f6540ffff48bc39b25c4d1daec09bbacb"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt02/cargo.log.txt",
+      "bytes": 437,
+      "sha256": "f73cbde015e5c12e24e9e28715e4d10c6e76b1f861ddb0aa3f3f9b2b53c27763"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt03/run.json",
+      "bytes": 8538,
+      "sha256": "b1b3f9d921b5e5d6d9378ef26e494ad5c5cb9c34483f713c9981514ac8b5ee5b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt03/cargo.log.txt",
+      "bytes": 437,
+      "sha256": "50cbc8b631fff627faff9d9be213cc6a392e6877f9d916b7719a98e14dbdddd6"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt04/run.json",
+      "bytes": 8538,
+      "sha256": "8b1f1196e7c8423b444aac73423c94e80714e2e08ec0901b2cab2389fd8ae146"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt04/cargo.log.txt",
+      "bytes": 437,
+      "sha256": "99ce49075ad0929ed1b11b4b9e86edbc458e284a6f495bb5c7a5f6478d2132af"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt01/run.json",
+      "bytes": 7073,
+      "sha256": "3615a4f9cf98c023984bd018a7834bcd0018ecfea1d2e9b58dad6b3d9842ee22"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt01/cargo.log.txt",
+      "bytes": 2814,
+      "sha256": "148d33e89714efe68544715677093ddbaa6ad17ba080f97404a0cd6d37ff67f1"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt02/run.json",
+      "bytes": 7072,
+      "sha256": "0add49e074174de25386f40e57d58088e5217cdcb310bbafe5d993b467906818"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt02/cargo.log.txt",
+      "bytes": 1957,
+      "sha256": "6fee860d68c92c50232d62e8aad35086cf610a1de265bf6a0da1857a0eb92cdc"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt03/run.json",
+      "bytes": 7590,
+      "sha256": "eb8c752d98a1280f817c144e8d17cbaea97eb05ce7b5e0de51bd3be3f1d99a09"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt03/cargo.log.txt",
+      "bytes": 421,
+      "sha256": "0add4286aaff3905d238186599206b51feb9c4cec806939c7c4265cfb5199c87"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt04/run.json",
+      "bytes": 8542,
+      "sha256": "59de28595dbd57cdf88702ac2b9f3995db1ecf5cac8ed609901f71a4a4724aa6"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt04/cargo.log.txt",
+      "bytes": 421,
+      "sha256": "90727bd0c3b32325ee8ebe8ab394b8e2dc88549caa4ca297ec6889bf35eeb2c3"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt05\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt05/run.json",
+      "bytes": 8542,
+      "sha256": "798fbc6ab66a05d1741884ef55eea12b308a41d7539b4f3e7398e0f5552adfd1"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt05\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt05/cargo.log.txt",
+      "bytes": 421,
+      "sha256": "f595418cb2aea4776eb5611b0cccba2a32506ddd523f19bce13f49860eec31ea"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt06\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt06/run.json",
+      "bytes": 12923,
+      "sha256": "3ab09182b8e9df750d1ec52a40a4796aed30eedb0141742c0432e25b5e3017a4"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt06\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt06/cargo.log.txt",
+      "bytes": 320,
+      "sha256": "6d672dbe2eb735ef4cf777db4a37cc2484c591539f2a3a2c4b266637dc9eb105"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt07\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt07/run.json",
+      "bytes": 12910,
+      "sha256": "8016b4068224c0d68682177de2139723703fc51072cfd2c7145106173fc826ec"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt07\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt07/cargo.log.txt",
+      "bytes": 320,
+      "sha256": "ab6f7b407b0762109d86676af800ca2b1c01537d35bb352a85cac4efcb669ca0"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt08\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt08/run.json",
+      "bytes": 12922,
+      "sha256": "879afb2dc28bc3d4ae1edb9ba12367e98851a5dd56e526570b467fc5b0f41611"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt08\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt08/cargo.log.txt",
+      "bytes": 320,
+      "sha256": "df2b4b0d11ebf99bbdaf10f8d9ac96b059bb531c3772444c6987901039524f3b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt09\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt09/run.json",
+      "bytes": 13890,
+      "sha256": "07bf24719d1e3efec61e17edc3b24b317a039a79f05606d7303085b1958bffeb"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt09\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt09/cargo.log.txt",
+      "bytes": 320,
+      "sha256": "b7bce28053cace47d9116a4f3c28fa81eb843bd26835f6282a6d4b9d9611f683"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt10/run.json",
+      "bytes": 14040,
+      "sha256": "32dc4184747d2126b881f6b593d94a0bb5d44de86599f0a87720d4fbcbdd0f13"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt10/cargo.log.txt",
+      "bytes": 162,
+      "sha256": "1ba7449a38905e0103d49777669bf8dd911bf44350427b40c0a2d46ca8ab54af"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\.gitattributes",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/.gitattributes.source",
+      "bytes": 416,
+      "sha256": "a99e471c2e5e0e38c44695e6b27344b5c01beeec80bdf3db4bca9326a1d03c84"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\adapters\\blender\\semwright_blender\\commands.json",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/adapters/blender/semwright_blender/commands.json",
+      "bytes": 6998,
+      "sha256": "4b50f436722b1c24318b1c88a7b629b7f43698781b8418cde0da1e7f811cf1c0"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\adapters\\blender\\semwright_blender\\commands.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/adapters/blender/semwright_blender/commands.py",
+      "bytes": 41467,
+      "sha256": "f0a4efe5f43e094fd6a10d0eb7573100c5460013be795d82ce8e245c9716582d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\adapters\\blender\\semwright_blender\\export_scope.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/adapters/blender/semwright_blender/export_scope.py",
+      "bytes": 7829,
+      "sha256": "7284703694561ed2c844badce4f50f16db82478a3f9e94569fcb6a8dc90679ad"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\adapters\\blender\\semwright_blender\\validation.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/adapters/blender/semwright_blender/validation.py",
+      "bytes": 2315,
+      "sha256": "09ddc7d9cfabb2f7a3882d4f889437fbc8b82b801bb0cf5e66d5d593beb8c6a4"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\av-composition\\tests\\combined_native.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/av-composition/tests/combined_native.rs",
+      "bytes": 81176,
+      "sha256": "e5ad8882253590d058342387c25ac88ba11f941717308f1671b2586403d624ea"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\daemon\\src\\config.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/daemon/src/config.rs",
+      "bytes": 15956,
+      "sha256": "ad57e77d8814c8171c7d96f35fb1759e0804bcaafa8c5c38d9c6bc7a93223e12"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\daemon\\src\\semwrightd.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/daemon/src/semwrightd.rs",
+      "bytes": 10740,
+      "sha256": "b1bc10d4c98870bc882a707bdd858b556f125624c3973518f5cafbe75589a829"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-ardour-audio\\tests\\host_conformance.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-ardour-audio/tests/host_conformance.rs",
+      "bytes": 33470,
+      "sha256": "b0918faab3ae6c268a8e6241725d2b08fd11974e32548576493d8729dc8cbc05"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-blender\\src\\authoring_native.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-blender/src/authoring_native.py",
+      "bytes": 72676,
+      "sha256": "8a4ae4e16bbaad4042ea91081ba5529a4c02ee4f818a4f002c25934bfd5dcca8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-blender\\src\\bridge.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-blender/src/bridge.py",
+      "bytes": 54749,
+      "sha256": "644e2b725eb16c0714cd7c8a34e37eb7ed1a2b6f00d65fad3433eafe880b8a68"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-blender\\src\\main.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-blender/src/main.rs",
+      "bytes": 153004,
+      "sha256": "550f4c0fce49ef4bc5629b94ede691160ef210f37f17dc7e2bfda3aa7916a191"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-blender\\src\\semantic.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-blender/src/semantic.py",
+      "bytes": 166730,
+      "sha256": "8f3f00b72167e9bd6e1a8d2772f340dfa06183ba0149964d9037f45089993dee"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-blender\\tests\\authoring_native.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-blender/tests/authoring_native.rs",
+      "bytes": 58505,
+      "sha256": "078843f96e9a0efacdb432990fb1bde5cf8999c31f2bce6a0c979904a83f9145"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-blender\\tests\\live.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-blender/tests/live.rs",
+      "bytes": 99294,
+      "sha256": "5d1d59617b0cb58842e9e461899018ef9eec30037a0ca9d15fe1b1a24f2eae55"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 27582,
+      "sha256": "6474ce5e49232dadb65c347180fd6f8ea45a0644d8db2463f5ae833ca5cb299b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-faust-audio\\tests\\analysis_host_conformance.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-faust-audio/tests/analysis_host_conformance.rs",
+      "bytes": 12511,
+      "sha256": "3677a3c24861e31447f6bda250a0a7fac27e2fef1150ffea334db24bed72122a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-faust-audio\\tests\\host_conformance.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-faust-audio/tests/host_conformance.rs",
+      "bytes": 28866,
+      "sha256": "0e816fc44422e78487b8cb22b3319a605f89be24c335cbf4d45f2f1f8de13290"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-godot\\tests\\authoring_host.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-godot/tests/authoring_host.rs",
+      "bytes": 85952,
+      "sha256": "45af14fb93263ff68b1190161fc73a1cccd32dc653128dac7feef50b39daca26"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-godot\\tests\\host_conformance.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-godot/tests/host_conformance.rs",
+      "bytes": 15958,
+      "sha256": "4378d4170c0bd130180c0b73995eb7b7eb3f6d2e20aba2804b72d0b61f55947d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\build.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/build.rs",
+      "bytes": 3213,
+      "sha256": "abe9d98da9734e4afe64fabad3fd69d002f32f6ea93812246d2b48ea689b7975"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\lib.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/lib.rs",
+      "bytes": 218657,
+      "sha256": "dff38423de5f41e969fda51f935cde382b1e1110b2b6a6f2d9f22bef5a3f0f71"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\windows_blender52.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/windows_blender52.rs",
+      "bytes": 13289,
+      "sha256": "d0812ff03e44a5376bd8ca1755415b8bfafba7fc6faa8beda2dfc3d3ae395ecc"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\windows_blender52_bootstrap.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/windows_blender52_bootstrap.py",
+      "bytes": 1481,
+      "sha256": "43e34607b5fc63a92f1442148c74566a07864163bca2805f06189ad2f91555ad"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\windows_blender52_runtime\\authoring_native.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/windows_blender52_runtime/authoring_native.py",
+      "bytes": 72676,
+      "sha256": "8a4ae4e16bbaad4042ea91081ba5529a4c02ee4f818a4f002c25934bfd5dcca8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\windows_blender52_runtime\\bridge.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/windows_blender52_runtime/bridge.py",
+      "bytes": 54749,
+      "sha256": "644e2b725eb16c0714cd7c8a34e37eb7ed1a2b6f00d65fad3433eafe880b8a68"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\windows_blender52_runtime\\commands.json",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/windows_blender52_runtime/commands.json",
+      "bytes": 6998,
+      "sha256": "4b50f436722b1c24318b1c88a7b629b7f43698781b8418cde0da1e7f811cf1c0"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\windows_blender52_runtime\\commands.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/windows_blender52_runtime/commands.py",
+      "bytes": 41467,
+      "sha256": "f0a4efe5f43e094fd6a10d0eb7573100c5460013be795d82ce8e245c9716582d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\windows_blender52_runtime\\export_scope.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/windows_blender52_runtime/export_scope.py",
+      "bytes": 7829,
+      "sha256": "7284703694561ed2c844badce4f50f16db82478a3f9e94569fcb6a8dc90679ad"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\windows_blender52_runtime\\manifest.json",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/windows_blender52_runtime/manifest.json",
+      "bytes": 2491,
+      "sha256": "8ff6eda9e13ec61dc4aceda30eab5d53db5f36e236af0c310a807170d8a49502"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\windows_blender52_runtime\\README.md",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/windows_blender52_runtime/README.md",
+      "bytes": 1033,
+      "sha256": "75a494fe1fc7a76c63e3bfb824d8988e98634010401b879ee1f44334548fcccf"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\windows_blender52_runtime\\semantic.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/windows_blender52_runtime/semantic.py",
+      "bytes": 166730,
+      "sha256": "8f3f00b72167e9bd6e1a8d2772f340dfa06183ba0149964d9037f45089993dee"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\src\\windows_blender52_runtime\\validation.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/src/windows_blender52_runtime/validation.py",
+      "bytes": 2315,
+      "sha256": "09ddc7d9cfabb2f7a3882d4f889437fbc8b82b801bb0cf5e66d5d593beb8c6a4"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\tests\\adversarial_sandbox.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/tests/adversarial_sandbox.rs",
+      "bytes": 9170,
+      "sha256": "cbe7cb598f0fa6c57151e2b075f705df1e5920020847d22e176d599ce4e8a88c"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\tests\\runtime_tools_linux.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/tests/runtime_tools_linux.rs",
+      "bytes": 32332,
+      "sha256": "595214d4894ac1de36ed8bc95c32cfd27edaef0546d04037d9ef51f19e621f5a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\tests\\windows_runtime_bundle.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/tests/windows_runtime_bundle.rs",
+      "bytes": 3042,
+      "sha256": "b95d1de9c2e706f995979400e5129acdb84d11367770cead3d6e00317b7ba653"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\tests\\windows_secure_host.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/tests/windows_secure_host.rs",
+      "bytes": 65443,
+      "sha256": "7ee9ff265e9cf312781ede26ca07b23e9ed80697acfd4d9f99097601095921c5"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-host\\tools\\sync_windows_blender_runtime.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-host/tools/sync_windows_blender_runtime.py",
+      "bytes": 2254,
+      "sha256": "569e0ad63c86adfaab9876c5bb4ea53ab67fb6524da856efb6c31399cf535698"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-libreoffice\\tests\\live.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-libreoffice/tests/live.rs",
+      "bytes": 10883,
+      "sha256": "16e059c810e422232eddd92d2e1a5ceed32c9e226b6dcddc567a3a62e7ed6a7e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-mlt-video\\tests\\live.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-mlt-video/tests/live.rs",
+      "bytes": 49046,
+      "sha256": "6eaeee47a0382eaa8ec890cd052d5a6723f8b2533d946c09f730d8e40f0c7200"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-motion-canvas\\examples\\launch_film_orchestrator.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-motion-canvas/examples/launch_film_orchestrator.rs",
+      "bytes": 25858,
+      "sha256": "0bf89f7b92d1d58ad0e6fb2c9c03db1c03088e409b684c075bc03fb2359c9cab"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-motion-canvas\\tests\\live.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-motion-canvas/tests/live.rs",
+      "bytes": 37731,
+      "sha256": "ebc9d357221d2c8fdfc2227887f77e7742037c367745f665c6699b6f1df27276"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\driver-sdk\\src\\lib.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/driver-sdk/src/lib.rs",
+      "bytes": 161163,
+      "sha256": "ac34c3652908dc0992ebe23df813dc6e8458c2f15103a35167d9d7bccc9b3880"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\platform-services\\src\\lib.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/platform-services/src/lib.rs",
+      "bytes": 12125,
+      "sha256": "55d7bb8d86e9546184d26218c1be3ec1143c00314292f45ffea4bfb8a9a9e63a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\platform-windows-sys\\src\\launch\\blender52_runtime.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/platform-windows-sys/src/launch/blender52_runtime.rs",
+      "bytes": 10718,
+      "sha256": "e6bac526197fd7511dd1b5d33665cd9ab1ca4061e39c5679512d0cb728f13c84"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\crates\\platform-windows-sys\\src\\launch.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/crates/platform-windows-sys/src/launch.rs",
+      "bytes": 121215,
+      "sha256": "045fb6111f6126d4e345ff95616b23f500cce1da6a654fb0860625de7ec68e52"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\docs\\blender\\WINDOWS_52_EXPERIMENTAL.md",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/docs/blender/WINDOWS_52_EXPERIMENTAL.md",
+      "bytes": 11487,
+      "sha256": "dce4611c6bf12e49b52234589aed87250381f8030ebe9ad72265e74a3dcf8263"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\docs\\blender\\WINDOWS_52_PR_DRAFT.md",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/docs/blender/WINDOWS_52_PR_DRAFT.md",
+      "bytes": 3823,
+      "sha256": "6d4a52cf3f0e97cc3893b3e7f04701acc58f6ed2b01f2527f1e36121476d6e88"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\docs\\blender\\WINDOWS_NATIVE_PROFILE_20261029.md",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/docs/blender/WINDOWS_NATIVE_PROFILE_20261029.md",
+      "bytes": 7473,
+      "sha256": "9d28154cdcbe3ee53d3733bbfe2b33bdefcccdd63e313544aeb406661aed0d39"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\tests\\python\\test_blender_checkpoint.py",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/tests/python/test_blender_checkpoint.py",
+      "bytes": 12794,
+      "sha256": "e5b76485b6e293bc2d98cccfc6548d1d7188e01dbc0af936b2e0393c8404d797"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\source\\tests\\semantic-adversarial-lab\\rust\\blender_native_probe.rs",
+      "archive": "builds/native-profile-20261028-build-attempt10/source/tests/semantic-adversarial-lab/rust/blender_native_probe.rs",
+      "bytes": 25901,
+      "sha256": "5c1111dacc7c36de367c1cb5ef3f6a606ffd83371e50c9e50b6572e0b006667a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt01/run.json",
+      "bytes": 12955,
+      "sha256": "7cc26f6fbbb89c40316575cb59e12b980a14fe707b3f284214058299d4c23bad"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt01/cargo.log.txt",
+      "bytes": 1132,
+      "sha256": "cd23a3546b2f1202a90d62c59023f0a4c6cc551cb00ab28d1ffb340f9484eb72"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt02/run.json",
+      "bytes": 12955,
+      "sha256": "a7c73ef3f1cc1c523fa547fe008c91b29b436b38ce97d9abe2fd33808aab1ced"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt02/cargo.log.txt",
+      "bytes": 645,
+      "sha256": "ff3c71ea570e786fed10d5519a89d30be7cafdc3dcd45d6368980f65513cd6d4"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt03/run.json",
+      "bytes": 12953,
+      "sha256": "618ed0ea7c8e5c918d64111c2ab2292d2c45db8d80db182c76da62ab00123006"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt03/cargo.log.txt",
+      "bytes": 645,
+      "sha256": "a0aa99e9f42a276e3def229f35e1f4424af8e8be903218dbc3bc140ce29e0a34"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt04/run.json",
+      "bytes": 13922,
+      "sha256": "a5d679fa5f04d7098298576e76c7a71e1fa3be3cea3f80c22a0884e3e5d144e7"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt04/cargo.log.txt",
+      "bytes": 645,
+      "sha256": "a9915b0b3ceeb4cb4de33c570bd092d1e2522272a8d43020f12622a505bbdea2"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-check-attempt01/run.json",
+      "bytes": 6992,
+      "sha256": "d1e347bd2509757c4692c45b8fc7b84ab5cfa7913e6ea808c11f282779dde7a4"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-check-attempt01/cargo.log.txt",
+      "bytes": 5966,
+      "sha256": "0a37c9d11616450907685a27688074075c5942b2dd3cd3c104047a691e960d2f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-check-attempt02/run.json",
+      "bytes": 6993,
+      "sha256": "39c09e1dc3513fee3df19246051c6c37498951e97226a1636e67a4faffc9435a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-check-attempt02/cargo.log.txt",
+      "bytes": 5324,
+      "sha256": "30f5743b2f9dfc632275ab032e98954b32f9719ae941c0a65f5445a7ddc8fe4d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-check-attempt03/run.json",
+      "bytes": 6991,
+      "sha256": "6a3da23072cd98c9fbf87343da72093d2d2b96894264cdd3117a40c6dcb31a59"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-check-attempt03/cargo.log.txt",
+      "bytes": 342,
+      "sha256": "801d5b34799938c7237f1206ca4194310a41376e0f1775913aa8c3fd8a29511d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-check-attempt04/run.json",
+      "bytes": 6990,
+      "sha256": "c958426f7c20d841bcca29134619dde9f2bc059d49b8e6fd1b7595f9f158425e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-check-attempt04/cargo.log.txt",
+      "bytes": 1775,
+      "sha256": "c71c143b4e0b0633746089d8a96b6a0b82bb9fa4a08a43d08c274a486890b21d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-config-gate-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-config-gate-attempt01/run.json",
+      "bytes": 7120,
+      "sha256": "e9540177f5acab57c1e90eba165f30aaf23e13cc8e367228c6100b78b14ced5d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-config-gate-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-config-gate-attempt01/cargo.log.txt",
+      "bytes": 1910,
+      "sha256": "ec0db9753892b33e330a3d37f7e5e96b421126b003dc81db976c0f42d5208d9a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-config-gate-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-config-gate-attempt02/run.json",
+      "bytes": 7101,
+      "sha256": "5d49b53864bcc95953d8246edd291769edf0869e541ba60f09b348d66a2de315"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-config-gate-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-config-gate-attempt02/cargo.log.txt",
+      "bytes": 496,
+      "sha256": "cbab7044ff790cba842f574a57a3533ff367faedb1b4740be0461d1b3e7da30a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt01/run.json",
+      "bytes": 8579,
+      "sha256": "5dc2bc286db655e44a066b739480819524557845ec4efc90eda03e3439195644"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt01/cargo.log.txt",
+      "bytes": 1829,
+      "sha256": "02d4794f414efa523434a07dddc4a77622a32aa8f89bb02a3bae3f41b0c16075"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt02/run.json",
+      "bytes": 8579,
+      "sha256": "773075d8f212c30d4fd5238f3ea12990340bb9b4a6aae46d80ca18be6c6b4580"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt02/cargo.log.txt",
+      "bytes": 1829,
+      "sha256": "b2abed0156c2f52cde1eb2da45eb3bf7eade828dc1b82020377b598f82f3a203"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt03/run.json",
+      "bytes": 14088,
+      "sha256": "81eabdf23bd96654e8921889a6f363042bd19d1782b97872d9b5cbe500a45447"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt03/cargo.log.txt",
+      "bytes": 1927,
+      "sha256": "03d65729e4126006011d56a09889e35dab02003501e658ed0add625986d7feaa"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-godot-build-attempt01/run.json",
+      "bytes": 2073,
+      "sha256": "91dcd4991e6a9037c8c9ffd2461cceeaedf47285e6d9b46fef6d0e245eece502"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-build-attempt01/cargo.log.txt",
+      "bytes": 1344,
+      "sha256": "bdd03f88ce7b1252c137c7644f0f3db0c286dba389851985ab86a6c55cb22deb"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-host-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-host-contract-attempt01/run.json",
+      "bytes": 7094,
+      "sha256": "6fbeb8798822192110214efc2bc5c5d7b2a2bd458dec5a90479249ca38aa7c45"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-host-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-host-contract-attempt01/cargo.log.txt",
+      "bytes": 966,
+      "sha256": "c71bef6bc991bac4b8708513b803b299169f6b53ba0bdfc57b94193d189dae9a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-lifecycle-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-lifecycle-contract-attempt01/run.json",
+      "bytes": 7661,
+      "sha256": "e71b62da8fa20636a0d2fcb1cd1177f822f40b44412af36de50b3057de197a05"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-lifecycle-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-lifecycle-contract-attempt01/cargo.log.txt",
+      "bytes": 1464,
+      "sha256": "7936993342e3d49f9967898d73fc3c9943c9e1f3832dc2c7e6c7013ba637309a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-package-list-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-package-list-attempt01/run.json",
+      "bytes": 12805,
+      "sha256": "1e304d3cd7d7f29aa273faa05488aadb95daf9e06b3113390c7ab3d91f2f21ac"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-package-list-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-package-list-attempt01/cargo.log.txt",
+      "bytes": 980,
+      "sha256": "8b4d0cf2edad531fbe075051c43a80f296ff8b795ea36732e6a567836ef0db26"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-runtime-guards-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-runtime-guards-attempt01/run.json",
+      "bytes": 7112,
+      "sha256": "68a212a9f565e665a5d151013f1cb3c0aff2a973548c882451c593bf3ca78a47"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-runtime-guards-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-runtime-guards-attempt01/cargo.log.txt",
+      "bytes": 641,
+      "sha256": "91338001d48955c07ff47d5046018fcbb362f6372aef133a1a93b6bbc84537df"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-sdk-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-sdk-contract-attempt01/run.json",
+      "bytes": 7100,
+      "sha256": "8b1b130478ab3c89916bcec2783df264caf5ccb53dbe664989770d8291ae8f0d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-sdk-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-sdk-contract-attempt01/cargo.log.txt",
+      "bytes": 976,
+      "sha256": "8d7931722e9eb16def1ea3c86ddb440990ff4ae954142f2ea4f9a00c32092f27"
+    }
+  ],
+  "audit_guarantee": "Hash-chain consistency and local request/envelope correlation; not malicious same-owner tamper resistance",
+  "physical_results": "Read individual proof receipts; archival success does not promote failed fixtures",
+  "linux_native": "NOT_RUN",
+  "external_publication": false
+}

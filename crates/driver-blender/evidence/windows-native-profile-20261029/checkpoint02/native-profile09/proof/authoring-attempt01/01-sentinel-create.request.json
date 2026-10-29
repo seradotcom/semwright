@@ -1,0 +1,15 @@
+{
+  "args": {
+    "location": [
+      1,
+      2,
+      3
+    ],
+    "name": "AuthoringSentinel",
+    "primitive": "empty"
+  },
+  "backend": null,
+  "command": "driver.blender.object.create",
+  "dry_run": false,
+  "request_id": "991876e80edf4d24850a7c731459a7c9"
+}

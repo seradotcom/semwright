@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T02:17:45.280809+00:00",
+  "argv": [
+    "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+    "--path",
+    "E:\\Projects\\worldwright-archipelago\\game",
+    "--resolution",
+    "1920x1080",
+    "--windowed",
+    "--script",
+    "res://scripts/faro_native_probe.gd"
+  ],
+  "exit_code": 0,
+  "seconds": 8.218999999997322,
+  "script_sha256": "6f66c3c4d8f82f5487a4cf903819bfa87b1e881c5431281f4a1d31e6bf34fc18",
+  "camera_plan_before": null,
+  "camera_plan_after": null,
+  "saved_camera_unchanged": true,
+  "native_status": "PASS",
+  "errors": [],
+  "passed": true,
+  "godot_broker_used": false,
+  "art_approved": false
+}

@@ -1,0 +1,9 @@
+   Compiling semwright-daemon v1.0.0 (E:\Projects\semwright-blender52\crates\daemon)
+    Finished `test` profile [unoptimized] target(s) in 14.99s
+     Running unittests src\lib.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\semwright_daemon-9213f3d9a70d4895.exe)
+
+running 1 test
+test config::native_owner_config_tests::windows_native_profile_owner_opt_in_is_independent_and_defaults_off ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+

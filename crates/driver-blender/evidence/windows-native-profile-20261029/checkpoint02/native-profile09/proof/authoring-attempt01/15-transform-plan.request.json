@@ -1,0 +1,32 @@
+{
+  "args": {
+    "intent": {
+      "entity": "tetra",
+      "expected_fingerprint": "285fb5db8623baf3ee7cf9baf7ccf5b313cfb3ae117926860d1d93d01c38758b",
+      "island": "cec43badb8114c179b8004ca426149a3",
+      "kind": "transform",
+      "meters_per_unit": 1.0,
+      "transform": {
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "translation": [
+          1,
+          2,
+          0.5
+        ]
+      }
+    }
+  },
+  "backend": null,
+  "command": "driver.blender.composition.plan",
+  "dry_run": false,
+  "request_id": "167a27b2696646158dd8945e2fd1b8fc"
+}

@@ -1,0 +1,9 @@
+{
+  "args": {
+    "checkpoint_path": "authoring-attempt01/final-recovery.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.session.checkpoint_close",
+  "dry_run": false,
+  "request_id": "e2a94003a72d446bbb8786ea1b7616cf"
+}

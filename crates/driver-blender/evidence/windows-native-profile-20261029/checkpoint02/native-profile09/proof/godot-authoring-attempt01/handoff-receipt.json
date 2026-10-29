@@ -1,0 +1,292 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T01:47:12.215449+00:00",
+  "passed": true,
+  "source_authoring_proof_sha256": "ef8b99af8b9c5894f8bbe1687e8b9cc961ff5ad2ff31467f2cd6de01ae3a8ab0",
+  "source_broker_request": "b84d04c3e8004c03aeae005faf52e6f9",
+  "source_envelope_sha256": "c3b18f697356862c9b9268aee407158945980481f61d3a83bd6036dd9d674191",
+  "glb_sha256": "4662b0d93ef7e6187c79e5d83829f8ed5dc75ef4153ab8080f021480ac672b52",
+  "godot_binary_sha256": "c8f0a6bc45a19b33541501e57f6f7cd972ab18453743266339d495cbbe846643",
+  "verifier_sha256": "44f303797b28f5aeb6c09ba5e45758effa0e989789d5e783057ef0a4078886d5",
+  "blender_broker_used": true,
+  "godot_broker_used": false,
+  "godot_windows_driver_qualified": false,
+  "imported": true,
+  "visible_render_completed": true,
+  "native_report": {
+    "art_review": "NOT_APPLICABLE_DIAGNOSTIC_FIXTURE",
+    "camera_position": [
+      10.0,
+      8.0,
+      11.0
+    ],
+    "camera_target": [
+      3.0,
+      1.0,
+      -1.0
+    ],
+    "capture_sha256": "f25155383f6719aa819ee7266c28f06248ee6b0eda2f8544731744c80b78da51",
+    "capture_size": [
+      1280,
+      720
+    ],
+    "color_comparison": "srgb_to_linear(BaseMaterial3D.albedo_color) vs glTF linear factor",
+    "display_server": "Windows",
+    "elapsed_ms": 336,
+    "exit_code": 0,
+    "godot_broker_used": false,
+    "godot_version": {
+      "build": "official",
+      "hash": "ed1daf0bf001b61586d9930840f2f1394092c079",
+      "hex": 263938,
+      "major": 4,
+      "minor": 7,
+      "patch": 2,
+      "status": "stable",
+      "string": "4.7.2-stable (official)",
+      "timestamp": 0
+    },
+    "godot_windows_driver_qualified": false,
+    "input_sha256": "4662b0d93ef7e6187c79e5d83829f8ed5dc75ef4153ab8080f021480ac672b52",
+    "mesh_instance_count": 2,
+    "meshes": [
+      {
+        "albedo_after_srgb_to_linear": [
+          0.450000017881393,
+          0.239999979734421,
+          0.0999999940395355,
+          1.0
+        ],
+        "expected_linear_albedo": [
+          0.449999988079071,
+          0.239999994635582,
+          0.100000001490116,
+          1.0
+        ],
+        "fixture_id": "tetra",
+        "global_basis": [
+          [
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "global_scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "global_translation": [
+          1.0,
+          0.5,
+          -2.0
+        ],
+        "index_count": 12,
+        "linear_color_max_error": 2.98023223876953e-08,
+        "local_aabb_position": [
+          0.0,
+          0.0,
+          -1.0
+        ],
+        "local_aabb_size": [
+          2.0,
+          3.0,
+          1.0
+        ],
+        "material_name": "SW_cec43badb811_earth",
+        "metallic": 0.0,
+        "native_name": "SW_cec43badb811_tetra",
+        "path": "SW_cec43badb811_tetra",
+        "raw_albedo_property": [
+          0.701410710811615,
+          0.527112782001495,
+          0.349190205335617,
+          1.0
+        ],
+        "roughness": 0.699999988079071,
+        "triangle_count": 4,
+        "vertex_count": 12
+      },
+      {
+        "albedo_after_srgb_to_linear": [
+          0.0799999982118607,
+          0.320000022649765,
+          0.450000017881393,
+          1.0
+        ],
+        "expected_linear_albedo": [
+          0.0799999982118607,
+          0.319999992847443,
+          0.449999988079071,
+          1.0
+        ],
+        "fixture_id": "wedge",
+        "global_basis": [
+          [
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "global_scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "global_translation": [
+          4.0,
+          0.0,
+          0.0
+        ],
+        "index_count": 24,
+        "linear_color_max_error": 2.98023223876953e-08,
+        "local_aabb_position": [
+          0.0,
+          0.0,
+          -2.0
+        ],
+        "local_aabb_size": [
+          2.0,
+          1.0,
+          2.0
+        ],
+        "material_name": "SW_cec43badb811_sea",
+        "metallic": 0.0,
+        "native_name": "SW_cec43badb811_wedge",
+        "path": "SW_cec43badb811_wedge",
+        "raw_albedo_property": [
+          0.31330418586731,
+          0.601243436336517,
+          0.701410710811615,
+          1.0
+        ],
+        "roughness": 0.5,
+        "triangle_count": 8,
+        "vertex_count": 18
+      }
+    ],
+    "message": "Native two-mesh geometry, materials, transforms and visible frame verified",
+    "os": "Windows",
+    "proof": "two_mesh_authoring_native_godot_consumer",
+    "rendering_method": "gl_compatibility",
+    "status": "PASS",
+    "user_data_directory": "E:/Projects/worldwright-archipelago/evidence/integration/20261029-native-profile/native-profile09/godot-authoring-attempt01/runtime-env/APPDATA/Godot/app_userdata/Semwright Two Mesh Native Consumer",
+    "video_adapter_name": "NVIDIA GeForce GTX 1650",
+    "video_adapter_vendor": "NVIDIA"
+  },
+  "runs": [
+    {
+      "label": "import",
+      "argv": [
+        "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+        "--path",
+        "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile09\\godot-authoring-attempt01",
+        "--log-file",
+        "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile09\\godot-authoring-attempt01\\import.engine.log",
+        "--headless",
+        "--editor",
+        "--import"
+      ],
+      "pid": 31644,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 6.125
+    },
+    {
+      "label": "render",
+      "argv": [
+        "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+        "--path",
+        "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile09\\godot-authoring-attempt01",
+        "--log-file",
+        "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile09\\godot-authoring-attempt01\\render.engine.log",
+        "--rendering-method",
+        "gl_compatibility",
+        "--script",
+        "res://verify_glb.gd"
+      ],
+      "pid": 9068,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 2.9689999999973224
+    }
+  ],
+  "files": {
+    "authoring.glb": {
+      "bytes": 3232,
+      "sha256": "4662b0d93ef7e6187c79e5d83829f8ed5dc75ef4153ab8080f021480ac672b52"
+    },
+    "authoring.glb.import": {
+      "bytes": 1141,
+      "sha256": "0f0d67f1390f3873d65075a3223a9b90fed5ce9f1f421c1f6aaa87bc4a0efb1e"
+    },
+    "import.engine.log": {
+      "bytes": 1457,
+      "sha256": "16cb11a7a7c36d68b7fb71f3a4d4c369ef2185741bdb46ec3ce26b14a85c1fd9"
+    },
+    "import.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "import.stdout.log": {
+      "bytes": 2088,
+      "sha256": "95ba12fbd03370ec636ce000c33fac1c75f8071d7945d09118faaa0c022ba148"
+    },
+    "project.godot": {
+      "bytes": 500,
+      "sha256": "cc7e1a260c283f10bf7c02c2ff500a30cb0526e4d1b63dea0771de61b6d2c931"
+    },
+    "render.engine.log": {
+      "bytes": 2874,
+      "sha256": "51aac17383360283bf12e3025ea545a7cd351eb862ad792f7bd1ac51560c744e"
+    },
+    "render.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "render.stdout.log": {
+      "bytes": 2878,
+      "sha256": "6fb5e0de2c500d4476d1545f5fd48d3f49db40ce8aa5bfe3c3c47b6e47eab2dd"
+    },
+    "verify_glb.gd": {
+      "bytes": 10457,
+      "sha256": "44f303797b28f5aeb6c09ba5e45758effa0e989789d5e783057ef0a4078886d5"
+    },
+    "verify_glb.gd.uid": {
+      "bytes": 20,
+      "sha256": "f1f73ffead1bc68205631634b5fbd8ca7b818388ce741a877b002cb8b0c8924b"
+    },
+    "evidence\\godot-authoring.json": {
+      "bytes": 3509,
+      "sha256": "93e7017c677c5155d0727e1b07d65c2cbef5eb2a49735837fa644541b4f6fb4c"
+    },
+    "evidence\\godot-authoring.png": {
+      "bytes": 6839,
+      "sha256": "f25155383f6719aa819ee7266c28f06248ee6b0eda2f8544731744c80b78da51"
+    }
+  },
+  "A05": "PARTIAL_PENDING_PROJECT_CONFORMANCE",
+  "G6": "NOT_COMPLETE",
+  "art_approval": false,
+  "Linux_4_5_14": "NOT_RUN"
+}

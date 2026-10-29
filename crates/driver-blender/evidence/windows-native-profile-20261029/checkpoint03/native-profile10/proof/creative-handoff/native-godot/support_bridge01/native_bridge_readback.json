@@ -1,0 +1,5651 @@
+{
+	"art_approved": false,
+	"assets": [
+		{
+			"geometry": {
+				"meshes": 24,
+				"surfaces": 24,
+				"triangles": 5272,
+				"vertices": 9888
+			},
+			"id": "ARQ01_POST_HOUSE_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "4da7217251cf22faf13f682384bee4d8e5b434299cf2251f7050d5a237816cc4"
+		},
+		{
+			"geometry": {
+				"meshes": 15,
+				"surfaces": 15,
+				"triangles": 6600,
+				"vertices": 12316
+			},
+			"id": "ARQ01_POST_HOUSE_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "d8d31c393429684f9a5f1958fed60380eac7c3045db420943c1a01c92d508c6e"
+		},
+		{
+			"geometry": {
+				"meshes": 16,
+				"surfaces": 16,
+				"triangles": 4200,
+				"vertices": 5144
+			},
+			"id": "ARQ01_POST_HOUSE_p03",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p03.glb",
+			"replaced_meshes": [],
+			"sha256": "de94547d67798d5868f7474b235eaa08172ef0425b316d04090350d045a71d3c"
+		},
+		{
+			"geometry": {
+				"meshes": 29,
+				"surfaces": 29,
+				"triangles": 4140,
+				"vertices": 6478
+			},
+			"id": "ARQ01_POST_HOUSE_p04",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p04.glb",
+			"replaced_meshes": [],
+			"sha256": "4fb33c3e95b1b10ae531bedb4aa4d197310f8f4941547d2e0d40b383b513880a"
+		},
+		{
+			"geometry": {
+				"meshes": 18,
+				"surfaces": 18,
+				"triangles": 3456,
+				"vertices": 3532
+			},
+			"id": "ARQ02_ARCH_LIGHTHOUSE_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ02_ARCH_LIGHTHOUSE_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "fc1ba15daf7ca7f4e4340b84967697e0932f43758c6ccd69d40959c718caeea0"
+		},
+		{
+			"geometry": {
+				"meshes": 7,
+				"surfaces": 7,
+				"triangles": 3992,
+				"vertices": 7684
+			},
+			"id": "ARQ02_ARCH_LIGHTHOUSE_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ02_ARCH_LIGHTHOUSE_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "991ecd66a1c30cb79a3cf42423c4485dc7d91ae6525d97bef0503a2dac512324"
+		},
+		{
+			"geometry": {
+				"meshes": 8,
+				"surfaces": 8,
+				"triangles": 3648,
+				"vertices": 3048
+			},
+			"id": "GEO01_HARBOR_COAST_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "16e187384945cf8b170ea972630717ccaf45c6ad339a6c024eb50f7be5c323b3"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "1870606ca9d2986def04fbe6261f0f2f79f9922135a1ac30e4161617d50e43bb"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p03",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p03.glb",
+			"replaced_meshes": [],
+			"sha256": "b73bdb1c40a84ddc81e29e713c9af76590d361db5c347c15ad23f7d8cb0b703f"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p04",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p04.glb",
+			"replaced_meshes": [],
+			"sha256": "d291b479476b612a5559ab050b62642ed8b546d2d4aee64494232f2f5ba7d336"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p05",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p05.glb",
+			"replaced_meshes": [],
+			"sha256": "def316afef0e90f0398921701db407851348298420f42beb2f98efb8c164c585"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p06",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p06.glb",
+			"replaced_meshes": [],
+			"sha256": "b263bc0e115e2b7dedb1e200087f237460be9e052a6441f384bfb1cc05a2cb88"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4700,
+				"vertices": 2930
+			},
+			"id": "GEO01_HARBOR_COAST_p07",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p07.glb",
+			"replaced_meshes": [],
+			"sha256": "1eb7a8abca8b6b4de376ce95e95679ea993286e0b8b225b5c944efc98723ea57"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 3722,
+				"vertices": 2440
+			},
+			"id": "GEO01_HARBOR_COAST_p08",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p08.glb",
+			"replaced_meshes": [],
+			"sha256": "14dbcedad0bc84fe1b0b77d34e2bad4319e8c21052ad9362cbaef8ba0dcdb7c3"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 5116,
+				"vertices": 2980
+			},
+			"id": "GEO01_HARBOR_COAST_p09",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p09.glb",
+			"replaced_meshes": [],
+			"sha256": "02a3f2cffec8f559fe88f7fd2548c7302595917aaa1f2b58582576c4a7805dbe"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 3577,
+				"vertices": 3370
+			},
+			"id": "GEO01_HARBOR_COAST_p10",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p10.glb",
+			"replaced_meshes": [],
+			"sha256": "cf0669e6ee26b3eef20f0328d90b5cd040649e8244025dd4959c2036af78d2be"
+		},
+		{
+			"geometry": {
+				"meshes": 4,
+				"surfaces": 4,
+				"triangles": 6550,
+				"vertices": 9605
+			},
+			"id": "GEO01_HARBOR_COAST_p11",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p11.glb",
+			"replaced_meshes": [],
+			"sha256": "8edce7e277b0b0cd7899a62ff3319d743a2dc7dd99f7a5ce5efe8138614f04d6"
+		},
+		{
+			"geometry": {
+				"meshes": 11,
+				"surfaces": 11,
+				"triangles": 4580,
+				"vertices": 6899
+			},
+			"id": "GEO01_HARBOR_COAST_p12",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p12.glb",
+			"replaced_meshes": [
+				"GEO01_HARBOR_COAST_faro_integrated_limestone_stone_0"
+			],
+			"sha256": "a22793649352eaa0237b2d503e4b59b0523bc83c15796621caf5d7bdadec9fe0"
+		},
+		{
+			"geometry": {
+				"meshes": 4,
+				"surfaces": 4,
+				"triangles": 3368,
+				"vertices": 6708
+			},
+			"id": "GEO01_HARBOR_COAST_p13",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p13.glb",
+			"replaced_meshes": [
+				"GEO01_HARBOR_COAST_faro_crown_stone_0",
+				"GEO01_HARBOR_COAST_faro_footing_cap_stone_0",
+				"GEO01_HARBOR_COAST_faro_integrated_limestone_base_stone_dark_0",
+				"GEO01_HARBOR_COAST_faro_integrated_limestone_toe_stone_0",
+				"GEO01_HARBOR_COAST_faro_rock_mass_stone_0",
+				"GEO01_HARBOR_COAST_faro_rock_mass_stone_light_0"
+			],
+			"sha256": "2069d725122b22ff890c3f5f57c11c0474f5d965ef6cd656f8b6e0836e07349f"
+		},
+		{
+			"geometry": {
+				"meshes": 5,
+				"surfaces": 5,
+				"triangles": 5892,
+				"vertices": 3222
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "e62d2a1203abf55526c5453898392e987ab9204f81b358eb8257f5097a14f305"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 2592,
+				"vertices": 2508
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "69e3244f89ab1ac747db3ee8aa667a9973784f2a9cb9df33912fa5c08a697aad"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p03",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p03.glb",
+			"replaced_meshes": [],
+			"sha256": "cece160b38d3021c981e547573743a8c2b27dec3c1112caab745c25d27822eea"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p04",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p04.glb",
+			"replaced_meshes": [],
+			"sha256": "655efc572a70c977bc97909c3be0689665561a920a9acddb94f0c6ccbe4991ba"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 1344,
+				"vertices": 840
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p05",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p05.glb",
+			"replaced_meshes": [],
+			"sha256": "7dd4008505d60e80bdd0f371f429da954b0425eb67e00d58ea064aa737aebf93"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 2808,
+				"vertices": 2610
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p06",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p06.glb",
+			"replaced_meshes": [],
+			"sha256": "9f84d3d33298b0b23f23a1c8fb241b16a1ee5062afe8382b3ae2e59889204ed0"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 3600,
+				"vertices": 1920
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p07",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p07.glb",
+			"replaced_meshes": [],
+			"sha256": "1b0a241b46fc59327afe5a810eb8cfe8ec2da45304c7de1daae925fd0be2c1af"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 4256,
+				"vertices": 2394
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p08",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p08.glb",
+			"replaced_meshes": [],
+			"sha256": "4619753f5dbbe4be040467e5f89f2518672545f721d83eb907f42c36f36a8e87"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 3072,
+				"vertices": 2778
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p09",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p09.glb",
+			"replaced_meshes": [],
+			"sha256": "93bac406306fc5036947d10c8b2edc81675c47ae11dca38cb22fac13f01f9844"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p10",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p10.glb",
+			"replaced_meshes": [],
+			"sha256": "e0a8cf01386a40e22eb394f642d09c0317aa03ee995a44f4a504e0ae55ea6ea8"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p11",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p11.glb",
+			"replaced_meshes": [],
+			"sha256": "1dd54953ce5e496019bb50f7cc10ec889f3a4cf24592c80cf2facbfc84057c76"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p12",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p12.glb",
+			"replaced_meshes": [],
+			"sha256": "afac86036e0bab4a64618a90ca234d64d2af054fb775d355277f7fd13032f17d"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p13",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p13.glb",
+			"replaced_meshes": [],
+			"sha256": "9284653b35cbcad034b57d787c5d654038666076c593b1049798027f0c80c4bd"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p14",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p14.glb",
+			"replaced_meshes": [],
+			"sha256": "6e48b7ac8d88a954742904878b0527d217667f971f5131a4202bd6503a58f598"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 2772,
+				"vertices": 2594
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p15",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p15.glb",
+			"replaced_meshes": [],
+			"sha256": "c12dd6b65c30561b5e9af9f21750113f6bb3e00dfdab1c7b5ac68a3fe9b4bbdc"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 3840,
+				"vertices": 2132
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p16",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p16.glb",
+			"replaced_meshes": [],
+			"sha256": "0d0ddcbf7cac2451762b80cb81e3787773d249b8c454bcaa77823cc570a25376"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 2592,
+				"vertices": 2508
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p17",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p17.glb",
+			"replaced_meshes": [],
+			"sha256": "9435f9c20ff1e717f0f1777625202af8ba597dcd284d6f57455ac8100c130e25"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p18",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p18.glb",
+			"replaced_meshes": [],
+			"sha256": "b19d6b36475bb56799acb62d9c6fc52f257bc845fe8cf418dd447e1e08795c6c"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p19",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p19.glb",
+			"replaced_meshes": [],
+			"sha256": "87b9c253515db90363eda80c4137f994680e5388841b00654eac50a746ec36bf"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p20",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p20.glb",
+			"replaced_meshes": [],
+			"sha256": "bf4a9790f5d2b040e237c4777131d48444da0c5b9a2d514bd93883c47870a005"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p21",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p21.glb",
+			"replaced_meshes": [],
+			"sha256": "9e2f381061541aefe0de919b903dc3e3b92e222e7fdaf942a6a80a68c4c6befd"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 4256,
+				"vertices": 2394
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p22",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p22.glb",
+			"replaced_meshes": [],
+			"sha256": "f82d9aa2ebad10cdb3c5ed546038852b7555101737639f5d5ca141cc66835d9c"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p23",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p23.glb",
+			"replaced_meshes": [],
+			"sha256": "285a064edc94af2e73119df55cd8c548aaee9ca2584bf75ba3a36231960c85a0"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p24",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p24.glb",
+			"replaced_meshes": [],
+			"sha256": "fbc0f3028233189e5fee45356e71936cb7bec345f0b26d0095783f952e329a0b"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p25",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p25.glb",
+			"replaced_meshes": [],
+			"sha256": "83bfaffb43f6c0752e10fc78dbdd7d5f2d83e3076f3c91f18342ac0a65a93a69"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p26",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p26.glb",
+			"replaced_meshes": [],
+			"sha256": "47cfd18e14b7df827e2c2cbde7f616ceaf3e31ef946175539623600f3fd799fc"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p27",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p27.glb",
+			"replaced_meshes": [],
+			"sha256": "31053a7e24d7799d3cc2672352a51f7894cf09c7d1909dd367486f9ef4e56816"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p28",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p28.glb",
+			"replaced_meshes": [],
+			"sha256": "92f23bcba6710a52499e3d5a6a1b4082c9b1ca226ba80ec52974a0a6e2f040ff"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p29",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p29.glb",
+			"replaced_meshes": [],
+			"sha256": "370e80128186c24fe2c0aaff630a73ef89de6e3523040357aae24ecd52d11fb5"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 1608,
+				"vertices": 1608
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p30",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p30.glb",
+			"replaced_meshes": [],
+			"sha256": "3728c3f936e1ef636fe8bdd1596280c3adb3a407033a2e27f0c5af3ef399bf11"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p31",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p31.glb",
+			"replaced_meshes": [],
+			"sha256": "8d3fa851ea86f151d81dec948137b3a9905807c9436a8bbb8788d299c70e5cbd"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p32",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p32.glb",
+			"replaced_meshes": [],
+			"sha256": "cc5a8afb5e08af12a3b3fed69440c91d6afe866cda2c14e4e14a40c202c74f44"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 2232,
+				"vertices": 2232
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p33",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p33.glb",
+			"replaced_meshes": [],
+			"sha256": "4e7ef873734856ea1935e84f3a02cdabcab6b01e150e0ce33563d2f5cc80dc05"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p34",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p34.glb",
+			"replaced_meshes": [],
+			"sha256": "7997f4129686d5039a94eb93fc496a4dc6d3c66210e02d8664252173cbec9c40"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p35",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p35.glb",
+			"replaced_meshes": [],
+			"sha256": "6d81ee82579f3f2d67fd3691edf692159f8bd880794dc5ba309afb9414f45902"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p36",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p36.glb",
+			"replaced_meshes": [],
+			"sha256": "b8cbdf4b695a61de053f872e84739c0050e90d21dc128860c1743be56767f39f"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 1568,
+				"vertices": 882
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p37",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p37.glb",
+			"replaced_meshes": [],
+			"sha256": "0501c17f6f84abfb90438ba384e3dcf4f6239b3d4ece9f2c0e87b8ea57aa54f7"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p38",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p38.glb",
+			"replaced_meshes": [],
+			"sha256": "0b4ff324ff1942da5164a57fa55b8632e3872d360ea6122b42245577d4b7f296"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 2400
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p39",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p39.glb",
+			"replaced_meshes": [],
+			"sha256": "bf86f5fe08736c19a8ea57f888433f73465ab89fe98713f7a2357caadf254746"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2028,
+				"vertices": 2028
+			},
+			"id": "NAT01_PINES_UNDERGROWTH_p40",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p40.glb",
+			"replaced_meshes": [],
+			"sha256": "9d6c1156bf430a1d653ff39c4d4f0bdfe797ed2c4c15b5b1dbbc2230213749c4"
+		},
+		{
+			"geometry": {
+				"meshes": 18,
+				"surfaces": 18,
+				"triangles": 6063,
+				"vertices": 8610
+			},
+			"id": "ARQ03_POST_COURTYARD_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ03_POST_COURTYARD_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "e54e75404565517616473b11f570980354a586cccac1ac7e4819ca9b760c4c74"
+		},
+		{
+			"geometry": {
+				"meshes": 4,
+				"surfaces": 4,
+				"triangles": 4640,
+				"vertices": 8584
+			},
+			"id": "NAT02_HARBOR_GARDENS_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT02_HARBOR_GARDENS_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "6322ad935d1e315b4d36b6497c2683642e18d3f8bc0b0604210d105be3b00905"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 1392,
+				"vertices": 3712
+			},
+			"id": "NAT02_HARBOR_GARDENS_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT02_HARBOR_GARDENS_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "ac96833667e5d95546f6aa1dcb6174c61a190b4ed2cda03951d7309dc13900e8"
+		},
+		{
+			"geometry": {
+				"meshes": 28,
+				"surfaces": 28,
+				"triangles": 3272,
+				"vertices": 4832
+			},
+			"id": "ARQ04_HARBOR_TERRACES_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/ARQ04_HARBOR_TERRACES_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "4347578d69c40b23bcc94e3a64fbfdc470b873dbe1ef1cf63df1662bf39158be"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 3328,
+				"vertices": 2080
+			},
+			"id": "NAT04_TERRACE_PLANTS_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "5a7ace3e7286b5162ff6896bc82516f161afc0f9a44bc61758d3e76ab9e4d665"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT04_TERRACE_PLANTS_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "972e8cf3da60af9b7a8e9f10fb14250375fdf59e3438c85eb898dd286c7327c3"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT04_TERRACE_PLANTS_p03",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p03.glb",
+			"replaced_meshes": [],
+			"sha256": "f38b425a9a586fb1dd134c33a6a29cabe3d2b6a793e95b8b2d051ec39219a206"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 2976,
+				"vertices": 7936
+			},
+			"id": "NAT04_TERRACE_PLANTS_p04",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p04.glb",
+			"replaced_meshes": [],
+			"sha256": "54d69a0c2703136061dabb7c2100d57dc66a44c5218e67fedcf5c398a071da6a"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 3840,
+				"vertices": 2400
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p01",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p01.glb",
+			"replaced_meshes": [],
+			"sha256": "2c119c993985cb46cbdfd434c9aacfd59cb61015394e3ecd2d74554553a44b9a"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 3840,
+				"vertices": 2400
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p02",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p02.glb",
+			"replaced_meshes": [],
+			"sha256": "4bb53fe1eaed1389d2f16f7037133cb0fea3c63cc2f03e61f3109f60b201cfa5"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p03",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p03.glb",
+			"replaced_meshes": [],
+			"sha256": "e113dbd9ea7d9e20e01662d0d510fb13209fa0bce6a4725b35c64a302efec978"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p04",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p04.glb",
+			"replaced_meshes": [],
+			"sha256": "9f8c27510e1a97d0d2e40ce8f5c419354fa8472c94d600e0536fd35fa46d8982"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4224,
+				"vertices": 8520
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p05",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p05.glb",
+			"replaced_meshes": [],
+			"sha256": "229f011e7350638c02c2b2da0554b3faa22576b51e7859abb59de057bda51dec"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p06",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p06.glb",
+			"replaced_meshes": [],
+			"sha256": "f2e5ff147666d9039e9bc454c393efbd14277fcb5201405a29f75086ccc09786"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 1800
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p07",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p07.glb",
+			"replaced_meshes": [],
+			"sha256": "284059d6ecd5a4b574e1ede9efc66ce5bdadbe965c9424cbbe5d039def72de09"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p08",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p08.glb",
+			"replaced_meshes": [],
+			"sha256": "29e0912c04aac656e0b85183f10bce27aca6b878786b6440206ad46fc4e0054e"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p09",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p09.glb",
+			"replaced_meshes": [],
+			"sha256": "469d6823b634069ba2372977437f65460e612203090c92444f874520b1c1622e"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p10",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p10.glb",
+			"replaced_meshes": [],
+			"sha256": "83f55281787be30b5aa02c8780e75c26ff713ba3f7ef3ef71320c40304acd375"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p11",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p11.glb",
+			"replaced_meshes": [],
+			"sha256": "431dad7ba6dc85e269e68b25bc18995bb9cebf77a71cdf1822e9e47d7370c57b"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p12",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p12.glb",
+			"replaced_meshes": [],
+			"sha256": "ea313ad5d571a011a6e54cf76abc21da2712fd70516710e173b78d15e0cb5707"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p13",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p13.glb",
+			"replaced_meshes": [],
+			"sha256": "e91642834ec8b4b5e11c61e3dcab591b9b753002ff840f176ba2f71791b9d016"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 1800
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p14",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p14.glb",
+			"replaced_meshes": [],
+			"sha256": "7032f13212bc4f3b94aefb38c2db580653fe525c6e358e8176f71f3095c2d0cf"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 3840,
+				"vertices": 2400
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p15",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p15.glb",
+			"replaced_meshes": [],
+			"sha256": "3821bebb56086e1bb80905d095b5248bcdf7466bf9035748d4b7e4a841e470aa"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p16",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p16.glb",
+			"replaced_meshes": [],
+			"sha256": "ba58094988d6e0526185cb9c114703e092040c7652173c3fb77b991472e2e5cc"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p17",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p17.glb",
+			"replaced_meshes": [],
+			"sha256": "edec4947a27c0d52d62ffba28186750fd2b24804404a9b576e6f3a469c790767"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p18",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p18.glb",
+			"replaced_meshes": [],
+			"sha256": "47bc1f73737d4690955999489a5add9cee5935208a869e7684821c473c49ff54"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p19",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p19.glb",
+			"replaced_meshes": [],
+			"sha256": "1abbc8f5414dfa2c8c3c4c865138b1700162924b63ee44671d9475b3402f3883"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p20",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p20.glb",
+			"replaced_meshes": [],
+			"sha256": "10268f25427192a411c72dbbb87576b6d9050738dc40527829fc3a16a340cc29"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p21",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p21.glb",
+			"replaced_meshes": [],
+			"sha256": "e7ca14f3f6e389bb729b2bc6df5befdaece3729b1401286cadc3f001d864b0ad"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p22",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p22.glb",
+			"replaced_meshes": [],
+			"sha256": "c5a19cae445793602cb35b6e11a62b321f9d4a7e73245b1f414114e96a0ddcd3"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2400,
+				"vertices": 1800
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p23",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p23.glb",
+			"replaced_meshes": [],
+			"sha256": "778d1a3927f1508cabccc4852dcb064142c7ac622989eee49f44c49fc93c5ce1"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 5312,
+				"vertices": 9200
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p24",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p24.glb",
+			"replaced_meshes": [],
+			"sha256": "7ba76d36ff5c6e0f4f8d710c2af92092405aed4defeeef717b119748769bf176"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 3840,
+				"vertices": 2400
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p25",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p25.glb",
+			"replaced_meshes": [],
+			"sha256": "487d5eb157f36fb0fee36d413f941e12875824c4196d594ac0827992c0648492"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p26",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p26.glb",
+			"replaced_meshes": [],
+			"sha256": "bb48408922d9d6468c35a71f24d29978e13d304b55cdf7c3c5d0f97b2e32c1f1"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p27",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p27.glb",
+			"replaced_meshes": [],
+			"sha256": "1212bf79b1263e3b102f71868ac6e3d70a006d71fa8bad2c8743e156fba18fa9"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2880,
+				"vertices": 7680
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p28",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p28.glb",
+			"replaced_meshes": [],
+			"sha256": "226ae9ad0efc3f9a895937a1f119ab36e6d100712b5db87f33c3813ede59b33a"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 2592,
+				"vertices": 6912
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p29",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p29.glb",
+			"replaced_meshes": [],
+			"sha256": "3381a5663875d8609c46bf7635068f1e0aeda54c8121beedf1fec434716cb780"
+		},
+		{
+			"geometry": {
+				"meshes": 2,
+				"surfaces": 2,
+				"triangles": 4320,
+				"vertices": 11520
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p30",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p30.glb",
+			"replaced_meshes": [],
+			"sha256": "d541a0ff73646cc57616e9f4eff661bfc3d9a327a7b789e615b67f9771cdd8f4"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 4096,
+				"vertices": 7176
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p31",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p31.glb",
+			"replaced_meshes": [],
+			"sha256": "a16c9082a57466cf840b8bd7138dbcd7dee431d13c41317d6528a78400ba140c"
+		},
+		{
+			"geometry": {
+				"meshes": 1,
+				"surfaces": 1,
+				"triangles": 1632,
+				"vertices": 4352
+			},
+			"id": "NAT03_COASTAL_GROUNDCOVER_p32",
+			"material_roles": {},
+			"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p32.glb",
+			"replaced_meshes": [],
+			"sha256": "3446e86627f2365888d76c59f06fddefcb2168d34c2f007efa8e485ae2dc2657"
+		},
+		{
+			"geometry": {
+				"meshes": 3,
+				"surfaces": 3,
+				"triangles": 1024,
+				"vertices": 2288
+			},
+			"id": "GEO01_FARO_SEMWRIGHT_R22",
+			"material_roles": {
+				"SW_dc08abe78a2a_limestone": "stone"
+			},
+			"path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+			"replaced_meshes": [],
+			"sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+		}
+	],
+	"camera": {
+		"eye": [
+			15.0,
+			4.3,
+			58.0
+		],
+		"fov": 60.0,
+		"id": "llegar",
+		"target": [
+			-9.0,
+			9.0,
+			3.0
+		],
+		"title": "Llegar"
+	},
+	"capture_kind": "native_godot",
+	"engine": {
+		"build": "official",
+		"hash": "ed1daf0bf001b61586d9930840f2f1394092c079",
+		"hex": 263938,
+		"major": 4,
+		"minor": 7,
+		"patch": 2,
+		"status": "stable",
+		"string": "4.7.2-stable (official)",
+		"timestamp": 0
+	},
+	"final_contacts": [
+		{
+			"collider_path": "/root/Archipelago/GEO01_FARO_SEMWRIGHT_R22/SW_dc08abe78a2a_integrated_limestone/ReviewGeometryCollision",
+			"normal": [
+				0.145870253443718,
+				0.971518814563751,
+				0.186743274331093
+			],
+			"position": [
+				-51.9478721618652,
+				10.0355739593506,
+				7.99195671081543
+			]
+		},
+		{
+			"collider_path": "/root/Archipelago/GEO01_FARO_SEMWRIGHT_R22/SW_dc08abe78a2a_integrated_limestone/ReviewGeometryCollision",
+			"normal": [
+				0.145870253443718,
+				0.971518814563751,
+				0.186743274331093
+			],
+			"position": [
+				-51.947868347168,
+				10.0355730056763,
+				7.99195766448975
+			]
+		}
+	],
+	"final_position": [
+		-51.9036102294922,
+		10.0503463745117,
+		8.04861831665039
+	],
+	"foliage_material": {
+		"alpha_coverage_ge_128_sampled": 0.331447285225596,
+		"alpha_max_sampled": 255,
+		"alpha_min_sampled": 0,
+		"alpha_probe_stride_pixels": 17,
+		"alpha_scissor_threshold": 0.4,
+		"consumer_alpha_mode": "Godot Alpha Scissor",
+		"errors": [],
+		"height": 1024,
+		"image_sha256": "1c5b08971e872af8c0a193756e6097ae74281ea2c78c6e27b23dfa0a266b42b0",
+		"mipmaps_imported": false,
+		"mipmaps_used": true,
+		"pixel_readback": "PASS",
+		"source_glb_transparency_enum": 4,
+		"surfaces": 34,
+		"uv_vertices": 77868,
+		"width": 1024
+	},
+	"gpu": "NVIDIA GeForce GTX 1650",
+	"human_playtest": false,
+	"maximum_airborne_seconds": 0.25,
+	"native_physics": true,
+	"passed": true,
+	"planar_reflection": {
+		"cached_by_pose": true,
+		"capture_height": 432,
+		"capture_width": 768,
+		"enabled": true,
+		"linear_hdr": true,
+		"max_update_hz": 30,
+		"note": "Render requests, not measured GPU passes; moving-camera cost differs from cached stills",
+		"render_requests": 792
+	},
+	"reached_waypoints": 16,
+	"reason": "route_completed",
+	"render_settings": {
+		"ambient_energy": 0.340000003576279,
+		"ambient_source": 3,
+		"exposure": 1.0,
+		"fog_density": 0.000500000023748726,
+		"fog_sky_affect": 0.0500000007450581,
+		"shaders_sha256": {
+			"ocean": "db2c063876495664b9ebe88fae028b934058b79cab14c0be02f04f47896fe5f3",
+			"sky": "0eeccde10f93319ad2b076968413060d1b9a96eb4fd9a6aa80bcd2554dbe1c4a",
+			"surface": "5e2e39e2274fecf192fa8ad64261a9cad8d819e17db11fa45a6a5a4a15053fd9"
+		},
+		"sun_energy": 1.14999997615814,
+		"tonemap": 2,
+		"white": 4.0
+	},
+	"renderer": "forward_plus",
+	"route_path": "res://config/review_bridge_route.json",
+	"route_sha256": "a5cdc8c4c443f9084b36d4ab9520744970a7d6703b48d48781cc900ba3571592",
+	"runtime_diagnostics": {
+		"physics_ms": 0.793,
+		"process_ms": 2.731,
+		"time_scale": 1.0,
+		"vsync_mode": 0,
+		"window_focused": true,
+		"window_mode": 0
+	},
+	"samples": [
+		{
+			"monotonic_usec": 5037278,
+			"on_floor": true,
+			"position": [
+				17.8608627319336,
+				6.10697078704834,
+				6.00242376327515
+			],
+			"seconds": 0.116666666666667,
+			"velocity": [
+				-2.09999990463257,
+				0.0,
+				-0.00189065106678754
+			],
+			"waypoint": 1
+		},
+		{
+			"monotonic_usec": 5345309,
+			"on_floor": true,
+			"position": [
+				17.5258922576904,
+				6.08257675170898,
+				6.00225782394409
+			],
+			"seconds": 0.233333333333333,
+			"velocity": [
+				-2.99999952316284,
+				0.0,
+				-0.00192100752610713
+			],
+			"waypoint": 1
+		},
+		{
+			"monotonic_usec": 5349869,
+			"on_floor": true,
+			"position": [
+				17.1739253997803,
+				6.10051155090332,
+				6.00384521484375
+			],
+			"seconds": 0.35,
+			"velocity": [
+				-2.99999785423279,
+				0.0,
+				-0.0036344863474369
+			],
+			"waypoint": 1
+		},
+		{
+			"monotonic_usec": 5460372,
+			"on_floor": true,
+			"position": [
+				16.8265438079834,
+				6.07473039627075,
+				6.00342464447021
+			],
+			"seconds": 0.466666666666667,
+			"velocity": [
+				-2.99999761581421,
+				0.0,
+				-0.00363497762009501
+			],
+			"waypoint": 1
+		},
+		{
+			"monotonic_usec": 5577037,
+			"on_floor": true,
+			"position": [
+				16.4758834838867,
+				6.09027004241943,
+				6.00314807891846
+			],
+			"seconds": 0.583333333333333,
+			"velocity": [
+				-2.99999761581421,
+				0.0,
+				-0.00381429889239371
+			],
+			"waypoint": 1
+		},
+		{
+			"monotonic_usec": 5693534,
+			"on_floor": true,
+			"position": [
+				16.1258888244629,
+				6.06448888778687,
+				6.00270414352417
+			],
+			"seconds": 0.700000000000001,
+			"velocity": [
+				-2.99999761581421,
+				0.0,
+				-0.00381576712243259
+			],
+			"waypoint": 1
+		},
+		{
+			"monotonic_usec": 5810449,
+			"on_floor": true,
+			"position": [
+				15.7755527496338,
+				6.08437442779541,
+				6.0027642250061
+			],
+			"seconds": 0.816666666666668,
+			"velocity": [
+				-2.99999642372131,
+				0.0,
+				-0.00467026047408581
+			],
+			"waypoint": 1
+		},
+		{
+			"monotonic_usec": 5926848,
+			"on_floor": true,
+			"position": [
+				15.4247417449951,
+				6.07847881317139,
+				6.00165939331055
+			],
+			"seconds": 0.933333333333335,
+			"velocity": [
+				-2.99999642372131,
+				0.0,
+				-0.00467190099880099
+			],
+			"waypoint": 1
+		},
+		{
+			"monotonic_usec": 6043412,
+			"on_floor": true,
+			"position": [
+				15.0745029449463,
+				6.07419586181641,
+				6.0011248588562
+			],
+			"seconds": 1.05,
+			"velocity": [
+				-2.99999833106995,
+				0.0,
+				-0.00314088398590684
+			],
+			"waypoint": 1
+		},
+		{
+			"monotonic_usec": 6160135,
+			"on_floor": true,
+			"position": [
+				14.7245302200317,
+				6.07419586181641,
+				6.00075769424438
+			],
+			"seconds": 1.16666666666667,
+			"velocity": [
+				-2.99999833106995,
+				0.0,
+				-0.00313798477873206
+			],
+			"waypoint": 1
+		},
+		{
+			"monotonic_usec": 6276639,
+			"on_floor": true,
+			"position": [
+				14.3744964599609,
+				6.07419586181641,
+				6.00039100646973
+			],
+			"seconds": 1.28333333333333,
+			"velocity": [
+				-2.99999833106995,
+				0.0,
+				-0.00313401967287064
+			],
+			"waypoint": 1
+		},
+		{
+			"monotonic_usec": 6393487,
+			"on_floor": true,
+			"position": [
+				14.1105298995972,
+				6.07419586181641,
+				5.8950252532959
+			],
+			"seconds": 1.4,
+			"velocity": [
+				-1.87470841407776,
+				0.0,
+				-1.80313217639923
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 6510180,
+			"on_floor": true,
+			"position": [
+				13.892520904541,
+				6.07009363174438,
+				5.62660455703735
+			],
+			"seconds": 1.51666666666667,
+			"velocity": [
+				-1.87062788009644,
+				0.0,
+				-2.34536814689636
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 6626807,
+			"on_floor": true,
+			"position": [
+				13.6728372573853,
+				6.05937480926514,
+				5.35071849822998
+			],
+			"seconds": 1.63333333333333,
+			"velocity": [
+				-1.87078106403351,
+				0.0,
+				-2.34524583816528
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 6743536,
+			"on_floor": true,
+			"position": [
+				13.4541149139404,
+				6.0455756187439,
+				5.07714557647705
+			],
+			"seconds": 1.75,
+			"velocity": [
+				-1.87081456184387,
+				0.0,
+				-2.34521913528442
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 6860250,
+			"on_floor": true,
+			"position": [
+				13.235559463501,
+				6.01280355453491,
+				4.80303716659546
+			],
+			"seconds": 1.86666666666666,
+			"velocity": [
+				-1.87057793140411,
+				0.0,
+				-2.34540772438049
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 6976933,
+			"on_floor": true,
+			"position": [
+				13.0164108276367,
+				6.00228881835938,
+				4.52818250656128
+			],
+			"seconds": 1.98333333333333,
+			"velocity": [
+				-1.87061238288879,
+				0.0,
+				-2.3453803062439
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 7093549,
+			"on_floor": true,
+			"position": [
+				12.7991857528687,
+				6.01722717285156,
+				4.25560522079468
+			],
+			"seconds": 2.1,
+			"velocity": [
+				-1.87072420120239,
+				0.0,
+				-2.34529113769531
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 7210117,
+			"on_floor": true,
+			"position": [
+				12.5799083709717,
+				6.01226091384888,
+				3.98325109481812
+			],
+			"seconds": 2.21666666666666,
+			"velocity": [
+				-1.86925339698792,
+				0.0,
+				-2.34646391868591
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 7327086,
+			"on_floor": true,
+			"position": [
+				12.3609075546265,
+				6.00337648391724,
+				3.70726847648621
+			],
+			"seconds": 2.33333333333333,
+			"velocity": [
+				-1.86997079849243,
+				0.0,
+				-2.34589219093323
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 7443512,
+			"on_floor": true,
+			"position": [
+				12.1425609588623,
+				5.99693441390991,
+				3.43308901786804
+			],
+			"seconds": 2.45,
+			"velocity": [
+				-1.87018013000488,
+				0.0,
+				-2.34572505950928
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 7560176,
+			"on_floor": true,
+			"position": [
+				11.9241104125977,
+				5.98716402053833,
+				3.16102886199951
+			],
+			"seconds": 2.56666666666666,
+			"velocity": [
+				-1.86826968193054,
+				0.0,
+				-2.34724712371826
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 7676857,
+			"on_floor": true,
+			"position": [
+				11.7036161422729,
+				6.00276184082031,
+				2.88480448722839
+			],
+			"seconds": 2.68333333333333,
+			"velocity": [
+				-1.86723589897156,
+				0.0,
+				-2.348069190979
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 7793565,
+			"on_floor": true,
+			"position": [
+				11.4856796264648,
+				5.99573040008545,
+				2.61061573028564
+			],
+			"seconds": 2.79999999999999,
+			"velocity": [
+				-1.86748361587524,
+				0.0,
+				-2.34787249565125
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 7910297,
+			"on_floor": true,
+			"position": [
+				11.2668418884277,
+				5.96108531951904,
+				2.33542203903198
+			],
+			"seconds": 2.91666666666666,
+			"velocity": [
+				-1.8676929473877,
+				0.0,
+				-2.34770584106445
+			],
+			"waypoint": 2
+		},
+		{
+			"monotonic_usec": 8026872,
+			"on_floor": true,
+			"position": [
+				11.0030422210693,
+				5.9805326461792,
+				2.10869932174683
+			],
+			"seconds": 3.03333333333333,
+			"velocity": [
+				-2.475661277771,
+				0.0,
+				-1.69443225860596
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 8143472,
+			"on_floor": true,
+			"position": [
+				10.7123622894287,
+				5.94600057601929,
+				1.90975368022919
+			],
+			"seconds": 3.14999999999999,
+			"velocity": [
+				-2.4756600856781,
+				0.0,
+				-1.6944340467453
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 8260357,
+			"on_floor": true,
+			"position": [
+				10.4223690032959,
+				5.93987274169922,
+				1.71125483512878
+			],
+			"seconds": 3.26666666666666,
+			"velocity": [
+				-2.47566366195679,
+				0.0,
+				-1.69442903995514
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 8376901,
+			"on_floor": true,
+			"position": [
+				10.1340084075928,
+				5.95374298095703,
+				1.51363551616669
+			],
+			"seconds": 3.38333333333333,
+			"velocity": [
+				-2.47572088241577,
+				0.0,
+				-1.69434499740601
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 8493494,
+			"on_floor": true,
+			"position": [
+				9.84456729888916,
+				5.94633436203003,
+				1.3155483007431
+			],
+			"seconds": 3.49999999999999,
+			"velocity": [
+				-2.47572064399719,
+				0.0,
+				-1.69434571266174
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 8610318,
+			"on_floor": true,
+			"position": [
+				9.55569171905518,
+				5.91461706161499,
+				1.11783862113953
+			],
+			"seconds": 3.61666666666666,
+			"velocity": [
+				-2.47572255134583,
+				0.0,
+				-1.69434285163879
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 8726977,
+			"on_floor": true,
+			"position": [
+				9.26758098602295,
+				5.92798614501953,
+				0.921051681041718
+			],
+			"seconds": 3.73333333333333,
+			"velocity": [
+				-2.47561693191528,
+				0.0,
+				-1.69449734687805
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 8843449,
+			"on_floor": true,
+			"position": [
+				8.97944927215576,
+				5.92147254943848,
+				0.723715364933014
+			],
+			"seconds": 3.84999999999999,
+			"velocity": [
+				-2.47565078735352,
+				0.0,
+				-1.69444763660431
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 8960023,
+			"on_floor": true,
+			"position": [
+				8.6907901763916,
+				5.90847969055176,
+				0.525923192501068
+			],
+			"seconds": 3.96666666666666,
+			"velocity": [
+				-2.47564935684204,
+				0.0,
+				-1.69444978237152
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 9076869,
+			"on_floor": true,
+			"position": [
+				8.4018030166626,
+				5.90208005905151,
+				0.328142642974854
+			],
+			"seconds": 4.08333333333332,
+			"velocity": [
+				-2.47572040557861,
+				0.0,
+				-1.69434595108032
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 9193439,
+			"on_floor": true,
+			"position": [
+				8.11240482330322,
+				5.86978483200073,
+				0.130089789628983
+			],
+			"seconds": 4.19999999999999,
+			"velocity": [
+				-2.47571802139282,
+				0.0,
+				-1.6943496465683
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 9309948,
+			"on_floor": true,
+			"position": [
+				7.8235650062561,
+				5.88268709182739,
+				-0.0674096196889877
+			],
+			"seconds": 4.31666666666666,
+			"velocity": [
+				-2.47571420669556,
+				0.0,
+				-1.69435477256775
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 9427507,
+			"on_floor": true,
+			"position": [
+				7.53523254394531,
+				5.87684631347656,
+				-0.264760166406631
+			],
+			"seconds": 4.43333333333332,
+			"velocity": [
+				-2.47564554214478,
+				0.0,
+				-1.69445562362671
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 9543324,
+			"on_floor": true,
+			"position": [
+				7.24713468551636,
+				5.87103891372681,
+				-0.462025582790375
+			],
+			"seconds": 4.54999999999999,
+			"velocity": [
+				-2.47568511962891,
+				0.0,
+				-1.69439792633057
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 9659976,
+			"on_floor": true,
+			"position": [
+				6.95996570587158,
+				5.86016798019409,
+				-0.658772885799408
+			],
+			"seconds": 4.66666666666666,
+			"velocity": [
+				-2.47568082809448,
+				0.0,
+				-1.69440364837646
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 9776821,
+			"on_floor": true,
+			"position": [
+				6.6719388961792,
+				5.85462427139282,
+				-0.855864286422729
+			],
+			"seconds": 4.78333333333332,
+			"velocity": [
+				-2.47579956054688,
+				0.0,
+				-1.69423079490662
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 9893401,
+			"on_floor": true,
+			"position": [
+				6.38374471664429,
+				5.85018539428711,
+				-1.05226445198059
+			],
+			"seconds": 4.89999999999999,
+			"velocity": [
+				-2.47511887550354,
+				0.0,
+				-1.69522452354431
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 10010165,
+			"on_floor": true,
+			"position": [
+				6.09584760665894,
+				5.81962394714355,
+				-1.24943935871124
+			],
+			"seconds": 5.01666666666665,
+			"velocity": [
+				-2.47511076927185,
+				0.0,
+				-1.69523656368256
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 10126887,
+			"on_floor": true,
+			"position": [
+				5.80742454528809,
+				5.8368763923645,
+				-1.44643688201904
+			],
+			"seconds": 5.13333333333332,
+			"velocity": [
+				-2.4743287563324,
+				0.0,
+				-1.69637739658356
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 10243467,
+			"on_floor": true,
+			"position": [
+				5.51914024353027,
+				5.83397340774536,
+				-1.64388406276703
+			],
+			"seconds": 5.24999999999999,
+			"velocity": [
+				-2.47388887405396,
+				0.0,
+				-1.69701957702637
+			],
+			"waypoint": 3
+		},
+		{
+			"monotonic_usec": 10360021,
+			"on_floor": true,
+			"position": [
+				5.22568035125732,
+				5.804283618927,
+				-1.83674502372742
+			],
+			"seconds": 5.36666666666665,
+			"velocity": [
+				-2.77381587028503,
+				0.0,
+				-1.39712560176849
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 10476762,
+			"on_floor": true,
+			"position": [
+				4.87552404403687,
+				5.82417488098145,
+				-1.88268768787384
+			],
+			"seconds": 5.48333333333332,
+			"velocity": [
+				-2.99940252304077,
+				0.0,
+				-0.0598868876695633
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 10593224,
+			"on_floor": true,
+			"position": [
+				4.52595281600952,
+				5.819167137146,
+				-1.88983488082886
+			],
+			"seconds": 5.59999999999999,
+			"velocity": [
+				-2.99940395355225,
+				0.0,
+				-0.0597959607839584
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 10710091,
+			"on_floor": true,
+			"position": [
+				4.17601442337036,
+				5.819167137146,
+				-1.89681124687195
+			],
+			"seconds": 5.71666666666665,
+			"velocity": [
+				-2.99940395355225,
+				0.0,
+				-0.0597959533333778
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 10826706,
+			"on_floor": true,
+			"position": [
+				3.82608318328857,
+				5.79338598251343,
+				-1.90378737449646
+			],
+			"seconds": 5.83333333333332,
+			"velocity": [
+				-2.99940395355225,
+				0.0,
+				-0.059796005487442
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 10943107,
+			"on_floor": true,
+			"position": [
+				3.47580671310425,
+				5.81305980682373,
+				-1.91078352928162
+			],
+			"seconds": 5.94999999999998,
+			"velocity": [
+				-2.99940395355225,
+				0.0,
+				-0.0597872957587242
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 11060105,
+			"on_floor": true,
+			"position": [
+				3.12650346755981,
+				5.80991268157959,
+				-1.91774237155914
+			],
+			"seconds": 6.06666666666665,
+			"velocity": [
+				-2.99940419197083,
+				0.0,
+				-0.0597900524735451
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 11176771,
+			"on_floor": true,
+			"position": [
+				2.77660298347473,
+				5.81168365478516,
+				-1.92471361160278
+			],
+			"seconds": 6.18333333333332,
+			"velocity": [
+				-2.99940395355225,
+				0.0,
+				-0.0597929283976555
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 11293512,
+			"on_floor": true,
+			"position": [
+				2.42666435241699,
+				5.81168365478516,
+				-1.93168985843658
+			],
+			"seconds": 6.29999999999998,
+			"velocity": [
+				-2.99940419197083,
+				0.0,
+				-0.059792798012495
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 11409987,
+			"on_floor": true,
+			"position": [
+				2.07673311233521,
+				5.78590250015259,
+				-1.9386659860611
+			],
+			"seconds": 6.41666666666665,
+			"velocity": [
+				-2.99940395355225,
+				0.0,
+				-0.0597925186157227
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 11526437,
+			"on_floor": true,
+			"position": [
+				1.72838163375854,
+				5.80983304977417,
+				-1.94480860233307
+			],
+			"seconds": 6.53333333333332,
+			"velocity": [
+				-2.99938631057739,
+				0.0,
+				-0.0606733933091164
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 11643139,
+			"on_floor": true,
+			"position": [
+				1.37745356559753,
+				5.80668449401855,
+				-1.9505478143692
+			],
+			"seconds": 6.64999999999998,
+			"velocity": [
+				-2.99935102462769,
+				0.0,
+				-0.0623879134654999
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 11759991,
+			"on_floor": true,
+			"position": [
+				1.02757382392883,
+				5.81001138687134,
+				-1.95780348777771
+			],
+			"seconds": 6.76666666666665,
+			"velocity": [
+				-2.99935054779053,
+				0.0,
+				-0.0624204725027084
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 11876476,
+			"on_floor": true,
+			"position": [
+				0.677650094032288,
+				5.81001138687134,
+				-1.96508586406708
+			],
+			"seconds": 6.88333333333331,
+			"velocity": [
+				-2.99935054779053,
+				0.0,
+				-0.0624204948544502
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 11993490,
+			"on_floor": true,
+			"position": [
+				0.327716618776321,
+				5.81001138687134,
+				-1.97236835956573
+			],
+			"seconds": 6.99999999999998,
+			"velocity": [
+				-2.99935078620911,
+				0.0,
+				-0.0624206699430943
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 12110086,
+			"on_floor": true,
+			"position": [
+				-0.022215873003006,
+				5.81156492233276,
+				-1.97963237762451
+			],
+			"seconds": 7.11666666666665,
+			"velocity": [
+				-2.99934911727905,
+				0.0,
+				-0.0624776035547256
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 12226476,
+			"on_floor": true,
+			"position": [
+				-0.372138768434525,
+				5.81156492233276,
+				-1.98692142963409
+			],
+			"seconds": 7.23333333333331,
+			"velocity": [
+				-2.99934935569763,
+				0.0,
+				-0.0624776221811771
+			],
+			"waypoint": 4
+		},
+		{
+			"monotonic_usec": 12343327,
+			"on_floor": true,
+			"position": [
+				-0.717070817947388,
+				5.81156492233276,
+				-1.98921060562134
+			],
+			"seconds": 7.34999999999998,
+			"velocity": [
+				-2.69934940338135,
+				0.0,
+				0.237522229552269
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 12460176,
+			"on_floor": true,
+			"position": [
+				-0.948527932167053,
+				5.81156492233276,
+				-1.82150936126709
+			],
+			"seconds": 7.46666666666665,
+			"velocity": [
+				-1.87197279930115,
+				0.0,
+				2.33752202987671
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 12576595,
+			"on_floor": true,
+			"position": [
+				-1.16670751571655,
+				5.80877017974854,
+				-1.54790723323822
+			],
+			"seconds": 7.58333333333331,
+			"velocity": [
+				-1.87204360961914,
+				0.0,
+				2.34423804283142
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 12693125,
+			"on_floor": true,
+			"position": [
+				-1.38514065742493,
+				5.8022518157959,
+				-1.27416968345642
+			],
+			"seconds": 7.69999999999998,
+			"velocity": [
+				-1.87213015556335,
+				0.0,
+				2.34416890144348
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 12810074,
+			"on_floor": true,
+			"position": [
+				-1.60339903831482,
+				5.78145694732666,
+				-1.0007529258728
+			],
+			"seconds": 7.81666666666664,
+			"velocity": [
+				-1.8721786737442,
+				0.0,
+				2.34413027763367
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 12926567,
+			"on_floor": true,
+			"position": [
+				-1.82013034820557,
+				5.81362628936768,
+				-0.728231549263
+			],
+			"seconds": 7.93333333333331,
+			"velocity": [
+				-1.87262511253357,
+				0.0,
+				2.34377384185791
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 13043226,
+			"on_floor": true,
+			"position": [
+				-2.03825902938843,
+				5.81870651245117,
+				-0.45488715171814
+			],
+			"seconds": 8.04999999999998,
+			"velocity": [
+				-1.87266218662262,
+				0.0,
+				2.34374380111694
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 13160014,
+			"on_floor": true,
+			"position": [
+				-2.25573372840881,
+				5.83569240570068,
+				-0.181655749678612
+			],
+			"seconds": 8.16666666666665,
+			"velocity": [
+				-1.87331342697144,
+				0.0,
+				2.34322333335876
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 13276544,
+			"on_floor": true,
+			"position": [
+				-2.47263669967651,
+				5.85484552383423,
+				0.0914258360862732
+			],
+			"seconds": 8.28333333333332,
+			"velocity": [
+				-1.87426781654358,
+				0.0,
+				2.34246039390564
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 13393174,
+			"on_floor": true,
+			"position": [
+				-2.68915224075317,
+				5.87719535827637,
+				0.364385724067688
+			],
+			"seconds": 8.4,
+			"velocity": [
+				-1.87585067749023,
+				0.0,
+				2.34119296073914
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 13509852,
+			"on_floor": true,
+			"position": [
+				-2.90522956848145,
+				5.90279817581177,
+				0.637289524078369
+			],
+			"seconds": 8.51666666666667,
+			"velocity": [
+				-1.87843072414398,
+				0.0,
+				2.33912324905396
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 13626606,
+			"on_floor": true,
+			"position": [
+				-3.12166810035706,
+				5.92760705947876,
+				0.91010856628418
+			],
+			"seconds": 8.63333333333334,
+			"velocity": [
+				-1.88186073303223,
+				0.0,
+				2.33636474609375
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 13743304,
+			"on_floor": true,
+			"position": [
+				-3.33835864067078,
+				5.95210790634155,
+				1.18254733085632
+			],
+			"seconds": 8.75000000000001,
+			"velocity": [
+				-1.88665795326233,
+				0.0,
+				2.33249282836914
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 13859796,
+			"on_floor": true,
+			"position": [
+				-3.55583381652832,
+				5.97589492797852,
+				1.45433986186981
+			],
+			"seconds": 8.86666666666669,
+			"velocity": [
+				-1.89387607574463,
+				0.0,
+				2.32663536071777
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 13977144,
+			"on_floor": true,
+			"position": [
+				-3.77364230155945,
+				6.00285625457764,
+				1.72521889209747
+			],
+			"seconds": 8.98333333333336,
+			"velocity": [
+				-1.90397524833679,
+				0.0,
+				2.31837844848633
+			],
+			"waypoint": 5
+		},
+		{
+			"monotonic_usec": 14093115,
+			"on_floor": true,
+			"position": [
+				-3.91370797157288,
+				6.0036473274231,
+				2.04665732383728
+			],
+			"seconds": 9.10000000000003,
+			"velocity": [
+				-0.914966762065887,
+				0.0,
+				2.85706782341003
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 14210147,
+			"on_floor": true,
+			"position": [
+				-4.0175724029541,
+				6.0032787322998,
+				2.38121151924133
+			],
+			"seconds": 9.2166666666667,
+			"velocity": [
+				-0.91680383682251,
+				0.0,
+				2.85647869110107
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 14326513,
+			"on_floor": true,
+			"position": [
+				-4.12021827697754,
+				6.04045104980469,
+				2.71404528617859
+			],
+			"seconds": 9.33333333333338,
+			"velocity": [
+				-0.918700695037842,
+				0.0,
+				2.85586929321289
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 14443210,
+			"on_floor": true,
+			"position": [
+				-4.2262749671936,
+				6.0332498550415,
+				3.05140399932861
+			],
+			"seconds": 9.45000000000005,
+			"velocity": [
+				-0.920797348022461,
+				0.0,
+				2.8551938533783
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 14560018,
+			"on_floor": true,
+			"position": [
+				-4.3307580947876,
+				6.03485345840454,
+				3.3852641582489
+			],
+			"seconds": 9.56666666666672,
+			"velocity": [
+				-0.923295378684998,
+				0.0,
+				2.8543872833252
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 14676463,
+			"on_floor": true,
+			"position": [
+				-4.43259477615356,
+				6.0737886428833,
+				3.71674871444702
+			],
+			"seconds": 9.68333333333339,
+			"velocity": [
+				-0.926283240318298,
+				0.0,
+				2.85341882705688
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 14793125,
+			"on_floor": true,
+			"position": [
+				-4.54017925262451,
+				6.06206083297729,
+				4.05441284179688
+			],
+			"seconds": 9.80000000000007,
+			"velocity": [
+				-0.929451823234558,
+				0.0,
+				2.85238838195801
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 14910161,
+			"on_floor": true,
+			"position": [
+				-4.64478158950806,
+				6.06259632110596,
+				4.38769149780273
+			],
+			"seconds": 9.91666666666674,
+			"velocity": [
+				-0.933394193649292,
+				0.0,
+				2.85110068321228
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 15026479,
+			"on_floor": true,
+			"position": [
+				-4.7477388381958,
+				6.10313749313354,
+				4.71643924713135
+			],
+			"seconds": 10.0333333333334,
+			"velocity": [
+				-0.936879277229309,
+				0.0,
+				2.84995746612549
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 15143262,
+			"on_floor": true,
+			"position": [
+				-4.85696125030518,
+				6.09441471099854,
+				5.05600643157959
+			],
+			"seconds": 10.1500000000001,
+			"velocity": [
+				-0.941643714904785,
+				0.0,
+				2.84838676452637
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 15260100,
+			"on_floor": true,
+			"position": [
+				-4.96483945846558,
+				6.08926200866699,
+				5.38962745666504
+			],
+			"seconds": 10.2666666666668,
+			"velocity": [
+				-0.946089148521423,
+				0.0,
+				2.84691309928894
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 15376552,
+			"on_floor": true,
+			"position": [
+				-5.07163953781128,
+				6.1239070892334,
+				5.71857261657715
+			],
+			"seconds": 10.3833333333334,
+			"velocity": [
+				-0.948756873607636,
+				0.0,
+				2.84602522850037
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 15493048,
+			"on_floor": true,
+			"position": [
+				-5.18400955200195,
+				6.10871124267578,
+				6.05595445632935
+			],
+			"seconds": 10.5000000000001,
+			"velocity": [
+				-0.952231884002686,
+				0.0,
+				2.84486436843872
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 15610032,
+			"on_floor": true,
+			"position": [
+				-5.29379558563232,
+				6.10329723358154,
+				6.38840532302856
+			],
+			"seconds": 10.6166666666668,
+			"velocity": [
+				-0.958465397357941,
+				0.0,
+				2.84277057647705
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 15726412,
+			"on_floor": true,
+			"position": [
+				-5.40361452102661,
+				6.13766431808472,
+				6.7170524597168
+			],
+			"seconds": 10.7333333333334,
+			"velocity": [
+				-0.96453469991684,
+				0.0,
+				2.84071683883667
+			],
+			"waypoint": 6
+		},
+		{
+			"monotonic_usec": 15843060,
+			"on_floor": true,
+			"position": [
+				-5.64445209503174,
+				6.16178941726685,
+				6.91093921661377
+			],
+			"seconds": 10.8500000000001,
+			"velocity": [
+				-2.99920439720154,
+				0.0,
+				0.740717113018036
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 15959689,
+			"on_floor": true,
+			"position": [
+				-5.97418546676636,
+				6.24339294433594,
+				6.9252781867981
+			],
+			"seconds": 10.9666666666668,
+			"velocity": [
+				-2.99948263168335,
+				0.0,
+				0.0557122640311718
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 16076365,
+			"on_floor": true,
+			"position": [
+				-6.30391263961792,
+				6.325035572052,
+				6.93175792694092
+			],
+			"seconds": 11.0833333333335,
+			"velocity": [
+				-2.99948811531067,
+				0.0,
+				0.0554237514734268
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 16193026,
+			"on_floor": true,
+			"position": [
+				-6.63363981246948,
+				6.40667772293091,
+				6.93820238113403
+			],
+			"seconds": 11.2000000000001,
+			"velocity": [
+				-2.99949383735657,
+				0.0,
+				0.0551100820302963
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 16309732,
+			"on_floor": true,
+			"position": [
+				-6.96336698532104,
+				6.48831987380981,
+				6.94460868835449
+			],
+			"seconds": 11.3166666666668,
+			"velocity": [
+				-2.9995002746582,
+				0.0,
+				0.0547659546136856
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 16426253,
+			"on_floor": true,
+			"position": [
+				-7.29309606552124,
+				6.56996297836304,
+				6.95097303390503
+			],
+			"seconds": 11.4333333333335,
+			"velocity": [
+				-2.99950695037842,
+				0.0,
+				0.0543846152722836
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 16542944,
+			"on_floor": true,
+			"position": [
+				-7.62282657623291,
+				6.6516056060791,
+				6.9572901725769
+			],
+			"seconds": 11.5500000000002,
+			"velocity": [
+				-2.99951457977295,
+				0.0,
+				0.0539567992091179
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 16659630,
+			"on_floor": true,
+			"position": [
+				-7.95255708694458,
+				6.73324871063232,
+				6.96355390548706
+			],
+			"seconds": 11.6666666666668,
+			"velocity": [
+				-2.9995231628418,
+				0.0,
+				0.0534693673253059
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 16776227,
+			"on_floor": true,
+			"position": [
+				-8.28228950500488,
+				6.81489181518555,
+				6.96975612640381
+			],
+			"seconds": 11.7833333333335,
+			"velocity": [
+				-2.99953365325928,
+				0.0,
+				0.052901916205883
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 16893184,
+			"on_floor": true,
+			"position": [
+				-8.61202335357666,
+				6.89653587341309,
+				6.97588348388672
+			],
+			"seconds": 11.9000000000002,
+			"velocity": [
+				-2.99954533576965,
+				0.0,
+				0.0522262156009674
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 17009589,
+			"on_floor": true,
+			"position": [
+				-8.94175720214844,
+				6.97818040847778,
+				6.98192119598389
+			],
+			"seconds": 12.0166666666668,
+			"velocity": [
+				-2.99955987930298,
+				0.0,
+				0.0513840839266777
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 17126200,
+			"on_floor": true,
+			"position": [
+				-9.27149200439453,
+				7.05982446670532,
+				6.98784446716309
+			],
+			"seconds": 12.1333333333335,
+			"velocity": [
+				-2.99957919120789,
+				0.0,
+				0.0502499938011169
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 17243052,
+			"on_floor": true,
+			"position": [
+				-9.60123062133789,
+				7.14146995544434,
+				6.9935998916626
+			],
+			"seconds": 12.2500000000002,
+			"velocity": [
+				-2.99960803985596,
+				0.0,
+				0.0484938807785511
+			],
+			"waypoint": 7
+		},
+		{
+			"monotonic_usec": 17359662,
+			"on_floor": true,
+			"position": [
+				-9.93099880218506,
+				7.22312211990356,
+				6.99542427062988
+			],
+			"seconds": 12.3666666666669,
+			"velocity": [
+				-2.99999904632568,
+				0.0,
+				0.00270969048142433
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 17476247,
+			"on_floor": true,
+			"position": [
+				-10.260781288147,
+				7.30477857589722,
+				6.99574136734009
+			],
+			"seconds": 12.4833333333335,
+			"velocity": [
+				-2.9999988079071,
+				0.0,
+				0.00269763916730881
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 17592993,
+			"on_floor": true,
+			"position": [
+				-10.5905618667603,
+				7.38643360137939,
+				6.99605512619019
+			],
+			"seconds": 12.6000000000002,
+			"velocity": [
+				-2.99999904632568,
+				0.0,
+				0.00268572918139398
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 17709501,
+			"on_floor": true,
+			"position": [
+				-10.9203433990479,
+				7.46808958053589,
+				6.99636888504028
+			],
+			"seconds": 12.7166666666669,
+			"velocity": [
+				-2.99999904632568,
+				0.0,
+				0.00267226295545697
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 17826185,
+			"on_floor": true,
+			"position": [
+				-11.2501258850098,
+				7.54974555969238,
+				6.99668025970459
+			],
+			"seconds": 12.8333333333336,
+			"velocity": [
+				-2.99999904632568,
+				0.0,
+				0.00265796482563019
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 17942879,
+			"on_floor": true,
+			"position": [
+				-11.579906463623,
+				7.63140106201172,
+				6.99699068069458
+			],
+			"seconds": 12.9500000000002,
+			"velocity": [
+				-2.9999988079071,
+				0.0,
+				0.00264218356460333
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 18059553,
+			"on_floor": true,
+			"position": [
+				-11.9096879959106,
+				7.71305656433105,
+				6.99729824066162
+			],
+			"seconds": 13.0666666666669,
+			"velocity": [
+				-2.99999904632568,
+				0.0,
+				0.00262536504305899
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 18176154,
+			"on_floor": true,
+			"position": [
+				-12.2394695281982,
+				7.79471254348755,
+				6.99760437011719
+			],
+			"seconds": 13.1833333333336,
+			"velocity": [
+				-2.99999904632568,
+				0.0,
+				0.00260612415149808
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 18292825,
+			"on_floor": true,
+			"position": [
+				-12.5692510604858,
+				7.87636756896973,
+				6.99790811538696
+			],
+			"seconds": 13.3000000000002,
+			"velocity": [
+				-2.99999904632568,
+				0.0,
+				0.00258522434160113
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 18409654,
+			"on_floor": true,
+			"position": [
+				-12.8990316390991,
+				7.95802354812622,
+				6.99820899963379
+			],
+			"seconds": 13.4166666666669,
+			"velocity": [
+				-2.99999904632568,
+				0.0,
+				0.00256123882718384
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 18526150,
+			"on_floor": true,
+			"position": [
+				-13.2288131713867,
+				8.03967952728271,
+				6.99850702285767
+			],
+			"seconds": 13.5333333333336,
+			"velocity": [
+				-2.99999904632568,
+				0.0,
+				0.00253327284008265
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 18642827,
+			"on_floor": true,
+			"position": [
+				-13.5585956573486,
+				8.12133598327637,
+				6.99880170822144
+			],
+			"seconds": 13.6500000000003,
+			"velocity": [
+				-2.99999904632568,
+				0.0,
+				0.00249964371323586
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 18759477,
+			"on_floor": true,
+			"position": [
+				-13.8883790969849,
+				8.2029914855957,
+				6.99909114837646
+			],
+			"seconds": 13.7666666666669,
+			"velocity": [
+				-2.99999904632568,
+				0.0,
+				0.00245922012254596
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 18876316,
+			"on_floor": true,
+			"position": [
+				-14.2170734405518,
+				8.28559684753418,
+				7.00174856185913
+			],
+			"seconds": 13.8833333333336,
+			"velocity": [
+				-2.99999666213989,
+				0.0,
+				-0.00448749260976911
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 18993101,
+			"on_floor": true,
+			"position": [
+				-14.5473041534424,
+				8.36618900299072,
+				7.00047302246094
+			],
+			"seconds": 14.0000000000003,
+			"velocity": [
+				-2.99999833106995,
+				0.0,
+				-0.00315375393256545
+			],
+			"waypoint": 8
+		},
+		{
+			"monotonic_usec": 19109516,
+			"on_floor": true,
+			"position": [
+				-14.8770952224731,
+				8.44780349731445,
+				7.00030565261841
+			],
+			"seconds": 14.1166666666669,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00017902089166455
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 19226162,
+			"on_floor": true,
+			"position": [
+				-15.2068777084351,
+				8.52945995330811,
+				7.00028562545776
+			],
+			"seconds": 14.2333333333336,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000178805305040441
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 19342904,
+			"on_floor": true,
+			"position": [
+				-15.5366592407227,
+				8.61111640930176,
+				7.00026559829712
+			],
+			"seconds": 14.3500000000003,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000178558140760288
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 19459455,
+			"on_floor": true,
+			"position": [
+				-15.8664417266846,
+				8.69277095794678,
+				7.00024557113647
+			],
+			"seconds": 14.466666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000178272021003067
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 19576272,
+			"on_floor": true,
+			"position": [
+				-16.1962242126465,
+				8.77442646026611,
+				7.00022554397583
+			],
+			"seconds": 14.5833333333336,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000177936919499189
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 19692779,
+			"on_floor": true,
+			"position": [
+				-16.5260047912598,
+				8.85608196258545,
+				7.00020551681519
+			],
+			"seconds": 14.7000000000003,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000177538924617693
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 19809649,
+			"on_floor": true,
+			"position": [
+				-16.855785369873,
+				8.93773746490479,
+				7.00018548965454
+			],
+			"seconds": 14.816666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000177058682311326
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 19926158,
+			"on_floor": true,
+			"position": [
+				-17.1855659484863,
+				9.01939296722412,
+				7.0001654624939
+			],
+			"seconds": 14.9333333333337,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000176467758137733
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 20042777,
+			"on_floor": true,
+			"position": [
+				-17.515344619751,
+				9.10104846954346,
+				7.00014543533325
+			],
+			"seconds": 15.0500000000003,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000175722758285701
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 20159439,
+			"on_floor": true,
+			"position": [
+				-17.8451251983643,
+				9.18270397186279,
+				7.00012540817261
+			],
+			"seconds": 15.166666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00017475476488471
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 20276207,
+			"on_floor": true,
+			"position": [
+				-18.1749038696289,
+				9.26435852050781,
+				7.00010538101196
+			],
+			"seconds": 15.2833333333337,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000173445558175445
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 20392763,
+			"on_floor": true,
+			"position": [
+				-18.5046844482422,
+				9.34601402282715,
+				7.00008535385132
+			],
+			"seconds": 15.4000000000003,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000171576743014157
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 20509415,
+			"on_floor": true,
+			"position": [
+				-18.8344650268555,
+				9.42766952514648,
+				7.00006532669067
+			],
+			"seconds": 15.516666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000168691491126083
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 20626084,
+			"on_floor": true,
+			"position": [
+				-19.1642456054688,
+				9.50932598114014,
+				7.00004529953003
+			],
+			"seconds": 15.6333333333337,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000163650751346722
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 20742762,
+			"on_floor": true,
+			"position": [
+				-19.494026184082,
+				9.59098052978516,
+				7.00002670288086
+			],
+			"seconds": 15.7500000000004,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000157771675731055
+			],
+			"waypoint": 9
+		},
+		{
+			"monotonic_usec": 20859397,
+			"on_floor": true,
+			"position": [
+				-19.8238067626953,
+				9.67263698577881,
+				7.00001668930054
+			],
+			"seconds": 15.866666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000118551470222883
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 20976077,
+			"on_floor": true,
+			"position": [
+				-20.15358543396,
+				9.75429153442383,
+				7.00001668930054
+			],
+			"seconds": 15.9833333333337,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000128592691908125
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 21092729,
+			"on_floor": true,
+			"position": [
+				-20.4833660125732,
+				9.83594608306885,
+				7.00001668930054
+			],
+			"seconds": 16.1000000000004,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000140492356877076
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 21209402,
+			"on_floor": true,
+			"position": [
+				-20.8131465911865,
+				9.9176025390625,
+				7.00001525878906
+			],
+			"seconds": 16.216666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000145972135214834
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 21326063,
+			"on_floor": true,
+			"position": [
+				-21.1429252624512,
+				9.99925804138184,
+				7.00001382827759
+			],
+			"seconds": 16.3333333333337,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000142844946822152
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 21442693,
+			"on_floor": true,
+			"position": [
+				-21.4727058410645,
+				10.0809135437012,
+				7.00001192092896
+			],
+			"seconds": 16.4500000000003,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000144473342515994
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 21559495,
+			"on_floor": true,
+			"position": [
+				-21.8024864196777,
+				10.1625680923462,
+				7.00001049041748
+			],
+			"seconds": 16.566666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000146580223372439
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 21676178,
+			"on_floor": true,
+			"position": [
+				-22.132266998291,
+				10.2442245483398,
+				7.00000905990601
+			],
+			"seconds": 16.6833333333337,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000141942164191278
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 21792710,
+			"on_floor": true,
+			"position": [
+				-22.4620475769043,
+				10.3258800506592,
+				7.00000715255737
+			],
+			"seconds": 16.8000000000003,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000144399109558435
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 21909506,
+			"on_floor": true,
+			"position": [
+				-22.7918262481689,
+				10.4075345993042,
+				7.0000057220459
+			],
+			"seconds": 16.916666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000148146791616455
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 22026241,
+			"on_floor": true,
+			"position": [
+				-23.1204624176025,
+				10.4895849227905,
+				7.00000429153442
+			],
+			"seconds": 17.0333333333336,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000139108724397374
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 22142771,
+			"on_floor": true,
+			"position": [
+				-23.4658699035645,
+				10.5134973526001,
+				7.00000238418579
+			],
+			"seconds": 17.1500000000003,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000146937818499282
+			],
+			"waypoint": 10
+		},
+		{
+			"monotonic_usec": 22259295,
+			"on_floor": true,
+			"position": [
+				-23.8158645629883,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 17.266666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000688392958636541
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 22375950,
+			"on_floor": true,
+			"position": [
+				-24.1658592224121,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 17.3833333333336,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000729339262761641
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 22492762,
+			"on_floor": true,
+			"position": [
+				-24.5158538818359,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 17.5000000000003,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000775464684465987
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 22609375,
+			"on_floor": true,
+			"position": [
+				-24.8658485412598,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 17.6166666666669,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000827818212201237
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 22725951,
+			"on_floor": true,
+			"position": [
+				-25.2158432006836,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 17.7333333333336,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000088775254880602
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 22842667,
+			"on_floor": true,
+			"position": [
+				-25.5658378601074,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 17.8500000000003,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000957042857407941
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 22959246,
+			"on_floor": true,
+			"position": [
+				-25.9158325195313,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 17.9666666666669,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000103806519291538
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 23075947,
+			"on_floor": true,
+			"position": [
+				-26.2658271789551,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 18.0833333333336,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000113407486423966
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 23192579,
+			"on_floor": true,
+			"position": [
+				-26.6158218383789,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 18.2000000000002,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000124965424674883
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 23309294,
+			"on_floor": true,
+			"position": [
+				-26.9658164978027,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 18.3166666666669,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000139146573019389
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 23425998,
+			"on_floor": true,
+			"position": [
+				-27.3158111572266,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 18.4333333333336,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000156958276420482
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 23542682,
+			"on_floor": true,
+			"position": [
+				-27.6658058166504,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 18.5500000000002,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000179999426563882
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 23659315,
+			"on_floor": true,
+			"position": [
+				-28.0158004760742,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 18.6666666666669,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000210969278668927
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 23776057,
+			"on_floor": true,
+			"position": [
+				-28.365795135498,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 18.7833333333335,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000254810834121599
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 23892623,
+			"on_floor": true,
+			"position": [
+				-28.7157897949219,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 18.9000000000002,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000321653715218417
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 24009308,
+			"on_floor": true,
+			"position": [
+				-29.0657844543457,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 19.0166666666669,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000043603640733636
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 24125867,
+			"on_floor": true,
+			"position": [
+				-29.4157791137695,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 19.1333333333335,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000676663239573827
+			],
+			"waypoint": 11
+		},
+		{
+			"monotonic_usec": 24242635,
+			"on_floor": true,
+			"position": [
+				-29.7657737731934,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 19.2500000000002,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000589154524277546
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 24359302,
+			"on_floor": true,
+			"position": [
+				-30.1157684326172,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 19.3666666666668,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000618891249359876
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 24475951,
+			"on_floor": true,
+			"position": [
+				-30.465763092041,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 19.4833333333335,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000651789264338731
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 24592515,
+			"on_floor": true,
+			"position": [
+				-30.8157577514648,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 19.6000000000002,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000688381135205418
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 24709203,
+			"on_floor": true,
+			"position": [
+				-31.1657524108887,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 19.7166666666668,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000729326018245047
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 24825891,
+			"on_floor": true,
+			"position": [
+				-31.5157470703125,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 19.8333333333335,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000775449734646827
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 24942763,
+			"on_floor": true,
+			"position": [
+				-31.8657417297363,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 19.9500000000001,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000827801159175579
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 25059314,
+			"on_floor": true,
+			"position": [
+				-32.2157363891602,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 20.0666666666668,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000887732937826513
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 25175922,
+			"on_floor": true,
+			"position": [
+				-32.565731048584,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 20.1833333333335,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000957020006353559
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 25292506,
+			"on_floor": true,
+			"position": [
+				-32.9157257080078,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 20.3000000000001,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000103803836282168
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 25409176,
+			"on_floor": true,
+			"position": [
+				-33.2657203674316,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 20.4166666666668,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000113404280455143
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 25525824,
+			"on_floor": true,
+			"position": [
+				-33.6157150268555,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 20.5333333333334,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000124961536585033
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 25642569,
+			"on_floor": true,
+			"position": [
+				-33.9657096862793,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 20.6500000000001,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000139141752697469
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 25759145,
+			"on_floor": true,
+			"position": [
+				-34.3157043457031,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 20.7666666666668,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000156952137331245
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 25875812,
+			"on_floor": true,
+			"position": [
+				-34.665699005127,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 20.8833333333334,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000179991366167087
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 25992475,
+			"on_floor": true,
+			"position": [
+				-35.0156936645508,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 21.0000000000001,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000210958205570932
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 26109161,
+			"on_floor": true,
+			"position": [
+				-35.3656883239746,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 21.1166666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000254794667853275
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 26225882,
+			"on_floor": true,
+			"position": [
+				-35.7156829833984,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 21.2333333333334,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000321627976518357
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 26342452,
+			"on_floor": true,
+			"position": [
+				-36.0656776428223,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 21.3500000000001,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000435989022662397
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 26459127,
+			"on_floor": true,
+			"position": [
+				-36.4156723022461,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 21.4666666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000067654932536243
+			],
+			"waypoint": 12
+		},
+		{
+			"monotonic_usec": 26575861,
+			"on_floor": true,
+			"position": [
+				-36.7656669616699,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 21.5833333333334,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000058914588407788
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 26692449,
+			"on_floor": true,
+			"position": [
+				-37.1156616210938,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 21.7,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000618881699665508
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 26809114,
+			"on_floor": true,
+			"position": [
+				-37.4656562805176,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 21.8166666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000651778691462823
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 26925768,
+			"on_floor": true,
+			"position": [
+				-37.8156509399414,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 21.9333333333334,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000688369368617714
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 27042477,
+			"on_floor": true,
+			"position": [
+				-38.1656455993652,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 22.05,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000729312773728452
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 27159123,
+			"on_floor": true,
+			"position": [
+				-38.5156402587891,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 22.1666666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000775434727984248
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 27275794,
+			"on_floor": true,
+			"position": [
+				-38.8656349182129,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 22.2833333333333,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000082778410614992
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 27392434,
+			"on_floor": true,
+			"position": [
+				-39.2156295776367,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 22.4,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000887713326847006
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 27509155,
+			"on_floor": true,
+			"position": [
+				-39.5656242370605,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 22.5166666666667,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000956997155299177
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 27625828,
+			"on_floor": true,
+			"position": [
+				-39.9156188964844,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 22.6333333333333,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000103801153272798
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 27742538,
+			"on_floor": true,
+			"position": [
+				-40.2656135559082,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 22.75,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000113401085855003
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 27859167,
+			"on_floor": true,
+			"position": [
+				-40.615608215332,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 22.8666666666666,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000124957659863867
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 27975809,
+			"on_floor": true,
+			"position": [
+				-40.9656028747559,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 22.9833333333333,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000013913693237555
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 28092455,
+			"on_floor": true,
+			"position": [
+				-41.3155975341797,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 23.1,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000156945998242009
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 28209086,
+			"on_floor": true,
+			"position": [
+				-41.6655921936035,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 23.2166666666666,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000179983294401609
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 28325789,
+			"on_floor": true,
+			"position": [
+				-42.0155868530273,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 23.3333333333333,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000210947109735571
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 28442508,
+			"on_floor": true,
+			"position": [
+				-42.3655815124512,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 23.45,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000254778524322319
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 28559129,
+			"on_floor": true,
+			"position": [
+				-42.715576171875,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 23.5666666666666,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000321602237818297
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 28675773,
+			"on_floor": true,
+			"position": [
+				-43.0655708312988,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 23.6833333333333,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000435941728937905
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 28792453,
+			"on_floor": true,
+			"position": [
+				-43.4155654907227,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 23.7999999999999,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000676435411151033
+			],
+			"waypoint": 13
+		},
+		{
+			"monotonic_usec": 28909114,
+			"on_floor": true,
+			"position": [
+				-43.7655601501465,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 23.9166666666666,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000661820365621679
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 29026483,
+			"on_floor": true,
+			"position": [
+				-44.1155548095703,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 24.0333333333333,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000699579857155186
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 29142624,
+			"on_floor": true,
+			"position": [
+				-44.4655494689941,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 24.1499999999999,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000741908763757237
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 29259064,
+			"on_floor": true,
+			"position": [
+				-44.815544128418,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 24.2666666666666,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000789689806879323
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 29375771,
+			"on_floor": true,
+			"position": [
+				-45.1655387878418,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 24.3833333333332,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000844048940962239
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 29492384,
+			"on_floor": true,
+			"position": [
+				-45.5155334472656,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 24.4999999999999,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.000000906445222881302
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 29609075,
+			"on_floor": true,
+			"position": [
+				-45.8655281066895,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 24.6166666666666,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000097880297289521
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 29725721,
+			"on_floor": true,
+			"position": [
+				-46.2155227661133,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 24.7333333333332,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000010637151035553
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 29842365,
+			"on_floor": true,
+			"position": [
+				-46.5655174255371,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 24.8499999999999,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000116475905542757
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 29959060,
+			"on_floor": true,
+			"position": [
+				-46.9155120849609,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 24.9666666666665,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000012870145837951
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 30075729,
+			"on_floor": true,
+			"position": [
+				-47.2655067443848,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 25.0833333333332,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000143794409268594
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 30192380,
+			"on_floor": true,
+			"position": [
+				-47.6155014038086,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 25.1999999999999,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000162897572408838
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 30309036,
+			"on_floor": true,
+			"position": [
+				-47.9654960632324,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 25.3166666666665,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000187854107025487
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 30425685,
+			"on_floor": true,
+			"position": [
+				-48.3154907226563,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 25.4333333333332,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000221840991798672
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 30542376,
+			"on_floor": true,
+			"position": [
+				-48.6654853820801,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 25.5499999999998,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000270842201643973
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 30659034,
+			"on_floor": true,
+			"position": [
+				-49.0154800415039,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 25.6666666666665,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000034762779250741
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 30775676,
+			"on_floor": true,
+			"position": [
+				-49.3654747009277,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 25.7833333333332,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.00000485179407405667
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 30892323,
+			"on_floor": true,
+			"position": [
+				-49.7154693603516,
+				10.5134973526001,
+				7.00000143051147
+			],
+			"seconds": 25.8999999999998,
+			"velocity": [
+				-3.0,
+				0.0,
+				-0.0000080286035881727
+			],
+			"waypoint": 14
+		},
+		{
+			"monotonic_usec": 31009109,
+			"on_floor": true,
+			"position": [
+				-50.0431632995605,
+				10.5134973526001,
+				7.05000066757202
+			],
+			"seconds": 26.0166666666665,
+			"velocity": [
+				-2.64898610115051,
+				0.0,
+				1.1999888420105
+			],
+			"waypoint": 15
+		},
+		{
+			"monotonic_usec": 31125658,
+			"on_floor": true,
+			"position": [
+				-50.3520088195801,
+				10.5134973526001,
+				7.21467065811157
+			],
+			"seconds": 26.1333333333331,
+			"velocity": [
+				-2.64721775054932,
+				0.0,
+				1.4114670753479
+			],
+			"waypoint": 15
+		},
+		{
+			"monotonic_usec": 31242353,
+			"on_floor": true,
+			"position": [
+				-50.6608543395996,
+				10.5134973526001,
+				7.37934064865112
+			],
+			"seconds": 26.2499999999998,
+			"velocity": [
+				-2.64721536636353,
+				0.0,
+				1.41147089004517
+			],
+			"waypoint": 15
+		},
+		{
+			"monotonic_usec": 31359088,
+			"on_floor": false,
+			"position": [
+				-50.983814239502,
+				10.4507369995117,
+				7.55153894424438
+			],
+			"seconds": 26.3666666666665,
+			"velocity": [
+				-2.64721441268921,
+				-0.25,
+				1.41147315502167
+			],
+			"waypoint": 15
+		},
+		{
+			"monotonic_usec": 31475701,
+			"on_floor": false,
+			"position": [
+				-51.2926597595215,
+				10.3049049377441,
+				7.71621227264404
+			],
+			"seconds": 26.4833333333331,
+			"velocity": [
+				-2.64721369743347,
+				-2.0,
+				1.41147446632385
+			],
+			"waypoint": 15
+		},
+		{
+			"monotonic_usec": 31593240,
+			"on_floor": true,
+			"position": [
+				-51.5945777893066,
+				10.0371494293213,
+				7.88542318344116
+			],
+			"seconds": 26.5999999999998,
+			"velocity": [
+				-2.647212266922,
+				0.0,
+				1.41147696971893
+			],
+			"waypoint": 15
+		},
+		{
+			"monotonic_usec": 31709092,
+			"on_floor": true,
+			"position": [
+				-51.9036102294922,
+				10.0503463745117,
+				8.04861831665039
+			],
+			"seconds": 26.7166666666664,
+			"velocity": [
+				-2.66952848434448,
+				0.0,
+				1.36880135536194
+			],
+			"waypoint": 15
+		}
+	],
+	"seconds": 26.7333333333331,
+	"source_manifest": {
+		"art_approved": false,
+		"assets": [
+			{
+				"id": "ARQ01_POST_HOUSE_p01",
+				"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p01.glb",
+				"sha256": "4da7217251cf22faf13f682384bee4d8e5b434299cf2251f7050d5a237816cc4"
+			},
+			{
+				"id": "ARQ01_POST_HOUSE_p02",
+				"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p02.glb",
+				"sha256": "d8d31c393429684f9a5f1958fed60380eac7c3045db420943c1a01c92d508c6e"
+			},
+			{
+				"id": "ARQ01_POST_HOUSE_p03",
+				"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p03.glb",
+				"sha256": "de94547d67798d5868f7474b235eaa08172ef0425b316d04090350d045a71d3c"
+			},
+			{
+				"id": "ARQ01_POST_HOUSE_p04",
+				"path": "res://assets/review_20261028-r21/ARQ01_POST_HOUSE_p04.glb",
+				"sha256": "4fb33c3e95b1b10ae531bedb4aa4d197310f8f4941547d2e0d40b383b513880a"
+			},
+			{
+				"id": "ARQ02_ARCH_LIGHTHOUSE_p01",
+				"path": "res://assets/review_20261028-r21/ARQ02_ARCH_LIGHTHOUSE_p01.glb",
+				"sha256": "fc1ba15daf7ca7f4e4340b84967697e0932f43758c6ccd69d40959c718caeea0"
+			},
+			{
+				"id": "ARQ02_ARCH_LIGHTHOUSE_p02",
+				"path": "res://assets/review_20261028-r21/ARQ02_ARCH_LIGHTHOUSE_p02.glb",
+				"sha256": "991ecd66a1c30cb79a3cf42423c4485dc7d91ae6525d97bef0503a2dac512324"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p01",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p01.glb",
+				"sha256": "16e187384945cf8b170ea972630717ccaf45c6ad339a6c024eb50f7be5c323b3"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p02",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p02.glb",
+				"sha256": "1870606ca9d2986def04fbe6261f0f2f79f9922135a1ac30e4161617d50e43bb"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p03",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p03.glb",
+				"sha256": "b73bdb1c40a84ddc81e29e713c9af76590d361db5c347c15ad23f7d8cb0b703f"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p04",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p04.glb",
+				"sha256": "d291b479476b612a5559ab050b62642ed8b546d2d4aee64494232f2f5ba7d336"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p05",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p05.glb",
+				"sha256": "def316afef0e90f0398921701db407851348298420f42beb2f98efb8c164c585"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p06",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p06.glb",
+				"sha256": "b263bc0e115e2b7dedb1e200087f237460be9e052a6441f384bfb1cc05a2cb88"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p07",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p07.glb",
+				"sha256": "1eb7a8abca8b6b4de376ce95e95679ea993286e0b8b225b5c944efc98723ea57"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p08",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p08.glb",
+				"sha256": "14dbcedad0bc84fe1b0b77d34e2bad4319e8c21052ad9362cbaef8ba0dcdb7c3"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p09",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p09.glb",
+				"sha256": "02a3f2cffec8f559fe88f7fd2548c7302595917aaa1f2b58582576c4a7805dbe"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p10",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p10.glb",
+				"sha256": "cf0669e6ee26b3eef20f0328d90b5cd040649e8244025dd4959c2036af78d2be"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p11",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p11.glb",
+				"sha256": "8edce7e277b0b0cd7899a62ff3319d743a2dc7dd99f7a5ce5efe8138614f04d6"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p12",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p12.glb",
+				"replace_meshes": [
+					"GEO01_HARBOR_COAST_faro_integrated_limestone_stone_0"
+				],
+				"sha256": "a22793649352eaa0237b2d503e4b59b0523bc83c15796621caf5d7bdadec9fe0"
+			},
+			{
+				"id": "GEO01_HARBOR_COAST_p13",
+				"path": "res://assets/review_20261028-r21/GEO01_HARBOR_COAST_p13.glb",
+				"replace_meshes": [
+					"GEO01_HARBOR_COAST_faro_crown_stone_0",
+					"GEO01_HARBOR_COAST_faro_footing_cap_stone_0",
+					"GEO01_HARBOR_COAST_faro_integrated_limestone_base_stone_dark_0",
+					"GEO01_HARBOR_COAST_faro_integrated_limestone_toe_stone_0",
+					"GEO01_HARBOR_COAST_faro_rock_mass_stone_0",
+					"GEO01_HARBOR_COAST_faro_rock_mass_stone_light_0"
+				],
+				"sha256": "2069d725122b22ff890c3f5f57c11c0474f5d965ef6cd656f8b6e0836e07349f"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p01",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p01.glb",
+				"sha256": "e62d2a1203abf55526c5453898392e987ab9204f81b358eb8257f5097a14f305"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p02",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p02.glb",
+				"sha256": "69e3244f89ab1ac747db3ee8aa667a9973784f2a9cb9df33912fa5c08a697aad"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p03",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p03.glb",
+				"sha256": "cece160b38d3021c981e547573743a8c2b27dec3c1112caab745c25d27822eea"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p04",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p04.glb",
+				"sha256": "655efc572a70c977bc97909c3be0689665561a920a9acddb94f0c6ccbe4991ba"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p05",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p05.glb",
+				"sha256": "7dd4008505d60e80bdd0f371f429da954b0425eb67e00d58ea064aa737aebf93"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p06",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p06.glb",
+				"sha256": "9f84d3d33298b0b23f23a1c8fb241b16a1ee5062afe8382b3ae2e59889204ed0"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p07",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p07.glb",
+				"sha256": "1b0a241b46fc59327afe5a810eb8cfe8ec2da45304c7de1daae925fd0be2c1af"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p08",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p08.glb",
+				"sha256": "4619753f5dbbe4be040467e5f89f2518672545f721d83eb907f42c36f36a8e87"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p09",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p09.glb",
+				"sha256": "93bac406306fc5036947d10c8b2edc81675c47ae11dca38cb22fac13f01f9844"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p10",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p10.glb",
+				"sha256": "e0a8cf01386a40e22eb394f642d09c0317aa03ee995a44f4a504e0ae55ea6ea8"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p11",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p11.glb",
+				"sha256": "1dd54953ce5e496019bb50f7cc10ec889f3a4cf24592c80cf2facbfc84057c76"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p12",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p12.glb",
+				"sha256": "afac86036e0bab4a64618a90ca234d64d2af054fb775d355277f7fd13032f17d"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p13",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p13.glb",
+				"sha256": "9284653b35cbcad034b57d787c5d654038666076c593b1049798027f0c80c4bd"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p14",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p14.glb",
+				"sha256": "6e48b7ac8d88a954742904878b0527d217667f971f5131a4202bd6503a58f598"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p15",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p15.glb",
+				"sha256": "c12dd6b65c30561b5e9af9f21750113f6bb3e00dfdab1c7b5ac68a3fe9b4bbdc"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p16",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p16.glb",
+				"sha256": "0d0ddcbf7cac2451762b80cb81e3787773d249b8c454bcaa77823cc570a25376"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p17",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p17.glb",
+				"sha256": "9435f9c20ff1e717f0f1777625202af8ba597dcd284d6f57455ac8100c130e25"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p18",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p18.glb",
+				"sha256": "b19d6b36475bb56799acb62d9c6fc52f257bc845fe8cf418dd447e1e08795c6c"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p19",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p19.glb",
+				"sha256": "87b9c253515db90363eda80c4137f994680e5388841b00654eac50a746ec36bf"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p20",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p20.glb",
+				"sha256": "bf4a9790f5d2b040e237c4777131d48444da0c5b9a2d514bd93883c47870a005"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p21",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p21.glb",
+				"sha256": "9e2f381061541aefe0de919b903dc3e3b92e222e7fdaf942a6a80a68c4c6befd"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p22",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p22.glb",
+				"sha256": "f82d9aa2ebad10cdb3c5ed546038852b7555101737639f5d5ca141cc66835d9c"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p23",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p23.glb",
+				"sha256": "285a064edc94af2e73119df55cd8c548aaee9ca2584bf75ba3a36231960c85a0"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p24",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p24.glb",
+				"sha256": "fbc0f3028233189e5fee45356e71936cb7bec345f0b26d0095783f952e329a0b"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p25",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p25.glb",
+				"sha256": "83bfaffb43f6c0752e10fc78dbdd7d5f2d83e3076f3c91f18342ac0a65a93a69"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p26",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p26.glb",
+				"sha256": "47cfd18e14b7df827e2c2cbde7f616ceaf3e31ef946175539623600f3fd799fc"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p27",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p27.glb",
+				"sha256": "31053a7e24d7799d3cc2672352a51f7894cf09c7d1909dd367486f9ef4e56816"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p28",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p28.glb",
+				"sha256": "92f23bcba6710a52499e3d5a6a1b4082c9b1ca226ba80ec52974a0a6e2f040ff"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p29",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p29.glb",
+				"sha256": "370e80128186c24fe2c0aaff630a73ef89de6e3523040357aae24ecd52d11fb5"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p30",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p30.glb",
+				"sha256": "3728c3f936e1ef636fe8bdd1596280c3adb3a407033a2e27f0c5af3ef399bf11"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p31",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p31.glb",
+				"sha256": "8d3fa851ea86f151d81dec948137b3a9905807c9436a8bbb8788d299c70e5cbd"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p32",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p32.glb",
+				"sha256": "cc5a8afb5e08af12a3b3fed69440c91d6afe866cda2c14e4e14a40c202c74f44"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p33",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p33.glb",
+				"sha256": "4e7ef873734856ea1935e84f3a02cdabcab6b01e150e0ce33563d2f5cc80dc05"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p34",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p34.glb",
+				"sha256": "7997f4129686d5039a94eb93fc496a4dc6d3c66210e02d8664252173cbec9c40"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p35",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p35.glb",
+				"sha256": "6d81ee82579f3f2d67fd3691edf692159f8bd880794dc5ba309afb9414f45902"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p36",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p36.glb",
+				"sha256": "b8cbdf4b695a61de053f872e84739c0050e90d21dc128860c1743be56767f39f"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p37",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p37.glb",
+				"sha256": "0501c17f6f84abfb90438ba384e3dcf4f6239b3d4ece9f2c0e87b8ea57aa54f7"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p38",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p38.glb",
+				"sha256": "0b4ff324ff1942da5164a57fa55b8632e3872d360ea6122b42245577d4b7f296"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p39",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p39.glb",
+				"sha256": "bf86f5fe08736c19a8ea57f888433f73465ab89fe98713f7a2357caadf254746"
+			},
+			{
+				"id": "NAT01_PINES_UNDERGROWTH_p40",
+				"path": "res://assets/review_20261028-r21/NAT01_PINES_UNDERGROWTH_p40.glb",
+				"sha256": "9d6c1156bf430a1d653ff39c4d4f0bdfe797ed2c4c15b5b1dbbc2230213749c4"
+			},
+			{
+				"id": "ARQ03_POST_COURTYARD_p01",
+				"path": "res://assets/review_20261028-r21/ARQ03_POST_COURTYARD_p01.glb",
+				"sha256": "e54e75404565517616473b11f570980354a586cccac1ac7e4819ca9b760c4c74"
+			},
+			{
+				"id": "NAT02_HARBOR_GARDENS_p01",
+				"path": "res://assets/review_20261028-r21/NAT02_HARBOR_GARDENS_p01.glb",
+				"sha256": "6322ad935d1e315b4d36b6497c2683642e18d3f8bc0b0604210d105be3b00905"
+			},
+			{
+				"id": "NAT02_HARBOR_GARDENS_p02",
+				"path": "res://assets/review_20261028-r21/NAT02_HARBOR_GARDENS_p02.glb",
+				"sha256": "ac96833667e5d95546f6aa1dcb6174c61a190b4ed2cda03951d7309dc13900e8"
+			},
+			{
+				"id": "ARQ04_HARBOR_TERRACES_p01",
+				"path": "res://assets/review_20261028-r21/ARQ04_HARBOR_TERRACES_p01.glb",
+				"sha256": "4347578d69c40b23bcc94e3a64fbfdc470b873dbe1ef1cf63df1662bf39158be"
+			},
+			{
+				"id": "NAT04_TERRACE_PLANTS_p01",
+				"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p01.glb",
+				"sha256": "5a7ace3e7286b5162ff6896bc82516f161afc0f9a44bc61758d3e76ab9e4d665"
+			},
+			{
+				"id": "NAT04_TERRACE_PLANTS_p02",
+				"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p02.glb",
+				"sha256": "972e8cf3da60af9b7a8e9f10fb14250375fdf59e3438c85eb898dd286c7327c3"
+			},
+			{
+				"id": "NAT04_TERRACE_PLANTS_p03",
+				"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p03.glb",
+				"sha256": "f38b425a9a586fb1dd134c33a6a29cabe3d2b6a793e95b8b2d051ec39219a206"
+			},
+			{
+				"id": "NAT04_TERRACE_PLANTS_p04",
+				"path": "res://assets/review_20261028-r21/NAT04_TERRACE_PLANTS_p04.glb",
+				"sha256": "54d69a0c2703136061dabb7c2100d57dc66a44c5218e67fedcf5c398a071da6a"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p01",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p01.glb",
+				"sha256": "2c119c993985cb46cbdfd434c9aacfd59cb61015394e3ecd2d74554553a44b9a"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p02",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p02.glb",
+				"sha256": "4bb53fe1eaed1389d2f16f7037133cb0fea3c63cc2f03e61f3109f60b201cfa5"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p03",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p03.glb",
+				"sha256": "e113dbd9ea7d9e20e01662d0d510fb13209fa0bce6a4725b35c64a302efec978"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p04",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p04.glb",
+				"sha256": "9f8c27510e1a97d0d2e40ce8f5c419354fa8472c94d600e0536fd35fa46d8982"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p05",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p05.glb",
+				"sha256": "229f011e7350638c02c2b2da0554b3faa22576b51e7859abb59de057bda51dec"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p06",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p06.glb",
+				"sha256": "f2e5ff147666d9039e9bc454c393efbd14277fcb5201405a29f75086ccc09786"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p07",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p07.glb",
+				"sha256": "284059d6ecd5a4b574e1ede9efc66ce5bdadbe965c9424cbbe5d039def72de09"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p08",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p08.glb",
+				"sha256": "29e0912c04aac656e0b85183f10bce27aca6b878786b6440206ad46fc4e0054e"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p09",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p09.glb",
+				"sha256": "469d6823b634069ba2372977437f65460e612203090c92444f874520b1c1622e"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p10",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p10.glb",
+				"sha256": "83f55281787be30b5aa02c8780e75c26ff713ba3f7ef3ef71320c40304acd375"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p11",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p11.glb",
+				"sha256": "431dad7ba6dc85e269e68b25bc18995bb9cebf77a71cdf1822e9e47d7370c57b"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p12",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p12.glb",
+				"sha256": "ea313ad5d571a011a6e54cf76abc21da2712fd70516710e173b78d15e0cb5707"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p13",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p13.glb",
+				"sha256": "e91642834ec8b4b5e11c61e3dcab591b9b753002ff840f176ba2f71791b9d016"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p14",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p14.glb",
+				"sha256": "7032f13212bc4f3b94aefb38c2db580653fe525c6e358e8176f71f3095c2d0cf"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p15",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p15.glb",
+				"sha256": "3821bebb56086e1bb80905d095b5248bcdf7466bf9035748d4b7e4a841e470aa"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p16",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p16.glb",
+				"sha256": "ba58094988d6e0526185cb9c114703e092040c7652173c3fb77b991472e2e5cc"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p17",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p17.glb",
+				"sha256": "edec4947a27c0d52d62ffba28186750fd2b24804404a9b576e6f3a469c790767"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p18",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p18.glb",
+				"sha256": "47bc1f73737d4690955999489a5add9cee5935208a869e7684821c473c49ff54"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p19",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p19.glb",
+				"sha256": "1abbc8f5414dfa2c8c3c4c865138b1700162924b63ee44671d9475b3402f3883"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p20",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p20.glb",
+				"sha256": "10268f25427192a411c72dbbb87576b6d9050738dc40527829fc3a16a340cc29"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p21",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p21.glb",
+				"sha256": "e7ca14f3f6e389bb729b2bc6df5befdaece3729b1401286cadc3f001d864b0ad"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p22",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p22.glb",
+				"sha256": "c5a19cae445793602cb35b6e11a62b321f9d4a7e73245b1f414114e96a0ddcd3"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p23",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p23.glb",
+				"sha256": "778d1a3927f1508cabccc4852dcb064142c7ac622989eee49f44c49fc93c5ce1"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p24",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p24.glb",
+				"sha256": "7ba76d36ff5c6e0f4f8d710c2af92092405aed4defeeef717b119748769bf176"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p25",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p25.glb",
+				"sha256": "487d5eb157f36fb0fee36d413f941e12875824c4196d594ac0827992c0648492"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p26",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p26.glb",
+				"sha256": "bb48408922d9d6468c35a71f24d29978e13d304b55cdf7c3c5d0f97b2e32c1f1"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p27",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p27.glb",
+				"sha256": "1212bf79b1263e3b102f71868ac6e3d70a006d71fa8bad2c8743e156fba18fa9"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p28",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p28.glb",
+				"sha256": "226ae9ad0efc3f9a895937a1f119ab36e6d100712b5db87f33c3813ede59b33a"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p29",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p29.glb",
+				"sha256": "3381a5663875d8609c46bf7635068f1e0aeda54c8121beedf1fec434716cb780"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p30",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p30.glb",
+				"sha256": "d541a0ff73646cc57616e9f4eff661bfc3d9a327a7b789e615b67f9771cdd8f4"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p31",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p31.glb",
+				"sha256": "a16c9082a57466cf840b8bd7138dbcd7dee431d13c41317d6528a78400ba140c"
+			},
+			{
+				"id": "NAT03_COASTAL_GROUNDCOVER_p32",
+				"path": "res://assets/review_20261028-r21/NAT03_COASTAL_GROUNDCOVER_p32.glb",
+				"sha256": "3446e86627f2365888d76c59f06fddefcb2168d34c2f007efa8e485ae2dc2657"
+			},
+			{
+				"authoring_provenance": {
+					"art_approval": false,
+					"attempt": "static-asset-attempt03",
+					"candidate": "native-profile10",
+					"export_request_id": "7130649de9a84eb9ad626a6b6566800c",
+					"receipt_path": "evidence/integration/20261029-native-profile/native-profile10/static-asset-attempt03/receipt.json",
+					"receipt_sha256": "f540a2b0265d4df55359bbdc9d9d23be6ce5c6b7976f49fd5f66ab932cb33f5f",
+					"route": "first_party_semwright_broker_isolated_windows_blender_5_2_1",
+					"source_checkpoint_sha256": "8c49ad77ba0e6d571f0cfafd45cebb4a6aa45ac380f64afcb705df08415a3d91",
+					"typed_spec_sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+				},
+				"id": "GEO01_FARO_SEMWRIGHT_R22",
+				"material_roles": {
+					"SW_dc08abe78a2a_limestone": "stone"
+				},
+				"path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+				"sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+			}
+		],
+		"authoring_route": "mixed_preserved_native_backbone_and_semwright_first_party_asset",
+		"baseline_bundle_sha256": "d7a5da85a6aee2f09abf1a7d213bfa4e0ccc3e7bdfe359280434b377fbfa6173",
+		"baseline_recipe_manifest_sha256": "75f6b9b1a1d17a84c22d58b81214d90a398144b96dbf9cd7129bfd00b479592c",
+		"baseline_revision": "20261028-r21",
+		"recipe_manifest_sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9",
+		"revision": "20261029-semwright-rock-r22",
+		"schema_version": 1.0,
+		"semwright_broker_scope": [
+			"GEO01_FARO_SEMWRIGHT_R22"
+		],
+		"semwright_broker_used": true,
+		"semwright_e2e": "BROKER_BLENDER_ASSET_PASS_GODOT_PROJECT_PENDING"
+	},
+	"test_kind": "automated_ground_route_using_same_CharacterBody_controller",
+	"viewport": [
+		1920.0,
+		1080.0
+	]
+}

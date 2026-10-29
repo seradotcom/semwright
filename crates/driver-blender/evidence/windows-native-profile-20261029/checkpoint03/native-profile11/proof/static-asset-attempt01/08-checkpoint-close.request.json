@@ -1,0 +1,9 @@
+{
+  "args": {
+    "checkpoint_path": "static-asset-attempt01/asset-scene.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.session.checkpoint_close",
+  "dry_run": false,
+  "request_id": "655544848a4d449e8918c4ea547e96c1"
+}

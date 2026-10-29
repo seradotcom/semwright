@@ -1,0 +1,29 @@
+{
+  "command": "driver.blender.composition.plan",
+  "error": {
+    "code": "ResourceExhausted",
+    "message": "JSON structural budget exceeded",
+    "outcome_known": true
+  },
+  "execution": {
+    "backend": "unselected",
+    "dry_run": false,
+    "duration_ms": 3,
+    "fallbacks_attempted": [],
+    "policy_decision": "not_evaluated",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "216bb335fb5828bbff3d8d8e514f28042910395fb877cce6447ef71705e6cde6",
+      "execution_provider": null,
+      "provider": "driver:blender",
+      "provider_generation": null,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": false,
+  "request_id": "832ad4ab84c445af9e3362a7491ea4de",
+  "warnings": []
+}

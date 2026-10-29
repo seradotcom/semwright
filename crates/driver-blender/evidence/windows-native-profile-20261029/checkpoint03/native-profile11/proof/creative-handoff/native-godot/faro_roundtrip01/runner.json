@@ -1,0 +1,49 @@
+{
+  "utc": "2026-10-29T02:28:43.693610+00:00",
+  "argv": [
+    "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+    "--path",
+    "E:\\Projects\\worldwright-archipelago\\game",
+    "--resolution",
+    "1920x1080",
+    "--windowed",
+    "--script",
+    "res://scripts/faro_roundtrip.gd"
+  ],
+  "exit_code": 0,
+  "timed_out": false,
+  "seconds": 14.328000000008615,
+  "passed": true,
+  "route_sha256": "96c41b26be51fe8d96e19d4f34fbd3daf0090a2ecec3a5ad57be547768411ae1",
+  "controller_sha256": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67",
+  "saved_camera_unchanged": true,
+  "human_playtest": false,
+  "godot_broker_used": false,
+  "native": {
+    "passed": true,
+    "reason": "route_completed",
+    "seconds": 5.38333333333332,
+    "reached_waypoints": 15,
+    "final_position": [
+      -50.3383750915527,
+      10.5112161636353,
+      7.72165012359619
+    ],
+    "maximum_airborne_seconds": 0.0666666666666667,
+    "final_contacts": [
+      {
+        "collider_path": "/root/Archipelago/ARQ02_ARCH_LIGHTHOUSE_p01/ARQ02_ARCH_LIGHTHOUSE_deck_stone_light_0/ReviewGeometryCollision",
+        "normal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "position": [
+          -50.3383750915527,
+          10.4899997711182,
+          7.72165012359619
+        ]
+      }
+    ]
+  }
+}

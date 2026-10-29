@@ -1,0 +1,40 @@
+{
+  "command": "driver.blender.semantic.property.get",
+  "data": {
+    "descriptor": {
+      "animatable": false,
+      "array_length": 0,
+      "description": "Use shader nodes to render the material",
+      "id": "use_nodes",
+      "name": "Use Nodes",
+      "status": "managed",
+      "subtype": "NONE",
+      "type": "BOOLEAN",
+      "writable": true
+    },
+    "property": "use_nodes",
+    "ref": "blender-rna/v1/materials/U1dfY2VjNDNiYWRiODExX3NlYQ@1",
+    "value": true
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 37,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "e625d06629707ff0add7ff0c31ca51134fa1a7c471e82f09f00a88189f1f91ce",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "0b0c8ecd559d44dbbab2459fb98a1e02",
+  "warnings": []
+}

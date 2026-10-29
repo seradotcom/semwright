@@ -23,7 +23,11 @@ The first-party Blender driver has a Linux-qualified runtime route. Windows cann
 
 Production candidates execute authenticated broker requests against confined Blender 5.2.1: typed creation/transform, independent readback and GLB export. Duplicate output and traversal requests were rejected with preservation checks. Native Godot imported/rendered the exact candidate03 GLB; this consumer did not use the Godot broker.
 
-Owner opt-in denial and real readiness cancellation have physical evidence. Recovery remains incomplete: preserved failures exposed factory data and Blender 5.2 API differences. Full save/close/reopen and composition acceptance remain pending.
+Owner opt-in denial and real readiness cancellation have physical evidence. Candidate09 passed save-before-close, Host reaping, fresh hash-bound reopen, static structure readback, typed two-mesh composition, independent Effect Conformance and stale/replay rejection. Factory-owned content preservation is a fixture check, not a human-edit claim. The exact two-material GLB was physically checked and rendered in native Godot.
+
+Candidate10 then produced an original Archipelago lighthouse rock through the same production broker: three concrete meshes and a material, independent readback, editable library, full-scene checkpoint, fresh isolated reopen and a 64,288-byte GLB (6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3). The source has 518 vertices and 1,024 triangles; glTF may split vertices for normals. Native Godot admitted this exact artifact into the existing project, replaced seven named prior mesh instances, preserved camera definitions and captured the existing views. Its art remains REVISE. The Godot consumer is still not mediated by a qualified Windows Godot driver.
+
+Preserved failed attempts exposed both the input and plan-output JSON structural budgets. The successful recipe fits the unchanged limits. A plan-output budget preflight before vault publication remains a small follow-up; the broker's final structural check remains authoritative.
 
 See [the current checkpoint](WINDOWS_NATIVE_PROFILE_20261029.md) and [historical probes](WINDOWS_52_EXPERIMENTAL.md).
 
@@ -41,6 +45,8 @@ Linux 4.5.14/5.2.1 native regression, confined Windows GPU rendering, full Godot
 
 Source/binary-pinned records cover unit/build/package checks, native broker fixture, owner denial, cancellation and native Godot consumption. Failed/incomplete runs remain visible. Diagnostic success is not authoring acceptance; fixture preservation is not human-edit preservation.
 
-This contribution is experimental and not release-ready. Complete lifecycle/composition proofs, audit correlation and Linux regression before advancing compatibility claims. Archipelago art and G6 remain independent and incomplete.
+This contribution is experimental and not release-ready. Bounded lifecycle and static composition proofs now pass on this pinned Windows laptop. Broader scene coverage, mediated Godot project conformance, human-edit preservation and native Linux regression remain open. Archives checkpoint01 and checkpoint02 preserve failed and successful runs, source overlays, binary pins and locally verified audit chains. Archipelago art and G6 remain independent and incomplete.
 
 The owner authorized local development/checkpoints, not external push, PR, merge, publication or CI.
+
+Candidate11 produced a separate original stone threshold through the same isolated route. Native Godot then passed the previously failing 15-point return route with identical route/controller hashes. Four new physical views were reviewed; art remains REVISE. These creative receipts and preserved failures are frozen in checkpoint03. No Godot broker success is claimed by this checkpoint.

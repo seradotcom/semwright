@@ -1,0 +1,161 @@
+"""Original typed mesh DATA for Semwright. No bpy, Blender process or mesh-file writer."""
+from pathlib import Path
+from collections import defaultdict
+import math,json,hashlib
+R=Path(__file__).resolve().parents[1]
+TAU=math.tau
+CX,CY=56.,-7.
+FLOOR=-1.25
+CAP_Z,CAP_R=10.17,3.33
+def lerp(a,b,t):return a+(b-a)*t
+def sub(a,b):return tuple(x-y for x,y in zip(a,b))
+def cross2(a,b):return a[0]*b[1]-a[1]*b[0]
+def cross(a,b):return (a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0])
+def dot(a,b):return sum(x*y for x,y in zip(a,b))
+def ellipse(rx,ry,a):return 1/math.sqrt((math.cos(a)/rx)**2+(math.sin(a)/ry)**2)
+def section(a,controls):
+    a%=TAU;n=len(controls);step=TAU/n;k=int(a/step)%n
+    r0,z0=controls[k];r1,z1=controls[(k+1)%n]
+    p=(r0*math.cos(k*step),r0*math.sin(k*step))
+    q=(r1*math.cos((k+1)*step),r1*math.sin((k+1)*step))
+    e=sub(q,p);d=(math.cos(a),math.sin(a));den=cross2(d,e)
+    assert den>1e-9
+    radius=cross2(p,e)/den;t=cross2(p,d)/den
+    assert radius>0 and -1e-8<=t<=1+1e-8
+    return radius,lerp(z0,z1,t)
+def ring(vertices,points):
+    start=len(vertices);vertices.extend(points)
+    return list(range(start,len(vertices)))
+def join(faces,upper,lower,phase=0):
+    for i in range(len(upper)):
+        j=(i+1)%len(upper);a,b,c,d=upper[i],lower[i],lower[j],upper[j]
+        faces.extend(((a,b,d),(b,c,d)) if (i+phase)&1 else ((a,b,c),(a,c,d)))
+def main_rock():
+    n=32;angles=[TAU*i/n for i in range(n)]
+    cf=[1.02,.98,.94,1.03,1.08,.99,1.02,1.06,1.03,.96,.98,1.07,1.08,1.02,.96,1.03]
+    # West entry is anchored to the measured bridge abutment (top10.25/endx50.75).
+    cz=[8.95,8.55,8.15,7.60,7.45,8.10,8.85,9.80,10.14,9.80,8.40,7.90,7.35,7.65,8.25,8.70]
+    fr=[9.65,9.30,8.40,8.,8.25,7.95,7.40,7.10,6.65,7.20,8.15,9.25,10.,10.20,10.30,10.15]
+    profiles=[[] for _ in range(5)]
+    for k in range(16):
+        a=TAU*k/16;rt=ellipse(5.15,4.75,a)*cf[k];rb=fr[k];zt=cz[k]
+        assert rb>rt>CAP_R+.35
+        values=[(rt,zt),(lerp(rt,rb,.16+.04*math.sin(a-.3)),.68*zt+.60),
+                (lerp(rt,rb,.50+.06*math.cos(2*a+.6)),4.+.95*math.cos(a)+.60*math.sin(a)),
+                (lerp(rt,rb,.87+.035*math.sin(a+.8)),.60+.30*math.cos(a)+.12*math.sin(a)),
+                (rb,FLOOR)]
+        for p,v in zip(profiles,values):p.append(v)
+    vertices=[(CX,CY,CAP_Z)];faces=[];rings=[]
+    for ri in range(1,7):
+        points=[]
+        for a in angles:
+            rt,rim=section(a,profiles[0])
+            if ri==1:r=CAP_R;z=CAP_Z
+            else:
+                t=(ri-1)/5;r=lerp(CAP_R,rt,t);smooth=t*t*(3-2*t)
+                x,y=r*math.cos(a),r*math.sin(a)
+                cut=min(.28,.09*max(0.,.55*x+.32*y-.70))
+                z=lerp(CAP_Z,rim,smooth)-cut*math.sin(math.pi*t)
+            points.append((CX+r*math.cos(a),CY+r*math.sin(a),z))
+        rings.append(ring(vertices,points))
+    for i in range(n):faces.append((0,rings[0][i],rings[0][(i+1)%n]))
+    for k in range(1,len(rings)):join(faces,rings[k-1],rings[k],k)
+    previous=rings[-1]
+    for band,steps in enumerate((1,1,1,1)):
+        for step in range(1,steps+1):
+            t=step/steps;points=[]
+            for a in angles:
+                ra,za=section(a,profiles[band]);rb,zb=section(a,profiles[band+1]);assert za>zb+.25
+                r,z=lerp(ra,rb,t),lerp(za,zb,t)
+                points.append((CX+r*math.cos(a),CY+r*math.sin(a),z))
+            current=ring(vertices,points);join(faces,previous,current,band+step);previous=current
+    bottom=len(vertices);vertices.append((CX,CY,FLOOR))
+    for i in range(n):faces.append((bottom,previous[(i+1)%n],previous[i]))
+    return vertices,faces
+def buttress(center,radii,yaw):
+    cx,cy,cz=center;rx,ry,rz=radii;n=16
+    outline=[(ellipse(rx,ry,TAU*k/8)*f,0.) for k,f in enumerate((1.,.92,1.03,1.05,.96,.88,1.02,1.))]
+    c,s=math.cos(yaw),math.sin(yaw)
+    def world(x,y,z):return cx+c*x-s*y,cy+s*x+c*y,z
+    vertices=[world(.12*rx,.06*ry,cz+rz)];faces=[];rings=[]
+    for h,width in ((.87,.38),(.50,.88),(.10,1.),(-.28,.95),(-.67,.78),(-.90,.42)):
+        points=[]
+        for i in range(n):
+            a=TAU*i/n;r,_=section(a,outline);u,v=width*r*math.cos(a),width*r*math.sin(a)
+            points.append(world(u+.12*rx*h,v+.06*ry*h,cz+rz*h+.07*u-.06*v))
+        rings.append(ring(vertices,points))
+    for i in range(n):faces.append((0,rings[0][i],rings[0][(i+1)%n]))
+    for k in range(1,len(rings)):join(faces,rings[k-1],rings[k],k)
+    bottom=len(vertices);vertices.append(world(-.12*rx,-.06*ry,cz-rz))
+    for i in range(n):faces.append((bottom,rings[-1][(i+1)%n],rings[-1][i]))
+    return vertices,faces
+def check_mesh(vertices,faces,canonical=True):
+    assert all(math.isfinite(c) for v in vertices for c in v)
+    counts=defaultdict(int);directions=defaultdict(int);neighbors=defaultdict(set)
+    origin=tuple(sum(v[k] for v in vertices)/len(vertices) for k in range(3));volume=0.;minarea=float("inf")
+    for f in faces:
+        assert len(f)==3 and len(set(f))==3 and all(isinstance(i,int) and 0<=i<len(vertices) for i in f)
+        a,b,c=[vertices[i] for i in f];normal=cross(sub(b,a),sub(c,a));area=.5*math.sqrt(dot(normal,normal))
+        assert area>1e-9;minarea=min(minarea,area)
+        volume+=dot(sub(a,origin),cross(sub(b,origin),sub(c,origin)))/6
+        for u,v in zip(f,f[1:]+f[:1]):
+            edge=tuple(sorted((u,v)));counts[edge]+=1;directions[edge]+=1 if u<v else -1
+            neighbors[u].add(v);neighbors[v].add(u)
+    assert all(n==2 for n in counts.values()) and all(n==0 for n in directions.values())
+    assert len(vertices)-len(counts)+len(faces)==2
+    seen=set();todo=[0]
+    while todo:
+        i=todo.pop()
+        if i not in seen:seen.add(i);todo.extend(neighbors[i]-seen)
+    assert len(seen)==len(vertices) and volume>0
+    lo=[min(v[k] for v in vertices) for k in range(3)];hi=[max(v[k] for v in vertices) for k in range(3)]
+    assert lo[2]>=FLOOR-1e-6 and hi[2]<=10.21+1e-6
+    assert (lo[0]>=48.75 and hi[0]<=66.) if canonical else (lo[0]>=-66. and hi[0]<=-48.75)
+    return dict(vertices=len(vertices),triangles=len(faces),components=1,boundary_edges=0,euler=2,
+                signed_volume=volume,minimum_triangle_area=minarea,bounds_min=lo,bounds_max=hi)
+def make():
+    meshes=[("integrated_limestone","Faro continuous limestone",main_rock()),
+            ("coastal_toe","Faro southeast toe",buttress((60.90,-12.70,1.15),(4.25,1.90,2.40),-.50)),
+            ("low_shelf","Faro northeast shelf",buttress((60.30,-.70,.70),(3.70,1.70,1.95),.55))]
+    entities=[];checks={}
+    for ident,name,(v,f) in meshes:
+        v=[tuple(round(x,7) for x in row) for row in v]
+        canonical=check_mesh(v,f)
+        # Match the existing r21 layout. The reflection reverses winding.
+        v=[(-x,y,z) for x,y,z in v];f=[tuple(reversed(row)) for row in f]
+        checks[ident]={"canonical":canonical,"native":check_mesh(v,f,False)}
+        entities.append(dict(id=ident,name=name,shape=dict(kind="mesh",vertices=v,faces=f,uv=None),
+            transform=dict(translation=[0,0,0],rotation=[0,0,0],scale=[1,1,1]),
+            materials=["limestone"],modifiers=[],shade_smooth=False))
+    srgb=[0xB9/255,0xB7/255,0x9D/255]
+    color=[c/12.92 if c<=.04045 else ((c+.055)/1.055)**2.4 for c in srgb]+[1.]
+    spec=dict(version=1,collection="GEO01_FARO_SEMWRIGHT_R22",meters_per_unit=1.,textures=[],
+        materials=[dict(id="limestone",base_color=color,roughness=.88,metallic=0.)],
+        entities=entities,relations=[],animation=None)
+    return spec,checks
+if __name__=="__main__":
+    spec,checks=make()
+    out=R/"art/recipes/20261029-r22/faro_rock.transport.spec.json"
+    report=R/"evidence/art_review/20261029-semwright-rock-r22/mesh-source-check-transport.json"
+    if out.exists() or report.exists():raise SystemExit("Preserve existing original recipe attempt")
+    def value_nodes(value):
+        if isinstance(value,dict):return 1+sum(value_nodes(v) for v in value.values())
+        if isinstance(value,list) or isinstance(value,tuple):return 1+sum(value_nodes(v) for v in value)
+        return 1
+    structural_nodes=value_nodes({"intent":{"kind":"create","spec":spec}})
+    assert structural_nodes*2+1024<=16384  # Plan returns intent and typed operation payloads.
+    raw=(json.dumps(spec,separators=(",",":"),allow_nan=False)+"\n").encode()
+    assert len(raw)<=786432
+    out.parent.mkdir(parents=True,exist_ok=True)
+    with out.open("xb") as output:output.write(raw)
+    proof=dict(schema=1,json_value_nodes=structural_nodes,conservative_plan_node_estimate=structural_nodes*2+1024,generator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),recipe=str(out),sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw),meshes=checks,
+        authoring_route="typed_spec_for_semwright_not_executed",native_blender_used=False,
+        references=["Figma v03 K04","A02","M01","M02","H01-H03"],
+        palette_srgb="#B9B79D",bearing_radius=CAP_R,bearing_height=CAP_Z,
+        measured_tower_radius=3.25,measured_tower_bottom=10.09,
+        bridge_entry_height=10.14,layout="mirror_world_x_baked_and_faces_reversed",
+        self_intersection_test="NOT_RUN; topology checks do not prove absence",
+        human_art_approval=False)
+    report.parent.mkdir(parents=True,exist_ok=True)
+    with report.open("x",encoding="utf-8") as output:output.write(json.dumps(proof,indent=2)+"\n")
+    print(json.dumps(proof,indent=2))

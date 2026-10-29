@@ -1,0 +1,787 @@
+{
+  "command": "driver.blender.composition.apply",
+  "data": {
+    "island": "cec43badb8114c179b8004ca426149a3",
+    "plan_ref": "095e1b6b833a437c8f7113542286c12c",
+    "report": {
+      "effects_observed": [
+        {
+          "logical_id": "entity-wedge",
+          "property": "declared-native-state",
+          "resource": {
+            "provider": "driver:blender",
+            "resource": "authoring-workspace"
+          }
+        },
+        {
+          "logical_id": "unmanaged-scene",
+          "property": "source-projection",
+          "resource": {
+            "provider": "driver:blender",
+            "resource": "authoring-workspace"
+          }
+        }
+      ],
+      "effects_unobservable": [],
+      "execution_status": "completed",
+      "support_level": "native",
+      "validation": {
+        "base": [
+          {
+            "concurrency": "best_effort_revalidate",
+            "document_id": "blender-authoring-workspace",
+            "generation": "d575b41811af4975ab5d333156edf72f",
+            "key": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            },
+            "provider_session": "078cc0a7a9134a86ba5fe711cd35e569",
+            "revision": {
+              "kind": "fingerprint",
+              "value": "285fb5db8623baf3ee7cf9baf7ccf5b313cfb3ae117926860d1d93d01c38758b"
+            }
+          }
+        ],
+        "checks": [
+          {
+            "evidence": [
+              {
+                "artifact": null,
+                "base": [
+                  {
+                    "concurrency": "best_effort_revalidate",
+                    "document_id": "blender-authoring-workspace",
+                    "generation": "d575b41811af4975ab5d333156edf72f",
+                    "key": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    },
+                    "provider_session": "078cc0a7a9134a86ba5fe711cd35e569",
+                    "revision": {
+                      "kind": "fingerprint",
+                      "value": "285fb5db8623baf3ee7cf9baf7ccf5b313cfb3ae117926860d1d93d01c38758b"
+                    }
+                  }
+                ],
+                "exhaustive": true,
+                "id": "obs-blender.plan-native-readback.v1",
+                "method": "blender-bounded-source-rna",
+                "method_version": 1,
+                "scope": [
+                  {
+                    "logical_id": "entity-wedge",
+                    "property": "declared-native-state",
+                    "resource": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    }
+                  }
+                ],
+                "source": "native_api"
+              }
+            ],
+            "evidence_class": "DETERMINISTIC",
+            "reason": null,
+            "rule": "blender.plan-native-readback.v1",
+            "verdict": "PASS",
+            "version": 1
+          },
+          {
+            "evidence": [
+              {
+                "artifact": null,
+                "base": [
+                  {
+                    "concurrency": "best_effort_revalidate",
+                    "document_id": "blender-authoring-workspace",
+                    "generation": "d575b41811af4975ab5d333156edf72f",
+                    "key": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    },
+                    "provider_session": "078cc0a7a9134a86ba5fe711cd35e569",
+                    "revision": {
+                      "kind": "fingerprint",
+                      "value": "285fb5db8623baf3ee7cf9baf7ccf5b313cfb3ae117926860d1d93d01c38758b"
+                    }
+                  }
+                ],
+                "exhaustive": true,
+                "id": "obs-blender.unmanaged-preservation.v1",
+                "method": "blender-unmanaged-source-projection",
+                "method_version": 1,
+                "scope": [
+                  {
+                    "logical_id": "unmanaged-scene",
+                    "property": "source-projection",
+                    "resource": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    }
+                  }
+                ],
+                "source": "native_api"
+              }
+            ],
+            "evidence_class": "DETERMINISTIC",
+            "reason": null,
+            "rule": "blender.unmanaged-preservation.v1",
+            "verdict": "PASS",
+            "version": 1
+          }
+        ],
+        "plan_digest": "bace616adef1c27b451342677743755ca9aa386d840471d41bfb1e137db6e8a9",
+        "required_rules": [
+          "blender.plan-native-readback.v1",
+          "blender.unmanaged-preservation.v1"
+        ]
+      }
+    },
+    "snapshot": {
+      "drift": false,
+      "exhaustive": true,
+      "fingerprint": "285fb5db8623baf3ee7cf9baf7ccf5b313cfb3ae117926860d1d93d01c38758b",
+      "island": "cec43badb8114c179b8004ca426149a3",
+      "items": [
+        {
+          "action": null,
+          "actions": [],
+          "attributes": [],
+          "collections": [
+            "SW_cec43badb811_native_authoring_proof"
+          ],
+          "constraints": [],
+          "data_library": false,
+          "data_name": "SW_cec43badb811_tetra",
+          "data_users": 1,
+          "drivers": 0,
+          "entity": "tetra",
+          "geometry_digest": "86534b7705b92f5c6480c9b4305e1d75977f64f6bf186f4609b2518ea1ffd3b8",
+          "hidden_render": false,
+          "hidden_viewport": false,
+          "library": false,
+          "materials": [
+            {
+              "base_color": [
+                0.44999998807907104,
+                0.23999999463558197,
+                0.10000000149011612,
+                1.0
+              ],
+              "color": [
+                0.44999998807907104,
+                0.23999999463558197,
+                0.10000000149011612,
+                1.0
+              ],
+              "emission_color": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "emission_strength": 0.0,
+              "id": "earth",
+              "library": false,
+              "links": [
+                [
+                  "Principled BSDF",
+                  "BSDF",
+                  "Material Output",
+                  "Surface"
+                ]
+              ],
+              "metallic": 0.0,
+              "name": "SW_cec43badb811_earth",
+              "nodes": [
+                {
+                  "inputs": [
+                    [
+                      "Base Color",
+                      [
+                        0.44999998807907104,
+                        0.23999999463558197,
+                        0.10000000149011612,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Metallic",
+                      0.0
+                    ],
+                    [
+                      "Roughness",
+                      0.699999988079071
+                    ],
+                    [
+                      "IOR",
+                      1.5
+                    ],
+                    [
+                      "Alpha",
+                      1.0
+                    ],
+                    [
+                      "Thin Wall",
+                      false
+                    ],
+                    [
+                      "Normal",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Weight",
+                      0.0
+                    ],
+                    [
+                      "Diffuse Roughness",
+                      0.0
+                    ],
+                    [
+                      "Subsurface Weight",
+                      0.0
+                    ],
+                    [
+                      "Subsurface Radius",
+                      [
+                        1.0,
+                        0.20000000298023224,
+                        0.10000000149011612
+                      ]
+                    ],
+                    [
+                      "Subsurface Scale",
+                      0.004999999888241291
+                    ],
+                    [
+                      "Subsurface IOR",
+                      1.399999976158142
+                    ],
+                    [
+                      "Subsurface Anisotropy",
+                      0.0
+                    ],
+                    [
+                      "Specular IOR Level",
+                      0.5
+                    ],
+                    [
+                      "Specular Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Anisotropic",
+                      0.0
+                    ],
+                    [
+                      "Anisotropic Rotation",
+                      0.0
+                    ],
+                    [
+                      "Tangent",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Transmission Weight",
+                      0.0
+                    ],
+                    [
+                      "Coat Weight",
+                      0.0
+                    ],
+                    [
+                      "Coat Roughness",
+                      0.029999999329447746
+                    ],
+                    [
+                      "Coat IOR",
+                      1.5
+                    ],
+                    [
+                      "Coat Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Coat Normal",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Sheen Weight",
+                      0.0
+                    ],
+                    [
+                      "Sheen Roughness",
+                      0.5
+                    ],
+                    [
+                      "Sheen Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Emission Color",
+                      [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Emission Strength",
+                      0.0
+                    ],
+                    [
+                      "Thin Film Thickness",
+                      0.0
+                    ],
+                    [
+                      "Thin Film IOR",
+                      1.3300000429153442
+                    ]
+                  ],
+                  "name": "Principled BSDF",
+                  "type": "ShaderNodeBsdfPrincipled"
+                },
+                {
+                  "inputs": [
+                    [
+                      "Displacement",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Thickness",
+                      0.0
+                    ]
+                  ],
+                  "name": "Material Output",
+                  "type": "ShaderNodeOutputMaterial"
+                }
+              ],
+              "opacity": 1.0,
+              "roughness": 0.699999988079071,
+              "texture_bindings": []
+            }
+          ],
+          "modifiers": [],
+          "name": "SW_cec43badb811_tetra",
+          "native_island": "cec43badb8114c179b8004ca426149a3",
+          "nla_tracks": [],
+          "normal_digest": "8064b55e8fa2db233e7ed3fd8b7a502ca348951fbe8c1a8fcfcbcaa0ebe89abe",
+          "normal_method": "source-polygon-normal-v1",
+          "parent": null,
+          "parent_bone": "",
+          "parent_inverse": [
+            [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "parent_name": null,
+          "parent_type": "OBJECT",
+          "polygons": 4,
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "smooth_polygons": 0,
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "type": "MESH",
+          "uv_layers": 0,
+          "vertices": 4
+        },
+        {
+          "action": null,
+          "actions": [],
+          "attributes": [],
+          "collections": [
+            "SW_cec43badb811_native_authoring_proof"
+          ],
+          "constraints": [],
+          "data_library": false,
+          "data_name": "SW_cec43badb811_wedge",
+          "data_users": 1,
+          "drivers": 0,
+          "entity": "wedge",
+          "geometry_digest": "923afec564997174560599520430391d71457028e8f7b4ff5605a5cb0576b1b8",
+          "hidden_render": false,
+          "hidden_viewport": false,
+          "library": false,
+          "materials": [
+            {
+              "base_color": [
+                0.07999999821186066,
+                0.3199999928474426,
+                0.44999998807907104,
+                1.0
+              ],
+              "color": [
+                0.07999999821186066,
+                0.3199999928474426,
+                0.44999998807907104,
+                1.0
+              ],
+              "emission_color": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "emission_strength": 0.0,
+              "id": "sea",
+              "library": false,
+              "links": [
+                [
+                  "Principled BSDF",
+                  "BSDF",
+                  "Material Output",
+                  "Surface"
+                ]
+              ],
+              "metallic": 0.0,
+              "name": "SW_cec43badb811_sea",
+              "nodes": [
+                {
+                  "inputs": [
+                    [
+                      "Base Color",
+                      [
+                        0.07999999821186066,
+                        0.3199999928474426,
+                        0.44999998807907104,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Metallic",
+                      0.0
+                    ],
+                    [
+                      "Roughness",
+                      0.5
+                    ],
+                    [
+                      "IOR",
+                      1.5
+                    ],
+                    [
+                      "Alpha",
+                      1.0
+                    ],
+                    [
+                      "Thin Wall",
+                      false
+                    ],
+                    [
+                      "Normal",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Weight",
+                      0.0
+                    ],
+                    [
+                      "Diffuse Roughness",
+                      0.0
+                    ],
+                    [
+                      "Subsurface Weight",
+                      0.0
+                    ],
+                    [
+                      "Subsurface Radius",
+                      [
+                        1.0,
+                        0.20000000298023224,
+                        0.10000000149011612
+                      ]
+                    ],
+                    [
+                      "Subsurface Scale",
+                      0.004999999888241291
+                    ],
+                    [
+                      "Subsurface IOR",
+                      1.399999976158142
+                    ],
+                    [
+                      "Subsurface Anisotropy",
+                      0.0
+                    ],
+                    [
+                      "Specular IOR Level",
+                      0.5
+                    ],
+                    [
+                      "Specular Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Anisotropic",
+                      0.0
+                    ],
+                    [
+                      "Anisotropic Rotation",
+                      0.0
+                    ],
+                    [
+                      "Tangent",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Transmission Weight",
+                      0.0
+                    ],
+                    [
+                      "Coat Weight",
+                      0.0
+                    ],
+                    [
+                      "Coat Roughness",
+                      0.029999999329447746
+                    ],
+                    [
+                      "Coat IOR",
+                      1.5
+                    ],
+                    [
+                      "Coat Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Coat Normal",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Sheen Weight",
+                      0.0
+                    ],
+                    [
+                      "Sheen Roughness",
+                      0.5
+                    ],
+                    [
+                      "Sheen Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Emission Color",
+                      [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Emission Strength",
+                      0.0
+                    ],
+                    [
+                      "Thin Film Thickness",
+                      0.0
+                    ],
+                    [
+                      "Thin Film IOR",
+                      1.3300000429153442
+                    ]
+                  ],
+                  "name": "Principled BSDF",
+                  "type": "ShaderNodeBsdfPrincipled"
+                },
+                {
+                  "inputs": [
+                    [
+                      "Displacement",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Thickness",
+                      0.0
+                    ]
+                  ],
+                  "name": "Material Output",
+                  "type": "ShaderNodeOutputMaterial"
+                }
+              ],
+              "opacity": 1.0,
+              "roughness": 0.5,
+              "texture_bindings": []
+            }
+          ],
+          "modifiers": [],
+          "name": "SW_cec43badb811_wedge",
+          "native_island": "cec43badb8114c179b8004ca426149a3",
+          "nla_tracks": [],
+          "normal_digest": "4bdf77b722993e3b88971645b225de3f090a4b4a905da31661dffbb43add9c9c",
+          "normal_method": "source-polygon-normal-v1",
+          "parent": null,
+          "parent_bone": "",
+          "parent_inverse": [
+            [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "parent_name": null,
+          "parent_type": "OBJECT",
+          "polygons": 5,
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "smooth_polygons": 0,
+          "translation": [
+            4.0,
+            0.0,
+            0.0
+          ],
+          "type": "MESH",
+          "uv_layers": 0,
+          "vertices": 6
+        }
+      ],
+      "native_session": "d575b41811af4975ab5d333156edf72f",
+      "source_only": true,
+      "total": 2
+    }
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 93,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "a04f6b1c431a831a0f643df6391eebc9fb4ce73c83b7be4da752b5be4c75c131",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "6a9e14a5f150411b9f3d4ebdc35fb279",
+  "warnings": []
+}

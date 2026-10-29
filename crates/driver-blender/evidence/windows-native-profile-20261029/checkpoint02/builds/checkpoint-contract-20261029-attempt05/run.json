@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "C:\\Users\\sergi\\miniconda3\\python.exe",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests/python",
+    "-p",
+    "test_blender_checkpoint.py",
+    "-v"
+  ],
+  "utc": "2026-10-29T01:06:12.172524+00:00",
+  "exit_code": 0,
+  "seconds": 0.8439999999973224,
+  "log_sha256": "8185f6869d95e2f5af61832145c252f9141e3cd74d4d510ff125255e8860ff61",
+  "physical_blender": false,
+  "sources": {
+    "tests/python/test_blender_checkpoint.py": "f128b5ff44a02b52e461667f3a5fc3402d5bf0fb374abf043a08cbe35865720d",
+    "adapters/blender/semwright_blender/commands.py": "a600237e4ba0d27921a1c1323a3bc4ee1555620917c57b91e4f8dce2d1366e7f",
+    "adapters/blender/semwright_blender/commands.json": "4b50f436722b1c24318b1c88a7b629b7f43698781b8418cde0da1e7f811cf1c0"
+  },
+  "sources_unchanged": true
+}

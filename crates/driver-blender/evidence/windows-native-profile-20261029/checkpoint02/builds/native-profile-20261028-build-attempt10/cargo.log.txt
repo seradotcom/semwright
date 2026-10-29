@@ -1,0 +1,2 @@
+   Compiling semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+    Finished `dev` profile [unoptimized] target(s) in 39.92s

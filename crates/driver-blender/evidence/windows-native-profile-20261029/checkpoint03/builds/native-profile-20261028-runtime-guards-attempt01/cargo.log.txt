@@ -1,0 +1,10 @@
+   Compiling semwright-platform-windows-sys v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows-sys)
+    Finished `test` profile [unoptimized] target(s) in 5.35s
+     Running unittests src\lib.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\semwright_platform_windows_sys-3dc83bb614c01ee8.exe)
+
+running 2 tests
+test launch::blender52_runtime::native_runtime_tests::windows_native_runtime_cancel_precedes_io ... ok
+test launch::blender52_runtime::native_runtime_tests::windows_native_runtime_overlap_uses_physical_identity ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.01s
+

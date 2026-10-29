@@ -1,0 +1,168 @@
+{
+  "args": {
+    "intent": {
+      "kind": "create",
+      "spec": {
+        "animation": null,
+        "collection": "GEO01_FARO_THRESHOLD_R23",
+        "entities": [
+          {
+            "id": "bridge_threshold",
+            "materials": [
+              "limestone"
+            ],
+            "modifiers": [],
+            "name": "Stone transition at lighthouse bridge",
+            "shade_smooth": false,
+            "shape": {
+              "faces": [
+                [
+                  0,
+                  2,
+                  1
+                ],
+                [
+                  0,
+                  3,
+                  2
+                ],
+                [
+                  4,
+                  5,
+                  6
+                ],
+                [
+                  4,
+                  6,
+                  7
+                ],
+                [
+                  0,
+                  1,
+                  5
+                ],
+                [
+                  0,
+                  5,
+                  4
+                ],
+                [
+                  1,
+                  2,
+                  6
+                ],
+                [
+                  1,
+                  6,
+                  5
+                ],
+                [
+                  2,
+                  3,
+                  7
+                ],
+                [
+                  2,
+                  7,
+                  6
+                ],
+                [
+                  3,
+                  0,
+                  4
+                ],
+                [
+                  3,
+                  4,
+                  7
+                ]
+              ],
+              "kind": "mesh",
+              "uv": null,
+              "vertices": [
+                [
+                  -52.1,
+                  -8.6,
+                  9.6
+                ],
+                [
+                  -50.65,
+                  -8.6,
+                  9.6
+                ],
+                [
+                  -50.65,
+                  -5.4,
+                  9.6
+                ],
+                [
+                  -52.1,
+                  -5.4,
+                  9.6
+                ],
+                [
+                  -52.1,
+                  -8.6,
+                  10.17
+                ],
+                [
+                  -50.65,
+                  -8.6,
+                  10.5
+                ],
+                [
+                  -50.65,
+                  -5.4,
+                  10.5
+                ],
+                [
+                  -52.1,
+                  -5.4,
+                  10.17
+                ]
+              ]
+            },
+            "transform": {
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ],
+              "translation": [
+                0,
+                0,
+                0
+              ]
+            }
+          }
+        ],
+        "materials": [
+          {
+            "base_color": [
+              0.4851499400560704,
+              0.47353149614800955,
+              0.33716361504833037,
+              1.0
+            ],
+            "id": "limestone",
+            "metallic": 0,
+            "roughness": 0.88
+          }
+        ],
+        "meters_per_unit": 1,
+        "relations": [],
+        "textures": [],
+        "version": 1
+      }
+    }
+  },
+  "backend": null,
+  "command": "driver.blender.composition.plan",
+  "dry_run": false,
+  "request_id": "3f3071f3a2294f2d94dd24832c47883a"
+}

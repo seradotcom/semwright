@@ -1,0 +1,480 @@
+{
+  "command": "driver.blender.composition.apply",
+  "data": {
+    "island": "c242f21a199d4bea914cd4405adc2d16",
+    "plan_ref": "78dc4b575726467b912401e4b26b3296",
+    "report": {
+      "effects_observed": [
+        {
+          "logical_id": "entity-bridge_threshold",
+          "property": "declared-native-state",
+          "resource": {
+            "provider": "driver:blender",
+            "resource": "authoring-workspace"
+          }
+        },
+        {
+          "logical_id": "unmanaged-scene",
+          "property": "source-projection",
+          "resource": {
+            "provider": "driver:blender",
+            "resource": "authoring-workspace"
+          }
+        }
+      ],
+      "effects_unobservable": [],
+      "execution_status": "completed",
+      "support_level": "native",
+      "validation": {
+        "base": [
+          {
+            "concurrency": "best_effort_revalidate",
+            "document_id": "blender-authoring-workspace",
+            "generation": "9f00d8b67d274086a63b3b2c503ce406",
+            "key": {
+              "provider": "driver:blender",
+              "resource": "authoring-workspace"
+            },
+            "provider_session": "1f0a0db827864811860b87e900d2e877",
+            "revision": {
+              "kind": "fingerprint",
+              "value": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4"
+            }
+          }
+        ],
+        "checks": [
+          {
+            "evidence": [
+              {
+                "artifact": null,
+                "base": [
+                  {
+                    "concurrency": "best_effort_revalidate",
+                    "document_id": "blender-authoring-workspace",
+                    "generation": "9f00d8b67d274086a63b3b2c503ce406",
+                    "key": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    },
+                    "provider_session": "1f0a0db827864811860b87e900d2e877",
+                    "revision": {
+                      "kind": "fingerprint",
+                      "value": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4"
+                    }
+                  }
+                ],
+                "exhaustive": true,
+                "id": "obs-blender.plan-native-readback.v1",
+                "method": "blender-bounded-source-rna",
+                "method_version": 1,
+                "scope": [
+                  {
+                    "logical_id": "entity-bridge_threshold",
+                    "property": "declared-native-state",
+                    "resource": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    }
+                  }
+                ],
+                "source": "native_api"
+              }
+            ],
+            "evidence_class": "DETERMINISTIC",
+            "reason": null,
+            "rule": "blender.plan-native-readback.v1",
+            "verdict": "PASS",
+            "version": 1
+          },
+          {
+            "evidence": [
+              {
+                "artifact": null,
+                "base": [
+                  {
+                    "concurrency": "best_effort_revalidate",
+                    "document_id": "blender-authoring-workspace",
+                    "generation": "9f00d8b67d274086a63b3b2c503ce406",
+                    "key": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    },
+                    "provider_session": "1f0a0db827864811860b87e900d2e877",
+                    "revision": {
+                      "kind": "fingerprint",
+                      "value": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4"
+                    }
+                  }
+                ],
+                "exhaustive": true,
+                "id": "obs-blender.unmanaged-preservation.v1",
+                "method": "blender-unmanaged-source-projection",
+                "method_version": 1,
+                "scope": [
+                  {
+                    "logical_id": "unmanaged-scene",
+                    "property": "source-projection",
+                    "resource": {
+                      "provider": "driver:blender",
+                      "resource": "authoring-workspace"
+                    }
+                  }
+                ],
+                "source": "native_api"
+              }
+            ],
+            "evidence_class": "DETERMINISTIC",
+            "reason": null,
+            "rule": "blender.unmanaged-preservation.v1",
+            "verdict": "PASS",
+            "version": 1
+          }
+        ],
+        "plan_digest": "c8d98cb54156dc695aa3ad4191fe474f738a5f162c4a150fac9d770e66c53939",
+        "required_rules": [
+          "blender.plan-native-readback.v1",
+          "blender.unmanaged-preservation.v1"
+        ]
+      }
+    },
+    "snapshot": {
+      "drift": false,
+      "exhaustive": true,
+      "fingerprint": "f27d8cf8eb29e5b5df75c71547274ececcdd4814d76a9e4d144d0e83a4bf4aa4",
+      "island": "c242f21a199d4bea914cd4405adc2d16",
+      "items": [
+        {
+          "action": null,
+          "actions": [],
+          "attributes": [],
+          "collections": [
+            "SW_c242f21a199d_GEO01_FARO_THRESHOLD_R23"
+          ],
+          "constraints": [],
+          "data_library": false,
+          "data_name": "SW_c242f21a199d_bridge_threshold",
+          "data_users": 1,
+          "drivers": 0,
+          "entity": "bridge_threshold",
+          "geometry_digest": "d02c07f0c76efdb0141240ca9982b4f04db71912e698d5a6369249a6f8d89159",
+          "hidden_render": false,
+          "hidden_viewport": false,
+          "library": false,
+          "materials": [
+            {
+              "base_color": [
+                0.48514994978904724,
+                0.47353148460388184,
+                0.33716362714767456,
+                1.0
+              ],
+              "color": [
+                0.48514994978904724,
+                0.47353148460388184,
+                0.33716362714767456,
+                1.0
+              ],
+              "emission_color": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "emission_strength": 0.0,
+              "id": "limestone",
+              "library": false,
+              "links": [
+                [
+                  "Principled BSDF",
+                  "BSDF",
+                  "Material Output",
+                  "Surface"
+                ]
+              ],
+              "metallic": 0.0,
+              "name": "SW_c242f21a199d_limestone",
+              "nodes": [
+                {
+                  "inputs": [
+                    [
+                      "Base Color",
+                      [
+                        0.48514994978904724,
+                        0.47353148460388184,
+                        0.33716362714767456,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Metallic",
+                      0.0
+                    ],
+                    [
+                      "Roughness",
+                      0.8799999952316284
+                    ],
+                    [
+                      "IOR",
+                      1.5
+                    ],
+                    [
+                      "Alpha",
+                      1.0
+                    ],
+                    [
+                      "Thin Wall",
+                      false
+                    ],
+                    [
+                      "Normal",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Weight",
+                      0.0
+                    ],
+                    [
+                      "Diffuse Roughness",
+                      0.0
+                    ],
+                    [
+                      "Subsurface Weight",
+                      0.0
+                    ],
+                    [
+                      "Subsurface Radius",
+                      [
+                        1.0,
+                        0.20000000298023224,
+                        0.10000000149011612
+                      ]
+                    ],
+                    [
+                      "Subsurface Scale",
+                      0.004999999888241291
+                    ],
+                    [
+                      "Subsurface IOR",
+                      1.399999976158142
+                    ],
+                    [
+                      "Subsurface Anisotropy",
+                      0.0
+                    ],
+                    [
+                      "Specular IOR Level",
+                      0.5
+                    ],
+                    [
+                      "Specular Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Anisotropic",
+                      0.0
+                    ],
+                    [
+                      "Anisotropic Rotation",
+                      0.0
+                    ],
+                    [
+                      "Tangent",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Transmission Weight",
+                      0.0
+                    ],
+                    [
+                      "Coat Weight",
+                      0.0
+                    ],
+                    [
+                      "Coat Roughness",
+                      0.029999999329447746
+                    ],
+                    [
+                      "Coat IOR",
+                      1.5
+                    ],
+                    [
+                      "Coat Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Coat Normal",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Sheen Weight",
+                      0.0
+                    ],
+                    [
+                      "Sheen Roughness",
+                      0.5
+                    ],
+                    [
+                      "Sheen Tint",
+                      [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Emission Color",
+                      [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                      ]
+                    ],
+                    [
+                      "Emission Strength",
+                      0.0
+                    ],
+                    [
+                      "Thin Film Thickness",
+                      0.0
+                    ],
+                    [
+                      "Thin Film IOR",
+                      1.3300000429153442
+                    ]
+                  ],
+                  "name": "Principled BSDF",
+                  "type": "ShaderNodeBsdfPrincipled"
+                },
+                {
+                  "inputs": [
+                    [
+                      "Displacement",
+                      [
+                        0.0,
+                        0.0,
+                        0.0
+                      ]
+                    ],
+                    [
+                      "Thickness",
+                      0.0
+                    ]
+                  ],
+                  "name": "Material Output",
+                  "type": "ShaderNodeOutputMaterial"
+                }
+              ],
+              "opacity": 1.0,
+              "roughness": 0.8799999952316284,
+              "texture_bindings": []
+            }
+          ],
+          "modifiers": [],
+          "name": "SW_c242f21a199d_bridge_threshold",
+          "native_island": "c242f21a199d4bea914cd4405adc2d16",
+          "nla_tracks": [],
+          "normal_digest": "b25c720dbb8e0de545b8068a3bd04f9bcb32b2c16923c04c7a7191f4d8aad536",
+          "normal_method": "source-polygon-normal-v1",
+          "parent": null,
+          "parent_bone": "",
+          "parent_inverse": [
+            [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "parent_name": null,
+          "parent_type": "OBJECT",
+          "polygons": 12,
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "smooth_polygons": 0,
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "type": "MESH",
+          "uv_layers": 0,
+          "vertices": 8
+        }
+      ],
+      "native_session": "9f00d8b67d274086a63b3b2c503ce406",
+      "source_only": true,
+      "total": 1
+    }
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 92,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "a04f6b1c431a831a0f643df6391eebc9fb4ce73c83b7be4da752b5be4c75c131",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "fcc9136a17ff46cf85cda17d8c09816f",
+  "warnings": []
+}

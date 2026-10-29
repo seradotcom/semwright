@@ -1,0 +1,29 @@
+{
+    "remaining":  [
+
+                  ],
+    "normal_session_close":  false,
+    "all_recorded_pids_absent":  true,
+    "art_files_modified":  false,
+    "broker_path_verified":  "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile11\\semwrightd.exe",
+    "schema":  1,
+    "mutation_inputs_and_glb_preserved":  true,
+    "private_snapshot_retained":  true,
+    "reason":  "Owned technical fixture retirement; no human project was loaded",
+    "observed_before":  [
+                            {
+                                "Id":  40904,
+                                "ProcessName":  "driver-1332b0d0e1364d108fbbbe216238b93a",
+                                "StartTime":  "\/Date(1793240661630)\/"
+                            },
+                            {
+                                "Id":  43628,
+                                "ProcessName":  "semwrightd",
+                                "StartTime":  "\/Date(1793240500431)\/"
+                            }
+                        ],
+    "candidate":  "native-profile11",
+    "utc":  "2026-10-29T02:26:33.0145902Z",
+    "broker_pid":  43628,
+    "acl_cleanup_claimed":  false
+}

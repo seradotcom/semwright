@@ -1,0 +1,289 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T02:35:34.859144+00:00",
+  "candidate": "native-profile10",
+  "revision": "20261029-semwright-rock-r22",
+  "files": [
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\art_review\\20261029-semwright-rock-r22\\asset-admission.json",
+      "archive": "asset-admission.json",
+      "bytes": 3243,
+      "sha256": "111ab02e135937bf2650ceec8834103683cf447d4ef0382856a45815a8c1bad2"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\game\\assets\\review_20261029-semwright-rock-r22\\GEO01_FARO_SEMWRIGHT_R22.glb",
+      "archive": "assets/GEO01_FARO_SEMWRIGHT_R22.glb",
+      "bytes": 64288,
+      "sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\art\\blender\\semwright\\20261029-semwright-rock-r22\\FARO_ROCK_scene.blend",
+      "archive": "assets/FARO_ROCK_scene.blend",
+      "bytes": 699546,
+      "sha256": "8c49ad77ba0e6d571f0cfafd45cebb4a6aa45ac380f64afcb705df08415a3d91"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\art\\blender\\semwright\\20261029-semwright-rock-r22\\FARO_ROCK_library.blend",
+      "archive": "assets/FARO_ROCK_library.blend",
+      "bytes": 82494,
+      "sha256": "f1d703361504b2603a396e29a93691604489b2bac07f0f69fcf5866b557f610b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\art\\recipes\\20261029-r22\\faro_rock.bounded.spec.json",
+      "archive": "recipe/faro_rock.bounded.spec.json",
+      "bytes": 64371,
+      "sha256": "8de79c861dd6b3f054f75065cffbe06042b23ec897f675470d57c0406396d304"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\art\\recipes\\20261029-r22\\faro_rock.spec.json",
+      "archive": "recipe/faro_rock.spec.json",
+      "bytes": 108269,
+      "sha256": "ebeda65f9d0ed374421c62b603d94a48e2393f0bb8a0fa84b7f052df7f0912e5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\art\\recipes\\20261029-r22\\faro_rock.transport.spec.json",
+      "archive": "recipe/faro_rock.transport.spec.json",
+      "bytes": 30641,
+      "sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\generate_faro_semwright_r22.py",
+      "archive": "source/generate_faro_semwright_r22.py.source.txt",
+      "bytes": 9354,
+      "sha256": "34345f06b8a1da1996ad52abd5ee2ae31eeb9653be826bf7a7289453b5748c66"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_probe01\\faro_native_probe.gd",
+      "archive": "native-godot/faro_probe01/faro_native_probe.gd",
+      "bytes": 7837,
+      "sha256": "6f66c3c4d8f82f5487a4cf903819bfa87b1e881c5431281f4a1d31e6bf34fc18"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_probe01\\faro_probe.json",
+      "archive": "native-godot/faro_probe01/faro_probe.json",
+      "bytes": 72043,
+      "sha256": "c11f3367939d19db84363fbb0aed88df3505cb8254a3d9c3c05a3b2cb1b592fb"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_probe01\\faro_probe.png",
+      "archive": "native-godot/faro_probe01/faro_probe.png",
+      "bytes": 936384,
+      "sha256": "f01e3513f5722cbbd9f86fc4a9064bc764d71731721e2f8461d9ba5fad5e3dc1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_probe01\\native.log",
+      "archive": "native-godot/faro_probe01/native.log.txt",
+      "bytes": 196,
+      "sha256": "b23d3ecaec26af791151c4720e923b97119c04017fda6eb43cb7bccc093fae24"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_probe01\\runner.json",
+      "archive": "native-godot/faro_probe01/runner.json",
+      "bytes": 738,
+      "sha256": "e8c46e709e222c26d56d31cf830273b1f6d01d81d116bd17dc5247fcbab690bb"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_roundtrip01\\native.log",
+      "archive": "native-godot/faro_roundtrip01/native.log.txt",
+      "bytes": 259,
+      "sha256": "986f5e82ceea2a12472583b4b96b8dc2170f2eb38e4892f00215fdb62d78e23f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_roundtrip01\\native_faro_roundtrip.json",
+      "archive": "native-godot/faro_roundtrip01/native_faro_roundtrip.json",
+      "bytes": 73740,
+      "sha256": "aa2da251f5242bcc8c513c7a1443c1969375bb40f0f3803a811f39e59db7f8c6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_roundtrip01\\previous_walk_readback.json",
+      "archive": "native-godot/faro_roundtrip01/previous_walk_readback.json",
+      "bytes": 99207,
+      "sha256": "c5610274dbbf8cefee108a05b84fe6c14209e9282a220c6760a41c5e33d578c5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_roundtrip01\\runner.json",
+      "archive": "native-godot/faro_roundtrip01/runner.json",
+      "bytes": 1410,
+      "sha256": "f024229528ff7de0620a8bb8dfc8469e191b93700a2c0ca5b342ad077336656b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_roundtrip01\\source\\faro_roundtrip.gd",
+      "archive": "native-godot/faro_roundtrip01/source/faro_roundtrip.gd",
+      "bytes": 457,
+      "sha256": "555e5f19ef517b8f092aecddbb0adf4ab80df6902e5149caa7743059ac91b6d3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_roundtrip01\\source\\harbor_review.gd",
+      "archive": "native-godot/faro_roundtrip01/source/harbor_review.gd",
+      "bytes": 38496,
+      "sha256": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_roundtrip01\\source\\native_bundle.json",
+      "archive": "native-godot/faro_roundtrip01/source/native_bundle.json",
+      "bytes": 23996,
+      "sha256": "4fc215826f5b57d0e0c3aea079df0edb62ca75718f7f6a0a5a9cc9cee7d91189"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_roundtrip01\\source\\review_faro_roundtrip.json",
+      "archive": "native-godot/faro_roundtrip01/source/review_faro_roundtrip.json",
+      "bytes": 633,
+      "sha256": "96c41b26be51fe8d96e19d4f34fbd3daf0090a2ecec3a5ad57be547768411ae1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\faro_roundtrip01\\source\\review_walker.gd",
+      "archive": "native-godot/faro_roundtrip01/source/review_walker.gd",
+      "bytes": 6124,
+      "sha256": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\comprender_1793239992_309.json",
+      "archive": "native-godot/review_01/comprender_1793239992_309.json",
+      "bytes": 243442,
+      "sha256": "635e6f577498e96fadd3b7294fa9b4e06a24dbb1967c7ce45c6d46a0ea2f7332"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\detail_1793240003_439.json",
+      "archive": "native-godot/review_01/detail_1793240003_439.json",
+      "bytes": 243589,
+      "sha256": "bc61d166799d2bce10bf1d51dc197af4fe04115fe8f4b37813e264ef7517a373"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\frame_profile.json",
+      "archive": "native-godot/review_01/frame_profile.json",
+      "bytes": 847753,
+      "sha256": "11962111f395d5e2073c593e7384cdf140822f4fe2c1e10f0fc0f6074172bb5c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\godot-import.log",
+      "archive": "native-godot/review_01/godot-import.log.txt",
+      "bytes": 2103,
+      "sha256": "0c21d2d6771a810575075d52d67655e5cbf6d6ba0b746f84c1169ff840d8b039"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\godot-physical-review.log",
+      "archive": "native-godot/review_01/godot-physical-review.log.txt",
+      "bytes": 154,
+      "sha256": "967af7ea3a1e16444f9ad7e6e7fddeb9e39d6fb3e3588f8a8ec41e6fdcdb78f1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\godot-readback.log",
+      "archive": "native-godot/review_01/godot-readback.log.txt",
+      "bytes": 75,
+      "sha256": "83cf0b082206af2aa236c83064fbcfa76be1e00a4aa3558574b2f65965d9481c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\godot_headless_import_readback.json",
+      "archive": "native-godot/review_01/godot_headless_import_readback.json",
+      "bytes": 61762,
+      "sha256": "1a155a2478c8e46a795086579f5a0b8fca2849e3485151698288b41fc296e91c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\habitar_1793239981_002.json",
+      "archive": "native-godot/review_01/habitar_1793239981_002.json",
+      "bytes": 243520,
+      "sha256": "421837541ed7652d9ef09060eedd426919ad961de003989505f71c03dde7a37c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\llegar_1793239969_794.json",
+      "archive": "native-godot/review_01/llegar_1793239969_794.json",
+      "bytes": 242982,
+      "sha256": "058758ef8c8e4e0eb4f1a42d4cf00c692f39ff3d40061c75c5aa5f1d4f50f8c5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\llegar_1793239969_794_godot.png",
+      "archive": "native-godot/review_01/llegar_1793239969_794_godot.png",
+      "bytes": 755050,
+      "sha256": "dd470ee6d403dcfa57bfbf91bff3b7288c6c76c9bd056545b6ad530b77ecf1ba"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\native_runs.json",
+      "archive": "native-godot/review_01/native_runs.json",
+      "bytes": 1365,
+      "sha256": "d5d7b2adddadd834789dee1af45266ca93bed22b9593f9b221cad40d600b6ade"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\nvidia-gpu-samples.csv",
+      "archive": "native-godot/review_01/nvidia-gpu-samples.csv",
+      "bytes": 5085,
+      "sha256": "37b94107883ac5b31c954df16658cd0a1d40c17c9793f547595dbace1ac19523"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\review_sequence_complete.json",
+      "archive": "native-godot/review_01/review_sequence_complete.json",
+      "bytes": 62,
+      "sha256": "e4208654e5721d750b5d441cc2f00313d709a782c32cd1fd55ccf4434579a80e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\source\\harbor_review.gd",
+      "archive": "native-godot/review_01/source/harbor_review.gd",
+      "bytes": 38496,
+      "sha256": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\source\\review_bridge_route.json",
+      "archive": "native-godot/review_01/source/review_bridge_route.json",
+      "bytes": 693,
+      "sha256": "a5cdc8c4c443f9084b36d4ab9520744970a7d6703b48d48781cc900ba3571592"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\source\\review_walk_route.json",
+      "archive": "native-godot/review_01/source/review_walk_route.json",
+      "bytes": 1158,
+      "sha256": "9cddebfb5bebc9c104bccd2ed9cf4fdbc77b2a621242110e628d4b8d0e0a3614"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\review_01\\source\\review_walker.gd",
+      "archive": "native-godot/review_01/source/review_walker.gd",
+      "bytes": 6124,
+      "sha256": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\support_bridge01\\godot-bridge-walk.log",
+      "archive": "native-godot/support_bridge01/godot-bridge-walk.log.txt",
+      "bytes": 259,
+      "sha256": "a58f656bcd45d17c78b645502b748884ce421f82d9ff7fcac204a110d8f5ecbe"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\support_bridge01\\native_bridge_readback.json",
+      "archive": "native-godot/support_bridge01/native_bridge_readback.json",
+      "bytes": 125307,
+      "sha256": "83568faa8104f67fbd422c8dd4e51a592b172a1cece004e68d85723dfb383efe"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\support_bridge01\\runs.json",
+      "archive": "native-godot/support_bridge01/runs.json",
+      "bytes": 509,
+      "sha256": "862d1f0f0ee7b43174b6fe5ef869d02c812fcf2ebb240b5ece1ea5615f4b5168"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\support_bridge01\\source\\harbor_review.gd",
+      "archive": "native-godot/support_bridge01/source/harbor_review.gd",
+      "bytes": 38496,
+      "sha256": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\support_bridge01\\source\\review_bridge_route.json",
+      "archive": "native-godot/support_bridge01/source/review_bridge_route.json",
+      "bytes": 693,
+      "sha256": "a5cdc8c4c443f9084b36d4ab9520744970a7d6703b48d48781cc900ba3571592"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\support_bridge01\\source\\review_walk_route.json",
+      "archive": "native-godot/support_bridge01/source/review_walk_route.json",
+      "bytes": 1158,
+      "sha256": "9cddebfb5bebc9c104bccd2ed9cf4fdbc77b2a621242110e628d4b8d0e0a3614"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\visual\\20261029-semwright-rock-r22\\support_bridge01\\source\\review_walker.gd",
+      "archive": "native-godot/support_bridge01/source/review_walker.gd",
+      "bytes": 6124,
+      "sha256": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67"
+    }
+  ],
+  "godot_broker_used": false,
+  "human_edit_preservation": "NOT_DEMONSTRATED",
+  "art_status": "REVISE",
+  "linux_native": "NOT_RUN",
+  "external_publication": false
+}

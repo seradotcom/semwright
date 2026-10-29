@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T02:12:04.557648+00:00",
+  "revision": "20261029-semwright-rock-r22",
+  "broker_proof_sha256": "f540a2b0265d4df55359bbdc9d9d23be6ce5c6b7976f49fd5f66ab932cb33f5f",
+  "export_request": "7130649de9a84eb9ad626a6b6566800c",
+  "recipe_sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9",
+  "broker_plan_value_nodes": 12751,
+  "source_files": [
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\native-profile10-workspace\\static-asset-attempt03\\asset.glb",
+      "destination": "game\\assets\\review_20261029-semwright-rock-r22\\GEO01_FARO_SEMWRIGHT_R22.glb",
+      "bytes": 64288,
+      "sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\native-profile10-workspace\\static-asset-attempt03\\asset-scene.blend",
+      "destination": "art\\blender\\semwright\\20261029-semwright-rock-r22\\FARO_ROCK_scene.blend",
+      "bytes": 699546,
+      "sha256": "8c49ad77ba0e6d571f0cfafd45cebb4a6aa45ac380f64afcb705df08415a3d91"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\native-profile10-workspace\\static-asset-attempt03\\asset-library.blend",
+      "destination": "art\\blender\\semwright\\20261029-semwright-rock-r22\\FARO_ROCK_library.blend",
+      "bytes": 82494,
+      "sha256": "f1d703361504b2603a396e29a93691604489b2bac07f0f69fcf5866b557f610b"
+    }
+  ],
+  "glb_meshes": 3,
+  "glb_triangles": 1024,
+  "glb_bounds": [
+    {
+      "mesh": "SW_dc08abe78a2a_coastal_toe",
+      "min": [
+        -64.67994689941406,
+        -1.25,
+        10.242951393127441
+      ],
+      "max": [
+        -57.35786819458008,
+        3.549999952316284,
+        15.068251609802246
+      ]
+    },
+    {
+      "mesh": "SW_dc08abe78a2a_integrated_limestone",
+      "min": [
+        -65.6500015258789,
+        -1.25,
+        -1.25
+      ],
+      "max": [
+        -49.34806823730469,
+        10.170000076293945,
+        17
+      ]
+    },
+    {
+      "mesh": "SW_dc08abe78a2a_low_shelf",
+      "min": [
+        -63.48686218261719,
+        -1.25,
+        -1.2863136529922485
+      ],
+      "max": [
+        -57.304351806640625,
+        2.6500000953674316,
+        2.5652928352355957
+      ]
+    }
+  ],
+  "replaced_meshes": {
+    "GEO01_HARBOR_COAST_p12": [
+      "GEO01_HARBOR_COAST_faro_integrated_limestone_stone_0"
+    ],
+    "GEO01_HARBOR_COAST_p13": [
+      "GEO01_HARBOR_COAST_faro_crown_stone_0",
+      "GEO01_HARBOR_COAST_faro_footing_cap_stone_0",
+      "GEO01_HARBOR_COAST_faro_integrated_limestone_base_stone_dark_0",
+      "GEO01_HARBOR_COAST_faro_integrated_limestone_toe_stone_0",
+      "GEO01_HARBOR_COAST_faro_rock_mass_stone_0",
+      "GEO01_HARBOR_COAST_faro_rock_mass_stone_light_0"
+    ]
+  },
+  "baseline_glbs_unchanged": true,
+  "camera_definitions_unchanged": true,
+  "human_camera_plan_sha256": null,
+  "new_bundle_sha256": "4fc215826f5b57d0e0c3aea079df0edb62ca75718f7f6a0a5a9cc9cee7d91189",
+  "new_asset_material_roles": {
+    "SW_dc08abe78a2a_limestone": "stone"
+  },
+  "semwright_broker_used_for_new_meshes": true,
+  "godot_project_conformance": "NOT_RUN",
+  "art_approval": false,
+  "G6": "NOT_COMPLETE",
+  "Linux_4_5_14": "NOT_RUN"
+}

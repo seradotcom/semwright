@@ -1,0 +1,39 @@
+{
+  "command": "driver.blender.semantic.relations",
+  "data": {
+    "generation": 9,
+    "items": [
+      {
+        "index": 0,
+        "name": "Shader Nodetree",
+        "ref": "blender-rna/v1/materials/U1dfY2VjNDNiYWRiODExX3NlYQ/W1sicCIsIm5vZGVfdHJlZSJdXQ@9",
+        "rna_type": "ShaderNodeTree"
+      }
+    ],
+    "mutation": "domain_specific",
+    "offset": 0,
+    "relation": "node_tree",
+    "truncated": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 30,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "7dfa15f2239d3e3ca783418f8a854e14e9466d171c69c957f9eae5eb4bd76466",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "d50a442d2f5b415ea3d99ef0969e5873",
+  "warnings": []
+}
