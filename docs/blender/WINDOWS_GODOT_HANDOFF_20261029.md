@@ -76,3 +76,18 @@ Evidence anchors:
 checkpoint02 contains 137 original payloads / 1,676,522 bytes, a consistent 224-record live-idle audit snapshot, 47 audit-correlated envelopes and 35 explicit request/envelope pairs with zero unmatched requests. Original build records remain in checkpoint01. Credential material was checked in memory and excluded. Audit consistency is not same-owner tamper resistance.
 
 The technical reimport/persistence subset is verified. P3 overall and A05 remain partial because a real human-authored camera edit has not yet been preserved across a later agent edit. This run reimported unchanged GLBs; it does not establish a geometric A-to-B resource transition. G6 remains NOT_COMPLETE, art REVISE, and both native Linux regressions NOT_RUN. The consumed attempt must not be submitted again.
+
+
+## Continuidad humana verificada; produccion local continua
+
+El propietario confirmo la edicion solicitada y autorizo continuar todas las entregas locales sin nuevas pausas de permiso. La limpieza queda limitada a temporales propios. Esta autorizacion no se registra como aceptacion artistica ni como aprobacion automatica de desafios nativos.
+
+Se observo ProofCamera con FOV 70, frente a 60 en el checkpoint anterior, y una segunda camara ProofCamera2 tambien en 70. El propietario guardo la escena durante la reconciliacion. main.tscn recibio metadatos UID de Godot antes de la operacion del agente; ese archivo actual se preservo byte por byte. El agente no reconstruyo el estado anterior sin guardar ni elimino la segunda camara.
+
+En la misma sesion/generacion nativa, driver.godot.node.patch desplazo exclusivamente FaroThreshold a [0.5,0,0], y driver.godot.scene.save guardo solo la escena de soporte. Ambas operaciones tuvieron allow/applied:true sin nuevos desafios. El readback completo de ambas camaras, excluyendo solo ref efimero, permanecio identico; los otros nodos no cambiaron. Solo la escena de soporte cambio entre las 3.094 fuentes.
+
+La reapertura en un proceso Godot nativo independiente verifico las dos camaras, sus propiedades persistentes, la traslacion, las cuatro mallas y sus bounds. El primer observador fallo porque un Resource null nativo se presenta como TYPE_OBJECT; se conservo ese fallo y se corrigio exclusivamente el codec del observador. El segundo paso con cero cambios de fuente. No se repitio ninguna mutacion.
+
+Evidencia: evidence/integration/20261029-godot-broker/godot-bridge01/human-camera-continuity01/receipt.json (SHA b8fa6dc77a7167cdcd4cb82e687c1ff2c4cc92bb0a0ca520e522866a83a76d8f), human-camera-persistence02/receipt.json (SHA e317708d40152e12cdb8247b45d90cffc1e989a13880b626af516338c3c736bd). Escena final SHA 968f6d5368e02bd8848fbbc698024e4abd1fee2cd5f1bdc1879a94b8d38fa0bb. Archivo de contribucion checkpoint03, manifest SHA 94bbf4fbfa1ff6fde58c45c2e8565032cb1bdcfe1d4273d3b023ac06ab97efa5, 126 payloads y 30 envelopes correlacionados con 284 registros de auditoria.
+
+P3: PASS para el caso acotado de handoff real y preservacion de camara humana del proyecto. La prueba no demuestra undo/redo del producto ni un cambio material de la camara cinematografica final; A04 y G6 siguen incompletos. A05 conserva PARTIAL_PENDING_PROJECT_CONFORMANCE, A02 REVISE y Linux 4.5.14/5.2.1 NOT_RUN. El runner historico permanece UNKNOWN sin alteracion. P4 puede continuar por Semwright con revision visual explicita.

@@ -1,0 +1,251 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T06:07:24.657061+00:00",
+  "passed": true,
+  "outcome": "KNOWN_SUCCESS",
+  "automatic_retry": false,
+  "approval_input_automated": false,
+  "policy_modified": false,
+  "human_report": "Owner replied listo after personally editing the requested camera",
+  "original_handoff_outcome": "UNKNOWN",
+  "G6": "NOT_COMPLETE",
+  "art_status": "REVISE",
+  "historical_runner_sha256": "7f3b8401188bb1fffc4bc530c1e2b271862a211ab192c068c6723696a24da674",
+  "external_change_reconciliation": {
+    "path": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\reconciliation-readonly.json",
+    "sha256": "1d57d3309aa29691e297ab18897e9439fbb9be182ce5f5bef5b6ac1366b530e3",
+    "main_source_change": {
+      "before": {
+        "bytes": 175,
+        "sha256": "b374a3e2725299468d8d4b92a7a08f951eb07938f3d894bdeabb0a39ed58fa90"
+      },
+      "after": {
+        "bytes": 232,
+        "sha256": "a5deddc95a4ae715dc404017cf3df364e5d9d4871cbf87d03749b50157346ee4"
+      }
+    },
+    "main_current_status": "Saved externally before this run; preserve current state",
+    "added_camera": "ProofCamera2 observed and preserved; not created by this runner",
+    "support_edit_initially_persisted": false,
+    "support_saved_during_readonly_reconciliation": true
+  },
+  "human_state_saved_by": "Already saved externally before agent mutation",
+  "human_saved_before_agent_sha256": "5e70a9ad32340222ba3126965add5049d563eff405a7a6887cefdb7febd65d6e",
+  "cameras_preserved": {
+    "ProofCamera": {
+      "class": "Camera3D",
+      "name": "ProofCamera",
+      "observed": {
+        "global_position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "owner_path": ".",
+        "parent_path": ".",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation_order": 2,
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "scope": "edited_scene"
+      },
+      "path": "ProofCamera",
+      "properties": {
+        "attributes": null,
+        "auto_translate_mode": 0,
+        "compositor": null,
+        "cull_mask": 1048575,
+        "current": false,
+        "doppler_tracking": 0,
+        "editor_description": "",
+        "environment": null,
+        "far": 250.0,
+        "fov": 70.0,
+        "frustum_offset": {
+          "$type": "Vector2",
+          "value": [
+            0.0,
+            0.0
+          ]
+        },
+        "h_offset": 0.0,
+        "keep_aspect": 1,
+        "near": 0.200000002980232,
+        "physics_interpolation_mode": 0,
+        "process_mode": 0,
+        "process_physics_priority": 0,
+        "process_priority": 0,
+        "process_thread_group": 0,
+        "projection": 0,
+        "rotation_edit_mode": 0,
+        "rotation_order": 2,
+        "size": 1.0,
+        "top_level": false,
+        "transform": {
+          "$type": "Transform3D",
+          "value": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "unique_name_in_owner": false,
+        "v_offset": 0.0,
+        "visibility_parent": {
+          "$type": "NodePath",
+          "value": ""
+        },
+        "visible": true
+      }
+    },
+    "ProofCamera2": {
+      "class": "Camera3D",
+      "name": "ProofCamera2",
+      "observed": {
+        "global_position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "owner_path": ".",
+        "parent_path": ".",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation_order": 2,
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "scope": "edited_scene"
+      },
+      "path": "ProofCamera2",
+      "properties": {
+        "attributes": null,
+        "auto_translate_mode": 0,
+        "compositor": null,
+        "cull_mask": 1048575,
+        "current": false,
+        "doppler_tracking": 0,
+        "editor_description": "",
+        "environment": null,
+        "far": 250.0,
+        "fov": 70.0,
+        "frustum_offset": {
+          "$type": "Vector2",
+          "value": [
+            0.0,
+            0.0
+          ]
+        },
+        "h_offset": 0.0,
+        "keep_aspect": 1,
+        "near": 0.200000002980232,
+        "physics_interpolation_mode": 0,
+        "process_mode": 0,
+        "process_physics_priority": 0,
+        "process_priority": 0,
+        "process_thread_group": 0,
+        "projection": 0,
+        "rotation_edit_mode": 0,
+        "rotation_order": 2,
+        "size": 1.0,
+        "top_level": false,
+        "transform": {
+          "$type": "Transform3D",
+          "value": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "unique_name_in_owner": false,
+        "v_offset": 0.0,
+        "visibility_parent": {
+          "$type": "NodePath",
+          "value": ""
+        },
+        "visible": true
+      }
+    }
+  },
+  "source_delta": {
+    "proofs/semwright_godot_bridge01_02.tscn": {
+      "before": {
+        "bytes": 846,
+        "sha256": "5e70a9ad32340222ba3126965add5049d563eff405a7a6887cefdb7febd65d6e"
+      },
+      "after": {
+        "bytes": 908,
+        "sha256": "968f6d5368e02bd8848fbbc698024e4abd1fee2cd5f1bdc1879a94b8d38fa0bb"
+      }
+    }
+  },
+  "source_files": 3094,
+  "source_scene_sha256": "968f6d5368e02bd8848fbbc698024e4abd1fee2cd5f1bdc1879a94b8d38fa0bb",
+  "expectation_sha256": "3564e0a11fb87237b648ae464cc1a43958e5c4ed290274aa21adec163cd177ae",
+  "native_reopen": "PENDING",
+  "main_bytes_preserved": true,
+  "main_live_projection": "NOT_REOBSERVED_INACTIVE",
+  "owner_blender_untouched": true,
+  "camera_mutations_submitted": 0,
+  "mutations": [
+    {
+      "label": "04-patch-threshold",
+      "command": "driver.godot.node.patch",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "ac6d861fed134966be1e6aee3e8a7058",
+      "exit_code": 0,
+      "applied": true,
+      "policy_decision": "allow"
+    },
+    {
+      "label": "06-save-agent-state",
+      "command": "driver.godot.scene.save",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "79434d07579e4e68b0a2f4ae6efe0102",
+      "exit_code": 0,
+      "applied": true,
+      "policy_decision": "allow"
+    }
+  ],
+  "script_sha256": "64925432fb3c7d9e70c0441d4dcfcb3ba6971634cb7ccfb5f9aa65b02a4e60ae"
+}

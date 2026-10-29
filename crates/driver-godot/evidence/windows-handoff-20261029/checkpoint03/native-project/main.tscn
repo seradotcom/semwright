@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://mljxwpb6t7lw"]
+
+[ext_resource type="Script" uid="uid://x6a4hg643la3" path="res://scripts/harbor_review.gd" id="1"]
+
+[node name="Archipelago" type="Node3D" unique_id=697412837]
+script = ExtResource("1")

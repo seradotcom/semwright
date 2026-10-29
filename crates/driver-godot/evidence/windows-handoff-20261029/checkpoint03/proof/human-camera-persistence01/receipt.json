@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T06:10:49.619675+00:00",
+  "proof": "independent_native_camera_and_target_persistence",
+  "passed": false,
+  "stage": "compare_native_readback",
+  "native_started": true,
+  "native_timeout": false,
+  "native_exit_code": 3,
+  "automatic_retry": false,
+  "expectation_sha256": "3564e0a11fb87237b648ae464cc1a43958e5c4ed290274aa21adec163cd177ae",
+  "camera_float_absolute_tolerance": 1e-06,
+  "geometry_absolute_tolerance_m": 0.0002,
+  "source_inventory_exclusion": "top-level .godot editor/runtime cache only",
+  "broker_used_for_this_independent_observation": false,
+  "human_attribution": "Established separately by the caller; not inferred by this observer",
+  "existing_editor_contacted": false,
+  "G6": "NOT_COMPLETE",
+  "source_files_before": 3094,
+  "scene_sha256_before": "968f6d5368e02bd8848fbbc698024e4abd1fee2cd5f1bdc1879a94b8d38fa0bb",
+  "godot_sha256": "ab1824f85bfd8e0e4128182c000c4003a3e042245b2967848d089b2a04b22424",
+  "assets": [
+    {
+      "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+      "sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+    },
+    {
+      "path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+      "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+    }
+  ],
+  "native_argv": [
+    "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64.exe",
+    "--headless",
+    "--path",
+    "E:\\Projects\\worldwright-archipelago\\game",
+    "--script",
+    "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence01\\observe_camera_persistence.gd"
+  ],
+  "native_pid": 39168,
+  "error": "ValidationError: Native observer returned a failure exit code",
+  "source_files_unchanged": true,
+  "source_files_after": 3094,
+  "evidence_sha256": {
+    "expectation.json": "3564e0a11fb87237b648ae464cc1a43958e5c4ed290274aa21adec163cd177ae",
+    "source-before.json": "b7dbb70eea7e44b7c3aea55129eeb00b086e3c0b00649050618670ee0d14466e",
+    "source-delta.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "observer-config.json": "8eaabfd308ba108f8aefee7156dd56e0af22d5e0130b7dd8263a08bce0e1ace1",
+    "observe_camera_persistence.gd": "426ae43f521943673e7531a30af7f657d12d1199f2e081ffd56693a30c3a7ca0",
+    "native-readback.json": "d99d721c653b472059bb72ff04de6aba72f1bed8025a42c58c7a4e605bba05c8",
+    "godot.log": "777e87075ecea563b26ff2ccda62cac9ff79d1d2c4ddf9e66d903d3b30feb944"
+  },
+  "validator_source_sha256": "e75ab0ef895a0507b5e5479b177ed7d99f5df4ad0ffaeee6983acb47eb687c65",
+  "seconds": 20.047000000005937
+}

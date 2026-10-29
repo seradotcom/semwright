@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://cxh8nan0osn4d"]
+
+[ext_resource type="PackedScene" uid="uid://j3t3im7i4ggu" path="res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb" id="1_42hfy"]
+[ext_resource type="PackedScene" uid="uid://chxknusmbx3to" path="res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb" id="2_52bf7"]
+
+[node name="SemwrightHandoffProof" type="Node3D" unique_id=1034070834]
+
+[node name="ProofCamera" type="Camera3D" parent="." unique_id=1425736402]
+fov = 70.0
+near = 0.2
+far = 250.0
+
+[node name="ProofCamera2" type="Camera3D" parent="." unique_id=2051333972]
+fov = 70.0
+near = 0.2
+far = 250.0
+
+[node name="FaroRock" parent="." unique_id=1796951704 instance=ExtResource("1_42hfy")]
+
+[node name="FaroThreshold" parent="." unique_id=603572062 instance=ExtResource("2_52bf7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0, 0)

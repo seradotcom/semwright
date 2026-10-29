@@ -1,0 +1,270 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T06:12:26.330086+00:00",
+  "proof": "independent_native_camera_and_target_persistence",
+  "passed": true,
+  "stage": "complete",
+  "native_started": true,
+  "native_timeout": false,
+  "native_exit_code": 0,
+  "automatic_retry": false,
+  "expectation_sha256": "3564e0a11fb87237b648ae464cc1a43958e5c4ed290274aa21adec163cd177ae",
+  "camera_float_absolute_tolerance": 1e-06,
+  "geometry_absolute_tolerance_m": 0.0002,
+  "source_inventory_exclusion": "top-level .godot editor/runtime cache only",
+  "broker_used_for_this_independent_observation": false,
+  "human_attribution": "Established separately by the caller; not inferred by this observer",
+  "existing_editor_contacted": false,
+  "G6": "NOT_COMPLETE",
+  "source_files_before": 3094,
+  "scene_sha256_before": "968f6d5368e02bd8848fbbc698024e4abd1fee2cd5f1bdc1879a94b8d38fa0bb",
+  "godot_sha256": "ab1824f85bfd8e0e4128182c000c4003a3e042245b2967848d089b2a04b22424",
+  "assets": [
+    {
+      "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+      "sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+    },
+    {
+      "path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+      "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+    }
+  ],
+  "native_argv": [
+    "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64.exe",
+    "--headless",
+    "--path",
+    "E:\\Projects\\worldwright-archipelago\\game",
+    "--script",
+    "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence02\\observe_camera_persistence.gd"
+  ],
+  "native_pid": 30624,
+  "meshes": [
+    {
+      "path": "FaroRock/SW_dc08abe78a2a_coastal_toe",
+      "name": "SW_dc08abe78a2a_coastal_toe",
+      "surface_count": 1,
+      "vertex_count": 312,
+      "expected_bounds": {
+        "min": [
+          -64.67994689941406,
+          -1.25,
+          10.242951393127441
+        ],
+        "max": [
+          -57.35786819458008,
+          3.549999952316284,
+          15.068251609802246
+        ]
+      },
+      "bounds_match": true
+    },
+    {
+      "path": "FaroRock/SW_dc08abe78a2a_integrated_limestone",
+      "name": "SW_dc08abe78a2a_integrated_limestone",
+      "surface_count": 1,
+      "vertex_count": 1648,
+      "expected_bounds": {
+        "min": [
+          -65.6500015258789,
+          -1.25,
+          -1.25
+        ],
+        "max": [
+          -49.34806823730469,
+          10.170000076293945,
+          17
+        ]
+      },
+      "bounds_match": true
+    },
+    {
+      "path": "FaroRock/SW_dc08abe78a2a_low_shelf",
+      "name": "SW_dc08abe78a2a_low_shelf",
+      "surface_count": 1,
+      "vertex_count": 328,
+      "expected_bounds": {
+        "min": [
+          -63.48686218261719,
+          -1.25,
+          -1.2863136529922485
+        ],
+        "max": [
+          -57.304351806640625,
+          2.6500000953674316,
+          2.5652928352355957
+        ]
+      },
+      "bounds_match": true
+    },
+    {
+      "path": "FaroThreshold/SW_c242f21a199d_bridge_threshold",
+      "name": "SW_c242f21a199d_bridge_threshold",
+      "surface_count": 1,
+      "vertex_count": 24,
+      "expected_bounds": {
+        "min": [
+          -51.599998474121094,
+          9.600000381469727,
+          5.400000095367432
+        ],
+        "max": [
+          -50.150001525878906,
+          10.5,
+          8.600000381469727
+        ]
+      },
+      "bounds_match": true
+    }
+  ],
+  "cameras": {
+    "ProofCamera": {
+      "attributes": null,
+      "auto_translate_mode": 0,
+      "compositor": null,
+      "cull_mask": 1048575,
+      "current": false,
+      "doppler_tracking": 0,
+      "editor_description": "",
+      "environment": null,
+      "far": 250.0,
+      "fov": 70.0,
+      "frustum_offset": {
+        "$type": "Vector2",
+        "value": [
+          0.0,
+          0.0
+        ]
+      },
+      "h_offset": 0.0,
+      "keep_aspect": 1,
+      "near": 0.20000000298023224,
+      "physics_interpolation_mode": 0,
+      "process_mode": 0,
+      "process_physics_priority": 0,
+      "process_priority": 0,
+      "process_thread_group": 0,
+      "projection": 0,
+      "rotation_edit_mode": 0,
+      "rotation_order": 2,
+      "size": 1.0,
+      "top_level": false,
+      "transform": {
+        "$type": "Transform3D",
+        "value": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "unique_name_in_owner": false,
+      "v_offset": 0.0,
+      "visibility_parent": {
+        "$type": "NodePath",
+        "value": ""
+      },
+      "visible": true
+    },
+    "ProofCamera2": {
+      "attributes": null,
+      "auto_translate_mode": 0,
+      "compositor": null,
+      "cull_mask": 1048575,
+      "current": false,
+      "doppler_tracking": 0,
+      "editor_description": "",
+      "environment": null,
+      "far": 250.0,
+      "fov": 70.0,
+      "frustum_offset": {
+        "$type": "Vector2",
+        "value": [
+          0.0,
+          0.0
+        ]
+      },
+      "h_offset": 0.0,
+      "keep_aspect": 1,
+      "near": 0.20000000298023224,
+      "physics_interpolation_mode": 0,
+      "process_mode": 0,
+      "process_physics_priority": 0,
+      "process_priority": 0,
+      "process_thread_group": 0,
+      "projection": 0,
+      "rotation_edit_mode": 0,
+      "rotation_order": 2,
+      "size": 1.0,
+      "top_level": false,
+      "transform": {
+        "$type": "Transform3D",
+        "value": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "unique_name_in_owner": false,
+      "v_offset": 0.0,
+      "visibility_parent": {
+        "$type": "NodePath",
+        "value": ""
+      },
+      "visible": true
+    }
+  },
+  "managed_target": {
+    "path": "FaroThreshold",
+    "position": [
+      0.5,
+      0.0,
+      0.0
+    ]
+  },
+  "node_paths_preserved": true,
+  "camera_properties_preserved": true,
+  "camera_observation_phase": "before_add_child",
+  "target_translation_verified": true,
+  "fresh_process_native_persistence": true,
+  "native_engine": {
+    "build": "official",
+    "hash": "ed1daf0bf001b61586d9930840f2f1394092c079",
+    "hex": 263938,
+    "major": 4,
+    "minor": 7,
+    "patch": 2,
+    "status": "stable",
+    "string": "4.7.2-stable (official)",
+    "timestamp": 0
+  },
+  "source_files_unchanged": true,
+  "source_files_after": 3094,
+  "evidence_sha256": {
+    "expectation.json": "3564e0a11fb87237b648ae464cc1a43958e5c4ed290274aa21adec163cd177ae",
+    "source-before.json": "b7dbb70eea7e44b7c3aea55129eeb00b086e3c0b00649050618670ee0d14466e",
+    "source-delta.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "observer-config.json": "8eaabfd308ba108f8aefee7156dd56e0af22d5e0130b7dd8263a08bce0e1ace1",
+    "observe_camera_persistence.gd": "c199edaf67fc5ba2754d3fd49867f8028dece23d18b6a877f71fa70765e0b776",
+    "native-readback.json": "651ae1a6a939e6a01866174ea57dcdf9e36741dfc612fcfdf323cbaf796b87a0",
+    "godot.log": "ff459370736179dae7fcf45433c10e17f7d46d1a4a601c1df41e407aaee17d7c"
+  },
+  "validator_source_sha256": "52a4c98fa84eb1d9bd6a8575927a0bc1a7c4ca583ca356a0833c9d77024cb22a",
+  "seconds": 13.485000000000582
+}

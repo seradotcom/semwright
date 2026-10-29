@@ -1,0 +1,8 @@
+{
+  "command": "driver.godot.node.inspect",
+  "args": {
+    "session": "8044a769cd76689cd9276d3db99681d9",
+    "path": "FaroThreshold"
+  },
+  "read_only_observation": true
+}

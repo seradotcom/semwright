@@ -1,0 +1,1061 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T06:14:05.325399+00:00",
+  "files": [
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-state\\state\\audit\\audit.jsonl",
+      "archive": "broker-audit-snapshot.jsonl",
+      "bytes": 211863,
+      "sha256": "204fc36a6e32f886c2159914e45a366f664de76208a10b4f561c684db9db5bd0"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\FaroThreshold.envelope.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/FaroThreshold.envelope.json",
+      "bytes": 1408,
+      "sha256": "909aceddcc6ccd54678876c0eb0dfa65a684dfbc114375a6da6a58a53bb419da"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\FaroThreshold.invocation.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/FaroThreshold.invocation.json",
+      "bytes": 174,
+      "sha256": "f66edcd060541806736b6e4aff970df3cfbf9c461dbdbde9798ceb6aa6852a71"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\FaroThreshold.stderr.log",
+      "archive": "proof/human-camera-resume-20261029T060215Z/FaroThreshold.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\ProofCamera.envelope.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/ProofCamera.envelope.json",
+      "bytes": 1694,
+      "sha256": "c3a5cfbe5dd545e61cbe918d326104b7a52e44e7d0f4135700b7f65e79c2249c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\ProofCamera.invocation.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/ProofCamera.invocation.json",
+      "bytes": 172,
+      "sha256": "c91cbecebdb385a0f007b01e6acd903b4d2d8f3318ef88f006b6dd908a5fc1e3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\ProofCamera.stderr.log",
+      "archive": "proof/human-camera-resume-20261029T060215Z/ProofCamera.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\ProofCamera2.envelope.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/ProofCamera2.envelope.json",
+      "bytes": 1695,
+      "sha256": "5bf97feeea0fd5b017162efc0644fffb10d9963f5899c1e7568e207be39208e1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\ProofCamera2.invocation.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/ProofCamera2.invocation.json",
+      "bytes": 173,
+      "sha256": "d816083bf9942f0f8c53d1876a432b32d9b22e893ada5a12956160886cd73895"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\ProofCamera2.stderr.log",
+      "archive": "proof/human-camera-resume-20261029T060215Z/ProofCamera2.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\assets.envelope.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/assets.envelope.json",
+      "bytes": 732,
+      "sha256": "d7341d3edc1f23aff5397ffd6884fade10460af8cee6405a3aea48899ae83190"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\assets.invocation.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/assets.invocation.json",
+      "bytes": 146,
+      "sha256": "7e092cf46ddaddb5b81a436b8bfdb68b04d6dd08f6de83a5b26be8acd6f9dfc1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\assets.stderr.log",
+      "archive": "proof/human-camera-resume-20261029T060215Z/assets.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\camera.envelope.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/camera.envelope.json",
+      "bytes": 661,
+      "sha256": "16e771427278e4c557ab9c2e20a9f5f1e5b69c6aaaa6429e44ef81d331014155"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\camera.invocation.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/camera.invocation.json",
+      "bytes": 174,
+      "sha256": "70811896f9548c8d8688b5148d39f853945146d2df42651f66e5eea8c83661f6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\camera.stderr.log",
+      "archive": "proof/human-camera-resume-20261029T060215Z/camera.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\editor.envelope.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/editor.envelope.json",
+      "bytes": 884,
+      "sha256": "e4de4ba0158f4edc477d744676bb9ce3b9c9275222994be0c89b7af320bc5db4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\editor.invocation.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/editor.invocation.json",
+      "bytes": 145,
+      "sha256": "52ebb71936e52a0d9d6ca7600822840050a04ce8a29bc9ae0277dc5a199ecf0c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\editor.stderr.log",
+      "archive": "proof/human-camera-resume-20261029T060215Z/editor.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\reconciliation-readonly.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/reconciliation-readonly.json",
+      "bytes": 14957,
+      "sha256": "1d57d3309aa29691e297ab18897e9439fbb9be182ce5f5bef5b6ac1366b530e3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\resume.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/resume.json",
+      "bytes": 21264,
+      "sha256": "be437968fb8de9ce59307cbc34b62e1ef058f180fb93573df0cc346744ae1719"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\scene.envelope.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/scene.envelope.json",
+      "bytes": 9525,
+      "sha256": "f0564599e2ad88646c46e204d920e8e7fa18ffc995ac7472317f9ab9c2f11f8a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\scene.invocation.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/scene.invocation.json",
+      "bytes": 146,
+      "sha256": "9b3f8120eb7d930228f257f617ea627fe4eff7e75aede6d344a5764d3bf81931"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\scene.stderr.log",
+      "archive": "proof/human-camera-resume-20261029T060215Z/scene.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\sessions.envelope.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/sessions.envelope.json",
+      "bytes": 806,
+      "sha256": "fc930271a34f3879b8ac86099c209ea700890123d7512c7183561a9225fff7ea"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\sessions.invocation.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/sessions.invocation.json",
+      "bytes": 92,
+      "sha256": "5474772cb51ec9bfa1be9bad1ba19ea0cece7275a3c35169814fbc280a9d05de"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\sessions.stderr.log",
+      "archive": "proof/human-camera-resume-20261029T060215Z/sessions.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-resume-20261029T060215Z\\source-current.json",
+      "archive": "proof/human-camera-resume-20261029T060215Z/source-current.json",
+      "bytes": 541318,
+      "sha256": "9ce7a950e4b88b53676ebab49e00ac9830cd9b0ae79f64c24b1da8ab7fe1a429"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\00-sessions.envelope.json",
+      "archive": "proof/human-camera-continuity01/00-sessions.envelope.json",
+      "bytes": 806,
+      "sha256": "47b30d4526bf0373db5434dece63a8ba258377777084ccd415582ad79636ff88"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\00-sessions.invocation.json",
+      "archive": "proof/human-camera-continuity01/00-sessions.invocation.json",
+      "bytes": 92,
+      "sha256": "5474772cb51ec9bfa1be9bad1ba19ea0cece7275a3c35169814fbc280a9d05de"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\00-sessions.stderr.log",
+      "archive": "proof/human-camera-continuity01/00-sessions.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-ProofCamera.envelope.json",
+      "archive": "proof/human-camera-continuity01/01-human-ProofCamera.envelope.json",
+      "bytes": 1693,
+      "sha256": "e6bc5f7c83063a71bb101273183d746127379267a47b29920f7357859a512c70"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-ProofCamera.invocation.json",
+      "archive": "proof/human-camera-continuity01/01-human-ProofCamera.invocation.json",
+      "bytes": 172,
+      "sha256": "c91cbecebdb385a0f007b01e6acd903b4d2d8f3318ef88f006b6dd908a5fc1e3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-ProofCamera.stderr.log",
+      "archive": "proof/human-camera-continuity01/01-human-ProofCamera.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-ProofCamera2.envelope.json",
+      "archive": "proof/human-camera-continuity01/01-human-ProofCamera2.envelope.json",
+      "bytes": 1695,
+      "sha256": "eeb5c085408a0b9d4639d4005f5672ec431dbba96dac48fc2c2d7fc3234941c7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-ProofCamera2.invocation.json",
+      "archive": "proof/human-camera-continuity01/01-human-ProofCamera2.invocation.json",
+      "bytes": 173,
+      "sha256": "d816083bf9942f0f8c53d1876a432b32d9b22e893ada5a12956160886cd73895"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-ProofCamera2.stderr.log",
+      "archive": "proof/human-camera-continuity01/01-human-ProofCamera2.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-assets.envelope.json",
+      "archive": "proof/human-camera-continuity01/01-human-assets.envelope.json",
+      "bytes": 732,
+      "sha256": "a1c398c28c52f4a94156afaf73dd34a6ebe20575c101f0cc32443ecad8be4b96"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-assets.invocation.json",
+      "archive": "proof/human-camera-continuity01/01-human-assets.invocation.json",
+      "bytes": 146,
+      "sha256": "7e092cf46ddaddb5b81a436b8bfdb68b04d6dd08f6de83a5b26be8acd6f9dfc1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-assets.stderr.log",
+      "archive": "proof/human-camera-continuity01/01-human-assets.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-editor.envelope.json",
+      "archive": "proof/human-camera-continuity01/01-human-editor.envelope.json",
+      "bytes": 837,
+      "sha256": "f0ef0ee940001fc9f4910270cb55d613901aef7e69232389230ef5d9a731ec3a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-editor.invocation.json",
+      "archive": "proof/human-camera-continuity01/01-human-editor.invocation.json",
+      "bytes": 145,
+      "sha256": "52ebb71936e52a0d9d6ca7600822840050a04ce8a29bc9ae0277dc5a199ecf0c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-editor.stderr.log",
+      "archive": "proof/human-camera-continuity01/01-human-editor.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-scene.envelope.json",
+      "archive": "proof/human-camera-continuity01/01-human-scene.envelope.json",
+      "bytes": 9525,
+      "sha256": "fb286a1e0c8b3920d6e32bfeeedd746ba3afc98c7900969bee36fc1cee9e6180"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-scene.invocation.json",
+      "archive": "proof/human-camera-continuity01/01-human-scene.invocation.json",
+      "bytes": 146,
+      "sha256": "9b3f8120eb7d930228f257f617ea627fe4eff7e75aede6d344a5764d3bf81931"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-scene.stderr.log",
+      "archive": "proof/human-camera-continuity01/01-human-scene.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-target.envelope.json",
+      "archive": "proof/human-camera-continuity01/01-human-target.envelope.json",
+      "bytes": 1408,
+      "sha256": "89809e8b7bdc5081cfc2456a4e869ba235c1d6c486f9151a85058a5be54da4fa"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-target.invocation.json",
+      "archive": "proof/human-camera-continuity01/01-human-target.invocation.json",
+      "bytes": 174,
+      "sha256": "f66edcd060541806736b6e4aff970df3cfbf9c461dbdbde9798ceb6aa6852a71"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\01-human-target.stderr.log",
+      "archive": "proof/human-camera-continuity01/01-human-target.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\04-patch-threshold.envelope.json",
+      "archive": "proof/human-camera-continuity01/04-patch-threshold.envelope.json",
+      "bytes": 720,
+      "sha256": "99c2e8f5e587e220b135da677ba3434c89e7b4d328024aa21e2397abd0519bfa"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\04-patch-threshold.intent.json",
+      "archive": "proof/human-camera-continuity01/04-patch-threshold.intent.json",
+      "bytes": 580,
+      "sha256": "a8743d911b2760ff85f19dcee4ae50dabd3697a8cd3e714870ed99afe216baff"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\04-patch-threshold.stderr.log",
+      "archive": "proof/human-camera-continuity01/04-patch-threshold.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-ProofCamera.envelope.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-ProofCamera.envelope.json",
+      "bytes": 1693,
+      "sha256": "4f14a6204d877d8326e32d31354085a0612709b1d7c1102d2988881543c4fc3e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-ProofCamera.invocation.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-ProofCamera.invocation.json",
+      "bytes": 172,
+      "sha256": "c91cbecebdb385a0f007b01e6acd903b4d2d8f3318ef88f006b6dd908a5fc1e3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-ProofCamera.stderr.log",
+      "archive": "proof/human-camera-continuity01/05-after-patch-ProofCamera.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-ProofCamera2.envelope.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-ProofCamera2.envelope.json",
+      "bytes": 1695,
+      "sha256": "31f82d086da8c7473975b92f3935db2f27878cb5d84e3826afc15b6aa31c4587"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-ProofCamera2.invocation.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-ProofCamera2.invocation.json",
+      "bytes": 173,
+      "sha256": "d816083bf9942f0f8c53d1876a432b32d9b22e893ada5a12956160886cd73895"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-ProofCamera2.stderr.log",
+      "archive": "proof/human-camera-continuity01/05-after-patch-ProofCamera2.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-assets.envelope.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-assets.envelope.json",
+      "bytes": 732,
+      "sha256": "960ff3757a61446ddb9370cd6f88fc53f432232a4f3583c73ffbeafddc78b0df"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-assets.invocation.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-assets.invocation.json",
+      "bytes": 146,
+      "sha256": "7e092cf46ddaddb5b81a436b8bfdb68b04d6dd08f6de83a5b26be8acd6f9dfc1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-assets.stderr.log",
+      "archive": "proof/human-camera-continuity01/05-after-patch-assets.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-editor.envelope.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-editor.envelope.json",
+      "bytes": 884,
+      "sha256": "211f21d0ac67d49eaa5b16846343cbf2745b12a070ed84a1dddfeb32a9b3de51"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-editor.invocation.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-editor.invocation.json",
+      "bytes": 145,
+      "sha256": "52ebb71936e52a0d9d6ca7600822840050a04ce8a29bc9ae0277dc5a199ecf0c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-editor.stderr.log",
+      "archive": "proof/human-camera-continuity01/05-after-patch-editor.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-scene.envelope.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-scene.envelope.json",
+      "bytes": 9526,
+      "sha256": "931c3b10fe981897a40747ba23f49da754b2b64af38e5d7e06b5a6dd7c9caf23"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-scene.invocation.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-scene.invocation.json",
+      "bytes": 146,
+      "sha256": "9b3f8120eb7d930228f257f617ea627fe4eff7e75aede6d344a5764d3bf81931"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-scene.stderr.log",
+      "archive": "proof/human-camera-continuity01/05-after-patch-scene.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-target.envelope.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-target.envelope.json",
+      "bytes": 1408,
+      "sha256": "2b759f6602138dd6d6db87fe8bacbbcb57288f5a04a762e312c2a542993b85ae"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-target.invocation.json",
+      "archive": "proof/human-camera-continuity01/05-after-patch-target.invocation.json",
+      "bytes": 174,
+      "sha256": "f66edcd060541806736b6e4aff970df3cfbf9c461dbdbde9798ceb6aa6852a71"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\05-after-patch-target.stderr.log",
+      "archive": "proof/human-camera-continuity01/05-after-patch-target.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\06-save-agent-state.envelope.json",
+      "archive": "proof/human-camera-continuity01/06-save-agent-state.envelope.json",
+      "bytes": 753,
+      "sha256": "9fdd3777762824f297002b390190164f9e23a2621112cfa073d01cfd3a7d424c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\06-save-agent-state.intent.json",
+      "archive": "proof/human-camera-continuity01/06-save-agent-state.intent.json",
+      "bytes": 377,
+      "sha256": "8b5c18d3a4d9ef5cfc448d3b99b8a814a3b746f1c9bce60f8b8e6c44d3879ea9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\06-save-agent-state.stderr.log",
+      "archive": "proof/human-camera-continuity01/06-save-agent-state.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-ProofCamera.envelope.json",
+      "archive": "proof/human-camera-continuity01/07-final-ProofCamera.envelope.json",
+      "bytes": 1693,
+      "sha256": "ae9beb63eab8d201600ee94419ddd4bdd5030df7251aa0fe7fe9fdd94701ea83"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-ProofCamera.invocation.json",
+      "archive": "proof/human-camera-continuity01/07-final-ProofCamera.invocation.json",
+      "bytes": 172,
+      "sha256": "c91cbecebdb385a0f007b01e6acd903b4d2d8f3318ef88f006b6dd908a5fc1e3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-ProofCamera.stderr.log",
+      "archive": "proof/human-camera-continuity01/07-final-ProofCamera.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-ProofCamera2.envelope.json",
+      "archive": "proof/human-camera-continuity01/07-final-ProofCamera2.envelope.json",
+      "bytes": 1695,
+      "sha256": "60cc18e69d844899cbc9ecc6a3ec7482fddb185ae05c46be54392373c341ef1b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-ProofCamera2.invocation.json",
+      "archive": "proof/human-camera-continuity01/07-final-ProofCamera2.invocation.json",
+      "bytes": 173,
+      "sha256": "d816083bf9942f0f8c53d1876a432b32d9b22e893ada5a12956160886cd73895"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-ProofCamera2.stderr.log",
+      "archive": "proof/human-camera-continuity01/07-final-ProofCamera2.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-assets.envelope.json",
+      "archive": "proof/human-camera-continuity01/07-final-assets.envelope.json",
+      "bytes": 732,
+      "sha256": "1f1ba0baf2946e85f8d195dc4244abe649f2395fbc19bfcc126047766bf091d8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-assets.invocation.json",
+      "archive": "proof/human-camera-continuity01/07-final-assets.invocation.json",
+      "bytes": 146,
+      "sha256": "7e092cf46ddaddb5b81a436b8bfdb68b04d6dd08f6de83a5b26be8acd6f9dfc1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-assets.stderr.log",
+      "archive": "proof/human-camera-continuity01/07-final-assets.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-editor.envelope.json",
+      "archive": "proof/human-camera-continuity01/07-final-editor.envelope.json",
+      "bytes": 837,
+      "sha256": "298ff45e8693b45e1e30b4d0a5f27abe98cb2c754e9b1f180400b1883b35627b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-editor.invocation.json",
+      "archive": "proof/human-camera-continuity01/07-final-editor.invocation.json",
+      "bytes": 145,
+      "sha256": "52ebb71936e52a0d9d6ca7600822840050a04ce8a29bc9ae0277dc5a199ecf0c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-editor.stderr.log",
+      "archive": "proof/human-camera-continuity01/07-final-editor.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-scene.envelope.json",
+      "archive": "proof/human-camera-continuity01/07-final-scene.envelope.json",
+      "bytes": 9526,
+      "sha256": "967d776dcf8b2e5bbdb1da7a32ebdfc06e259111605a6b4c65377a2fb580dbf6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-scene.invocation.json",
+      "archive": "proof/human-camera-continuity01/07-final-scene.invocation.json",
+      "bytes": 146,
+      "sha256": "9b3f8120eb7d930228f257f617ea627fe4eff7e75aede6d344a5764d3bf81931"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-scene.stderr.log",
+      "archive": "proof/human-camera-continuity01/07-final-scene.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-target.envelope.json",
+      "archive": "proof/human-camera-continuity01/07-final-target.envelope.json",
+      "bytes": 1408,
+      "sha256": "5fe7b9c64046837ddb66c368a022b9cd1d6a65f2ee35585f4eb1836b6e47f5ed"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-target.invocation.json",
+      "archive": "proof/human-camera-continuity01/07-final-target.invocation.json",
+      "bytes": 174,
+      "sha256": "f66edcd060541806736b6e4aff970df3cfbf9c461dbdbde9798ceb6aa6852a71"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\07-final-target.stderr.log",
+      "archive": "proof/human-camera-continuity01/07-final-target.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\08-sessions-after.envelope.json",
+      "archive": "proof/human-camera-continuity01/08-sessions-after.envelope.json",
+      "bytes": 805,
+      "sha256": "da92d272eaa4b9860f401694e96e888abd73bc28a75280c973e989783f32567d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\08-sessions-after.invocation.json",
+      "archive": "proof/human-camera-continuity01/08-sessions-after.invocation.json",
+      "bytes": 92,
+      "sha256": "5474772cb51ec9bfa1be9bad1ba19ea0cece7275a3c35169814fbc280a9d05de"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\08-sessions-after.stderr.log",
+      "archive": "proof/human-camera-continuity01/08-sessions-after.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\human-and-agent-saved.tscn",
+      "archive": "proof/human-camera-continuity01/human-and-agent-saved.tscn",
+      "bytes": 908,
+      "sha256": "968f6d5368e02bd8848fbbc698024e4abd1fee2cd5f1bdc1879a94b8d38fa0bb"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\human-baseline.json",
+      "archive": "proof/human-camera-continuity01/human-baseline.json",
+      "bytes": 23622,
+      "sha256": "0f44fa19a469bc57e3f3abee91e976e61267a81fa185509d2587d25fe768e206"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\human-saved-before-agent.tscn",
+      "archive": "proof/human-camera-continuity01/human-saved-before-agent.tscn",
+      "bytes": 846,
+      "sha256": "5e70a9ad32340222ba3126965add5049d563eff405a7a6887cefdb7febd65d6e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\persistence-expectation.json",
+      "archive": "proof/human-camera-continuity01/persistence-expectation.json",
+      "bytes": 5501,
+      "sha256": "3564e0a11fb87237b648ae464cc1a43958e5c4ed290274aa21adec163cd177ae"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\receipt.json",
+      "archive": "proof/human-camera-continuity01/receipt.json",
+      "bytes": 6767,
+      "sha256": "b8fa6dc77a7167cdcd4cb82e687c1ff2c4cc92bb0a0ca520e522866a83a76d8f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\source-after.json",
+      "archive": "proof/human-camera-continuity01/source-after.json",
+      "bytes": 541318,
+      "sha256": "b7dbb70eea7e44b7c3aea55129eeb00b086e3c0b00649050618670ee0d14466e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-continuity01\\source-before.json",
+      "archive": "proof/human-camera-continuity01/source-before.json",
+      "bytes": 541318,
+      "sha256": "9ce7a950e4b88b53676ebab49e00ac9830cd9b0ae79f64c24b1da8ab7fe1a429"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence01\\expectation.json",
+      "archive": "proof/human-camera-persistence01/expectation.json",
+      "bytes": 5501,
+      "sha256": "3564e0a11fb87237b648ae464cc1a43958e5c4ed290274aa21adec163cd177ae"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence01\\godot.log",
+      "archive": "proof/human-camera-persistence01/godot.log.txt",
+      "bytes": 2582,
+      "sha256": "777e87075ecea563b26ff2ccda62cac9ff79d1d2c4ddf9e66d903d3b30feb944"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence01\\native-readback.json",
+      "archive": "proof/human-camera-persistence01/native-readback.json",
+      "bytes": 3691,
+      "sha256": "d99d721c653b472059bb72ff04de6aba72f1bed8025a42c58c7a4e605bba05c8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence01\\observe_camera_persistence.gd",
+      "archive": "proof/human-camera-persistence01/observe_camera_persistence.gd",
+      "bytes": 8498,
+      "sha256": "426ae43f521943673e7531a30af7f657d12d1199f2e081ffd56693a30c3a7ca0"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence01\\observer-config.json",
+      "archive": "proof/human-camera-persistence01/observer-config.json",
+      "bytes": 1477,
+      "sha256": "8eaabfd308ba108f8aefee7156dd56e0af22d5e0130b7dd8263a08bce0e1ace1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence01\\receipt.json",
+      "archive": "proof/human-camera-persistence01/receipt.json",
+      "bytes": 2753,
+      "sha256": "8172902a7ae6f7b9791c8838ced5010c2fb11c2a883134444230af7156565424"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence01\\source-before.json",
+      "archive": "proof/human-camera-persistence01/source-before.json",
+      "bytes": 541318,
+      "sha256": "b7dbb70eea7e44b7c3aea55129eeb00b086e3c0b00649050618670ee0d14466e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence01\\source-delta.json",
+      "archive": "proof/human-camera-persistence01/source-delta.json",
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence01\\validator-source.py",
+      "archive": "proof/human-camera-persistence01/validator-source.py",
+      "bytes": 30378,
+      "sha256": "e75ab0ef895a0507b5e5479b177ed7d99f5df4ad0ffaeee6983acb47eb687c65"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence02\\expectation.json",
+      "archive": "proof/human-camera-persistence02/expectation.json",
+      "bytes": 5501,
+      "sha256": "3564e0a11fb87237b648ae464cc1a43958e5c4ed290274aa21adec163cd177ae"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence02\\godot.log",
+      "archive": "proof/human-camera-persistence02/godot.log.txt",
+      "bytes": 3281,
+      "sha256": "ff459370736179dae7fcf45433c10e17f7d46d1a4a601c1df41e407aaee17d7c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence02\\native-readback.json",
+      "archive": "proof/human-camera-persistence02/native-readback.json",
+      "bytes": 4868,
+      "sha256": "651ae1a6a939e6a01866174ea57dcdf9e36741dfc612fcfdf323cbaf796b87a0"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence02\\observe_camera_persistence.gd",
+      "archive": "proof/human-camera-persistence02/observe_camera_persistence.gd",
+      "bytes": 8614,
+      "sha256": "c199edaf67fc5ba2754d3fd49867f8028dece23d18b6a877f71fa70765e0b776"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence02\\observer-config.json",
+      "archive": "proof/human-camera-persistence02/observer-config.json",
+      "bytes": 1477,
+      "sha256": "8eaabfd308ba108f8aefee7156dd56e0af22d5e0130b7dd8263a08bce0e1ace1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence02\\receipt.json",
+      "archive": "proof/human-camera-persistence02/receipt.json",
+      "bytes": 7507,
+      "sha256": "e317708d40152e12cdb8247b45d90cffc1e989a13880b626af516338c3c736bd"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence02\\source-before.json",
+      "archive": "proof/human-camera-persistence02/source-before.json",
+      "bytes": 541318,
+      "sha256": "b7dbb70eea7e44b7c3aea55129eeb00b086e3c0b00649050618670ee0d14466e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\human-camera-persistence02\\source-delta.json",
+      "archive": "proof/human-camera-persistence02/source-delta.json",
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Run-HumanCameraContinuity.py",
+      "archive": "orchestration/Run-HumanCameraContinuity.py",
+      "bytes": 13765,
+      "sha256": "64925432fb3c7d9e70c0441d4dcfcb3ba6971634cb7ccfb5f9aa65b02a4e60ae"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Validate-HumanCameraPersistence.py",
+      "archive": "orchestration/Validate-HumanCameraPersistence.py",
+      "bytes": 30494,
+      "sha256": "52a4c98fa84eb1d9bd6a8575927a0bc1a7c4ca583ca356a0833c9d77024cb22a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\godot_handoff_guard.py",
+      "archive": "orchestration/godot_handoff_guard.py",
+      "bytes": 19184,
+      "sha256": "b7ca24c036127a57b3316a630563a3391e81b98e275a93f8c2798841539c52e7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Archive-HumanCameraEvidence.py",
+      "archive": "orchestration/Archive-HumanCameraEvidence.py",
+      "bytes": 5879,
+      "sha256": "d359a274cd560a5b548c57a1722bf35b46d9ac576545e635b2abca9bef5afef6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\game\\proofs\\semwright_godot_bridge01_02.tscn",
+      "archive": "native-project/proofs/semwright_godot_bridge01_02.tscn",
+      "bytes": 908,
+      "sha256": "968f6d5368e02bd8848fbbc698024e4abd1fee2cd5f1bdc1879a94b8d38fa0bb"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\game\\main.tscn",
+      "archive": "native-project/main.tscn",
+      "bytes": 232,
+      "sha256": "a5deddc95a4ae715dc404017cf3df364e5d9d4871cbf87d03749b50157346ee4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\game\\addons\\semwright\\plugin.gd",
+      "archive": "native-project/addons/semwright/plugin.gd",
+      "bytes": 44383,
+      "sha256": "7a1ba9f470ce12c95755ab3dd8186e020a424e6bfd508ca184b94ad7a1655d52"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\game\\addons\\semwright\\ops\\scene_save_ops.gd",
+      "archive": "native-project/addons/semwright/ops/scene_save_ops.gd",
+      "bytes": 6371,
+      "sha256": "d0568557631da56fbc4356336f9027fe2bdc3e462d6f7891f3c39f8f0568d6a0"
+    }
+  ],
+  "audit": {
+    "records": 284,
+    "sha256": "204fc36a6e32f886c2159914e45a366f664de76208a10b4f561c684db9db5bd0",
+    "tail_hash": "c322eb6bacbd6b55c34b637bd24bbfac3e814dcb24e4191e582f2c96912ddf0e",
+    "consistent": true,
+    "live_snapshot": true,
+    "same_owner_tamper_resistance_claimed": false
+  },
+  "correlated_envelopes": [
+    {
+      "path": "human-camera-resume-20261029T060215Z/FaroThreshold.envelope.json",
+      "request_id": "1b7774275dfd46ec9c8c2db7bb21633a",
+      "command": "driver.godot.node.inspect",
+      "start": 239,
+      "finish": 240,
+      "ok": true
+    },
+    {
+      "path": "human-camera-resume-20261029T060215Z/ProofCamera.envelope.json",
+      "request_id": "8872dc6a2e99495480cc54208b2b3605",
+      "command": "driver.godot.node.inspect",
+      "start": 235,
+      "finish": 236,
+      "ok": true
+    },
+    {
+      "path": "human-camera-resume-20261029T060215Z/ProofCamera2.envelope.json",
+      "request_id": "0412bbce21eb480faf3b13f2793cc727",
+      "command": "driver.godot.node.inspect",
+      "start": 237,
+      "finish": 238,
+      "ok": true
+    },
+    {
+      "path": "human-camera-resume-20261029T060215Z/assets.envelope.json",
+      "request_id": "a3d9db9516554f0a9f5db0d0a3cf4808",
+      "command": "driver.godot.assets.status",
+      "start": 233,
+      "finish": 234,
+      "ok": true
+    },
+    {
+      "path": "human-camera-resume-20261029T060215Z/camera.envelope.json",
+      "request_id": "e40aedf0caf040b099f05d60fe6439aa",
+      "command": "driver.godot.node.inspect",
+      "start": 229,
+      "finish": 230,
+      "ok": false
+    },
+    {
+      "path": "human-camera-resume-20261029T060215Z/editor.envelope.json",
+      "request_id": "69629668f1814ddd9367bc3dd479e821",
+      "command": "driver.godot.editor.state",
+      "start": 231,
+      "finish": 232,
+      "ok": true
+    },
+    {
+      "path": "human-camera-resume-20261029T060215Z/scene.envelope.json",
+      "request_id": "b6216eca32414a9facfd7f3fcf596142",
+      "command": "driver.godot.scene.inspect",
+      "start": 227,
+      "finish": 228,
+      "ok": true
+    },
+    {
+      "path": "human-camera-resume-20261029T060215Z/sessions.envelope.json",
+      "request_id": "765caf47c8ab4d92931540920948e8c8",
+      "command": "driver.godot.session.list",
+      "start": 225,
+      "finish": 226,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/00-sessions.envelope.json",
+      "request_id": "8910f3cf15634c3bbf8cdb3493473177",
+      "command": "driver.godot.session.list",
+      "start": 241,
+      "finish": 242,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/01-human-ProofCamera.envelope.json",
+      "request_id": "22aef10b6b924340b900bbbf01dc9a8f",
+      "command": "driver.godot.node.inspect",
+      "start": 245,
+      "finish": 246,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/01-human-ProofCamera2.envelope.json",
+      "request_id": "688f3bcf1f63483db50ae12594122896",
+      "command": "driver.godot.node.inspect",
+      "start": 247,
+      "finish": 248,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/01-human-assets.envelope.json",
+      "request_id": "0e57edff34c54182a8b226058e9ac7c0",
+      "command": "driver.godot.assets.status",
+      "start": 253,
+      "finish": 254,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/01-human-editor.envelope.json",
+      "request_id": "1d47c437b276481a8ae310771e1fe88d",
+      "command": "driver.godot.editor.state",
+      "start": 251,
+      "finish": 252,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/01-human-scene.envelope.json",
+      "request_id": "f5d29a0c242941019412dea996a8189c",
+      "command": "driver.godot.scene.inspect",
+      "start": 243,
+      "finish": 244,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/01-human-target.envelope.json",
+      "request_id": "43cba7fd6b3f434f916c1f19b949d4a5",
+      "command": "driver.godot.node.inspect",
+      "start": 249,
+      "finish": 250,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/04-patch-threshold.envelope.json",
+      "request_id": "ac6d861fed134966be1e6aee3e8a7058",
+      "command": "driver.godot.node.patch",
+      "start": 255,
+      "finish": 256,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/05-after-patch-ProofCamera.envelope.json",
+      "request_id": "71d8bd06f3a545d49d30519436b2823a",
+      "command": "driver.godot.node.inspect",
+      "start": 259,
+      "finish": 260,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/05-after-patch-ProofCamera2.envelope.json",
+      "request_id": "7a8892ec3c9241608d7153f620d64491",
+      "command": "driver.godot.node.inspect",
+      "start": 261,
+      "finish": 262,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/05-after-patch-assets.envelope.json",
+      "request_id": "b71345dafc81485fa7c52f9eea3712d9",
+      "command": "driver.godot.assets.status",
+      "start": 267,
+      "finish": 268,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/05-after-patch-editor.envelope.json",
+      "request_id": "b2580b69479a424c8ca61cc963b9ce5d",
+      "command": "driver.godot.editor.state",
+      "start": 265,
+      "finish": 266,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/05-after-patch-scene.envelope.json",
+      "request_id": "8f82f8c32a9747418e3ece33977cc982",
+      "command": "driver.godot.scene.inspect",
+      "start": 257,
+      "finish": 258,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/05-after-patch-target.envelope.json",
+      "request_id": "c53b8c6d7db744779d1f03d19567d918",
+      "command": "driver.godot.node.inspect",
+      "start": 263,
+      "finish": 264,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/06-save-agent-state.envelope.json",
+      "request_id": "79434d07579e4e68b0a2f4ae6efe0102",
+      "command": "driver.godot.scene.save",
+      "start": 269,
+      "finish": 270,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/07-final-ProofCamera.envelope.json",
+      "request_id": "53d6059984314c3e85c52b7a32218ff4",
+      "command": "driver.godot.node.inspect",
+      "start": 273,
+      "finish": 274,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/07-final-ProofCamera2.envelope.json",
+      "request_id": "8d9c206a283f4c388fa392be81ae43c3",
+      "command": "driver.godot.node.inspect",
+      "start": 275,
+      "finish": 276,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/07-final-assets.envelope.json",
+      "request_id": "e24824658cc24040bc050ab35c324d9a",
+      "command": "driver.godot.assets.status",
+      "start": 281,
+      "finish": 282,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/07-final-editor.envelope.json",
+      "request_id": "7433e97035944e7aa592819ba6004dec",
+      "command": "driver.godot.editor.state",
+      "start": 279,
+      "finish": 280,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/07-final-scene.envelope.json",
+      "request_id": "293bc87e67f24e948db51e6288d59872",
+      "command": "driver.godot.scene.inspect",
+      "start": 271,
+      "finish": 272,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/07-final-target.envelope.json",
+      "request_id": "5d07e7eaa60049c58b0437bcf541ef70",
+      "command": "driver.godot.node.inspect",
+      "start": 277,
+      "finish": 278,
+      "ok": true
+    },
+    {
+      "path": "human-camera-continuity01/08-sessions-after.envelope.json",
+      "request_id": "b5e555a1d5f44d6597b124f510c579c9",
+      "command": "driver.godot.session.list",
+      "start": 283,
+      "finish": 284,
+      "ok": true
+    }
+  ],
+  "preexecution_rejections_without_audit": [],
+  "physical_scope": {
+    "human_FOV_before": 60,
+    "human_FOV_observed": 70,
+    "preserved_cameras": [
+      "ProofCamera",
+      "ProofCamera2"
+    ],
+    "managed_translation_m": [
+      0.5,
+      0,
+      0
+    ],
+    "node_patch_and_save": "PASS",
+    "independent_native_persistence": "PASS",
+    "source_preservation": "PASS",
+    "native_camera_properties": "FULL_EXPECTED_PROJECTION",
+    "native_first_observer": "FAIL_TYPED_NULL_RESOURCE_CODEC_ONLY; preserved",
+    "native_second_observer": "PASS",
+    "main_change_before_agent": "Native UID metadata saved externally; preserved",
+    "main_live_projection_this_run": "NOT_REOBSERVED_INACTIVE"
+  },
+  "mutations": [
+    {
+      "label": "04-patch-threshold",
+      "command": "driver.godot.node.patch",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "ac6d861fed134966be1e6aee3e8a7058",
+      "exit_code": 0,
+      "applied": true,
+      "policy_decision": "allow"
+    },
+    {
+      "label": "06-save-agent-state",
+      "command": "driver.godot.scene.save",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "79434d07579e4e68b0a2f4ae6efe0102",
+      "exit_code": 0,
+      "applied": true,
+      "policy_decision": "allow"
+    }
+  ],
+  "historical_runner_outcome": "UNKNOWN_UNCHANGED",
+  "first_party_handoff_obligation": "BOUNDED_PROJECT_CASE_PASS",
+  "G6": "NOT_COMPLETE",
+  "art_status": "REVISE",
+  "Linux_4_5_14": "NOT_RUN",
+  "Linux_5_2_1": "NOT_RUN",
+  "external_publication": false
+}

@@ -1,0 +1,5 @@
+{
+  "command": "driver.godot.session.list",
+  "args": {},
+  "read_only_observation": true
+}

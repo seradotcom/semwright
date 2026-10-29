@@ -1,0 +1,305 @@
+{
+  "utc": "2026-10-29T06:05:57.381688+00:00",
+  "paths": {
+    "bin": "E:\\Projects\\worldwright-archipelago\\tools\\semwright-godot-bridge01",
+    "config": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-config",
+    "broker": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-state",
+    "editor_env": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-editor-env"
+  },
+  "socket": "\\\\.\\pipe\\semwright-S_1_5_21_3748004576_2415526740_1202758394_1001-archipelago-godot-bridge01",
+  "main_diff": "diff --git a/game/main.tscn b/game/main.tscn\nindex c92cede..8d17256 100644\n--- a/game/main.tscn\n+++ b/game/main.tscn\n@@ -1,6 +1,6 @@\n-[gd_scene load_steps=2 format=3]\n+[gd_scene format=3 uid=\"uid://mljxwpb6t7lw\"]\n \n-[ext_resource type=\"Script\" path=\"res://scripts/harbor_review.gd\" id=\"1\"]\n+[ext_resource type=\"Script\" uid=\"uid://x6a4hg643la3\" path=\"res://scripts/harbor_review.gd\" id=\"1\"]\n \n-[node name=\"Archipelago\" type=\"Node3D\"]\n+[node name=\"Archipelago\" type=\"Node3D\" unique_id=697412837]\n script = ExtResource(\"1\")\n",
+  "scripts": "scripts/Apply-PlanOutputBudgetFix20261029.py\nscripts/Archive-CreativeHandoff20261029.py\nscripts/Archive-GodotBrokerEvidence.py\nscripts/Archive-GodotOperatorHandoffEvidence.py\nscripts/Archive-NativeProfileEvidence.py\nscripts/Build-PlanBudgetCandidate.py\nscripts/Capture-Environment.ps1\nscripts/Check-ArchipelagoBroker.ps1\nscripts/Check-BlenderGUI.ps1\nscripts/Check-BlenderProviderGate.ps1\nscripts/Finalize-PlanBudgetProof.py\nscripts/Inspect-ExistingPolicyEvents.ps1\nscripts/Inspect-SemwrightGodotStartup.py\nscripts/Install-LocalGodot.ps1\nscripts/Invoke-SemwrightCandidate.ps1\nscripts/Invoke-SemwrightNativeProfile.py\nscripts/Prepare-GodotOperatorConsole.py\nscripts/Prepare-SemwrightCandidate.ps1\nscripts/Prepare-SemwrightGodotBridge.py\nscripts/Prepare-SemwrightNativeProfile.ps1\nscripts/Prove-SemwrightNativeFixture.py\nscripts/Reconcile-CurrentGates20261029.py\nscripts/Reconcile-GodotOperatorHandoff.py\nscripts/Reconcile-GodotSceneSave.py\nscripts/Reconcile-GodotStartupConfig.py\nscripts/Recover-GodotOperatorConsole.py\nscripts/Repair-RetiredGodotSecretLease.ps1\nscripts/Run-GodotOperatorHandoff.py\nscripts/Stage-BlenderRuntime.ps1\nscripts/Start-ArchipelagoBroker.ps1\nscripts/Start-SemwrightCandidate.ps1\nscripts/Start-SemwrightGodotBridge.py\nscripts/Start-SemwrightNativeProfile.ps1\nscripts/Stop-OwnedNativeFixture.ps1\nscripts/Stop-OwnedNativeProfile02.ps1\nscripts/Test-SemwrightAuthoringGodot.py\nscripts/Test-SemwrightGodotConsumer.py\nscripts/Test-SemwrightGodotExistingReadback.py\nscripts/Test-SemwrightGodotFixtureSave.py\nscripts/Test-SemwrightGodotFixtureSaveV2.py\nscripts/Test-SemwrightGodotHandoffV2.py\nscripts/Test-SemwrightGodotPairing.py\nscripts/Test-SemwrightNativeAuthoring.py\nscripts/Test-SemwrightNativeOwnerGate.py\nscripts/Test-SemwrightNativeSession.py\nscripts/Validate-GodotPersistedFixture.py\nscripts/Verify-NativeEvidenceIndex.py\nscripts/Verify-ReferenceBaseline.ps1\nscripts/admit_semwright_faro_r22.py\nscripts/admit_semwright_threshold_r23.py\nscripts/archive_review_r01.py\nscripts/archive_review_r06.py\nscripts/blender_export_preflight.py\nscripts/build_native_art_review.py\nscripts/encode_native_motion.py\nscripts/generate_faro_semwright_r22.py\nscripts/generate_faro_threshold_r23.py\nscripts/generate_harbor_assets.py\nscripts/godot_handoff_guard.py\nscripts/harbor_bridge.py\nscripts/harbor_coastline.py\nscripts/harbor_courtyard.py\nscripts/harbor_faro.py\nscripts/harbor_fractures_r12.py\nscripts/harbor_fractures_r14.py\nscripts/harbor_fractures_r15.py\nscripts/harbor_gardens.py\nscripts/harbor_geography.py\nscripts/harbor_geology.py\nscripts/harbor_groundcover.py\nscripts/harbor_groundcover_r12.py\nscripts/harbor_house.py\nscripts/harbor_needle_atlas_r18.py\nscripts/harbor_needle_atlas_r20.py\nscripts/harbor_pines.py\nscripts/harbor_pines_r09.py\nscripts/harbor_pines_r11.py\nscripts/harbor_pines_r12.py\nscripts/harbor_pines_r14.py\nscripts/harbor_pines_r15_recovered.py\nscripts/harbor_pines_r16.py\nscripts/harbor_pines_r18.py\nscripts/harbor_pines_r20.py\nscripts/harbor_rock_masses_r16.py\nscripts/harbor_rock_masses_r17.py\nscripts/harbor_rockforms.py\nscripts/harbor_terraces_r20.py\nscripts/inspect_blender_activation.py\nscripts/inspect_candidate_child_policy.py\nscripts/inspect_candidate_token.py\nscripts/materialize_art_review.py\nscripts/retire_candidate.py\nscripts/run_faro_native_probe_r22.py\nscripts/run_faro_roundtrip.py\nscripts/run_native_review.py\nscripts/run_native_supporting_review.py\nscripts/summarize_native_render_timings.py\nscripts/verify_native_authoring_glb.gd\nscripts/verify_native_broker_glb.gd\n",
+  "codec": "game/addons/semwright/ops/animation_graph_ops.gd\ngame/addons/semwright/ops/animation_graph_ops.gd.uid\ngame/addons/semwright/ops/animation_ops.gd\ngame/addons/semwright/ops/animation_ops.gd.uid\ngame/addons/semwright/ops/animation_tree_ops.gd\ngame/addons/semwright/ops/animation_tree_ops.gd.uid\ngame/addons/semwright/ops/api_ops.gd\ngame/addons/semwright/ops/api_ops.gd.uid\ngame/addons/semwright/ops/asset_ops.gd\ngame/addons/semwright/ops/asset_ops.gd.uid\ngame/addons/semwright/ops/audio_ops.gd\ngame/addons/semwright/ops/audio_ops.gd.uid\ngame/addons/semwright/ops/editor_ops.gd\ngame/addons/semwright/ops/editor_ops.gd.uid\ngame/addons/semwright/ops/export_preset_ops.gd\ngame/addons/semwright/ops/export_preset_ops.gd.uid\ngame/addons/semwright/ops/gridmap_ops.gd\ngame/addons/semwright/ops/gridmap_ops.gd.uid\ngame/addons/semwright/ops/localization_ops.gd\ngame/addons/semwright/ops/localization_ops.gd.uid\ngame/addons/semwright/ops/multiplayer_ops.gd\ngame/addons/semwright/ops/multiplayer_ops.gd.uid\ngame/addons/semwright/ops/navigation_ops.gd\ngame/addons/semwright/ops/navigation_ops.gd.uid\ngame/addons/semwright/ops/particles_ops.gd\ngame/addons/semwright/ops/particles_ops.gd.uid\ngame/addons/semwright/ops/path_ops.gd\ngame/addons/semwright/ops/path_ops.gd.uid\ngame/addons/semwright/ops/physics_ops.gd\ngame/addons/semwright/ops/physics_ops.gd.uid\ngame/addons/semwright/ops/project_ops.gd\ngame/addons/semwright/ops/project_ops.gd.uid\ngame/addons/semwright/ops/project_semantics_ops.gd\ngame/addons/semwright/ops/project_semantics_ops.gd.uid\ngame/addons/semwright/ops/readback_ops.gd\ngame/addons/semwright/ops/readback_ops.gd.uid\ngame/addons/semwright/ops/ref_ops.gd\ngame/addons/semwright/ops/ref_ops.gd.uid\ngame/addons/semwright/ops/rendering_ops.gd\ngame/addons/semwright/ops/rendering_ops.gd.uid\ngame/addons/semwright/ops/resource_ops.gd\ngame/addons/semwright/ops/resource_ops.gd.uid\ngame/addons/semwright/ops/scene_save_ops.gd\ngame/addons/semwright/ops/scene_save_ops.gd.uid\ngame/addons/semwright/ops/script_ops.gd\ngame/addons/semwright/ops/script_ops.gd.uid\ngame/addons/semwright/ops/signal_ops.gd\ngame/addons/semwright/ops/signal_ops.gd.uid\ngame/addons/semwright/ops/skeleton_ops.gd\ngame/addons/semwright/ops/skeleton_ops.gd.uid\ngame/addons/semwright/ops/tilemap_ops.gd\ngame/addons/semwright/ops/tilemap_ops.gd.uid\ngame/addons/semwright/ops/ui_theme_ops.gd\ngame/addons/semwright/ops/ui_theme_ops.gd.uid\ngame/addons/semwright/ops/variant_codec.gd\ngame/addons/semwright/ops/variant_codec.gd.uid\ngame/addons/semwright/ops/visual_ops.gd\ngame/addons/semwright/ops/visual_ops.gd.uid\ngame/addons/semwright/plugin.cfg\ngame/addons/semwright/plugin.gd\ngame/addons/semwright/plugin.gd.uid\n",
+  "semwright_diff": " adapters/blender/semwright_blender/commands.json   | 223 +++++++++++\n adapters/blender/semwright_blender/commands.py     | 409 +++++++++++++++++++++\n crates/driver-blender/src/bridge.py                |   3 +\n crates/driver-blender/src/main.rs                  |  30 ++\n .../src/windows_blender52_runtime/bridge.py        |   3 +\n .../src/windows_blender52_runtime/commands.json    | 223 +++++++++++\n .../src/windows_blender52_runtime/commands.py      | 409 +++++++++++++++++++++\n .../src/windows_blender52_runtime/manifest.json    |  12 +-\n tests/python/test_blender.py                       |   5 +\n 9 files changed, 1311 insertions(+), 6 deletions(-)\n",
+  "ProofCamera": {
+    "data": {
+      "class": "Camera3D",
+      "name": "ProofCamera",
+      "observed": {
+        "global_position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "owner_path": ".",
+        "parent_path": ".",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation_order": 2,
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "scope": "edited_scene"
+      },
+      "path": "ProofCamera",
+      "properties": {
+        "attributes": null,
+        "auto_translate_mode": 0,
+        "compositor": null,
+        "cull_mask": 1048575,
+        "current": false,
+        "doppler_tracking": 0,
+        "editor_description": "",
+        "environment": null,
+        "far": 250.0,
+        "fov": 70.0,
+        "frustum_offset": {
+          "$type": "Vector2",
+          "value": [
+            0.0,
+            0.0
+          ]
+        },
+        "h_offset": 0.0,
+        "keep_aspect": 1,
+        "near": 0.200000002980232,
+        "physics_interpolation_mode": 0,
+        "process_mode": 0,
+        "process_physics_priority": 0,
+        "process_priority": 0,
+        "process_thread_group": 0,
+        "projection": 0,
+        "rotation_edit_mode": 0,
+        "rotation_order": 2,
+        "size": 1.0,
+        "top_level": false,
+        "transform": {
+          "$type": "Transform3D",
+          "value": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "unique_name_in_owner": false,
+        "v_offset": 0.0,
+        "visibility_parent": {
+          "$type": "NodePath",
+          "value": ""
+        },
+        "visible": true
+      },
+      "ref": "native:df49444f4ef9465bb34680ad6e8b524a"
+    },
+    "stamp": {
+      "fingerprint": "3d0ade0c32abc54f292e7bfd01bfa9df531abc04af51e69837302100d86fd9d5",
+      "revision": 12
+    }
+  },
+  "ProofCamera2": {
+    "data": {
+      "class": "Camera3D",
+      "name": "ProofCamera2",
+      "observed": {
+        "global_position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "owner_path": ".",
+        "parent_path": ".",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation_order": 2,
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "scope": "edited_scene"
+      },
+      "path": "ProofCamera2",
+      "properties": {
+        "attributes": null,
+        "auto_translate_mode": 0,
+        "compositor": null,
+        "cull_mask": 1048575,
+        "current": false,
+        "doppler_tracking": 0,
+        "editor_description": "",
+        "environment": null,
+        "far": 250.0,
+        "fov": 70.0,
+        "frustum_offset": {
+          "$type": "Vector2",
+          "value": [
+            0.0,
+            0.0
+          ]
+        },
+        "h_offset": 0.0,
+        "keep_aspect": 1,
+        "near": 0.200000002980232,
+        "physics_interpolation_mode": 0,
+        "process_mode": 0,
+        "process_physics_priority": 0,
+        "process_priority": 0,
+        "process_thread_group": 0,
+        "projection": 0,
+        "rotation_edit_mode": 0,
+        "rotation_order": 2,
+        "size": 1.0,
+        "top_level": false,
+        "transform": {
+          "$type": "Transform3D",
+          "value": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "unique_name_in_owner": false,
+        "v_offset": 0.0,
+        "visibility_parent": {
+          "$type": "NodePath",
+          "value": ""
+        },
+        "visible": true
+      },
+      "ref": "native:a327851f1eb94bf6a9413296405ae465"
+    },
+    "stamp": {
+      "fingerprint": "3d0ade0c32abc54f292e7bfd01bfa9df531abc04af51e69837302100d86fd9d5",
+      "revision": 12
+    }
+  },
+  "FaroThreshold": {
+    "data": {
+      "class": "Node3D",
+      "name": "FaroThreshold",
+      "observed": {
+        "global_position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "owner_path": ".",
+        "parent_path": ".",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation_order": 2,
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "scope": "edited_scene"
+      },
+      "path": "FaroThreshold",
+      "properties": {
+        "auto_translate_mode": 0,
+        "editor_description": "",
+        "physics_interpolation_mode": 0,
+        "process_mode": 0,
+        "process_physics_priority": 0,
+        "process_priority": 0,
+        "process_thread_group": 0,
+        "rotation_edit_mode": 0,
+        "rotation_order": 2,
+        "top_level": false,
+        "transform": {
+          "$type": "Transform3D",
+          "value": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "unique_name_in_owner": false,
+        "visibility_parent": {
+          "$type": "NodePath",
+          "value": ""
+        },
+        "visible": true
+      },
+      "ref": "native:ccbccba89e72431e84ded24d534f69a1"
+    },
+    "stamp": {
+      "fingerprint": "3d0ade0c32abc54f292e7bfd01bfa9df531abc04af51e69837302100d86fd9d5",
+      "revision": 12
+    }
+  },
+  "source_delta": {
+    "proofs/semwright_godot_bridge01_02.tscn": {
+      "before": {
+        "bytes": 736,
+        "sha256": "37017d169c9cec25511b99f28a48443bfc4d16c5dceffd4b1d56ff461bd8ef41"
+      },
+      "after": {
+        "bytes": 846,
+        "sha256": "5e70a9ad32340222ba3126965add5049d563eff405a7a6887cefdb7febd65d6e"
+      }
+    },
+    "main.tscn": {
+      "before": {
+        "bytes": 175,
+        "sha256": "b374a3e2725299468d8d4b92a7a08f951eb07938f3d894bdeabb0a39ed58fa90"
+      },
+      "after": {
+        "bytes": 232,
+        "sha256": "a5deddc95a4ae715dc404017cf3df364e5d9d4871cbf87d03749b50157346ee4"
+      }
+    }
+  },
+  "godot_executable": "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64.exe",
+  "godot_sha256": "ab1824f85bfd8e0e4128182c000c4003a3e042245b2967848d089b2a04b22424",
+  "disk": {
+    "total": 808422731776,
+    "used": 644921708544,
+    "free": 163501023232
+  },
+  "source_files": 3094
+}

@@ -1,0 +1,27 @@
+{
+  "command": "driver.godot.node.patch",
+  "args": {
+    "session": "8044a769cd76689cd9276d3db99681d9",
+    "target": "FaroThreshold",
+    "properties": [
+      {
+        "name": "position",
+        "value": {
+          "$type": "Vector3",
+          "value": [
+            0.5,
+            0,
+            0
+          ]
+        }
+      }
+    ],
+    "expect": {
+      "fingerprint": "3d0ade0c32abc54f292e7bfd01bfa9df531abc04af51e69837302100d86fd9d5",
+      "revision": 12
+    },
+    "dry_run": false
+  },
+  "automatic_retry": false,
+  "native_approval_response_automated": false
+}

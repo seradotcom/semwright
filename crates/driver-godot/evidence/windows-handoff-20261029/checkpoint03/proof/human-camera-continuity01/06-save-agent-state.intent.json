@@ -1,0 +1,14 @@
+{
+  "command": "driver.godot.scene.save",
+  "args": {
+    "session": "8044a769cd76689cd9276d3db99681d9",
+    "expect": {
+      "fingerprint": "86d20ce83bbc302616d9d5ad88e0a56a8536618e01191ee5d8f4e2b125c8df2f",
+      "revision": 13
+    },
+    "dry_run": false,
+    "save_external_resources": true
+  },
+  "automatic_retry": false,
+  "native_approval_response_automated": false
+}

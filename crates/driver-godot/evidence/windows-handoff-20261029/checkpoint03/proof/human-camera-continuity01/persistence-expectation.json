@@ -1,0 +1,221 @@
+{
+  "schema": 1,
+  "project_root": "E:\\Projects\\worldwright-archipelago\\game",
+  "scene": "res://proofs/semwright_godot_bridge01_02.tscn",
+  "scene_sha256": "968f6d5368e02bd8848fbbc698024e4abd1fee2cd5f1bdc1879a94b8d38fa0bb",
+  "godot_executable": "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64.exe",
+  "godot_sha256": "ab1824f85bfd8e0e4128182c000c4003a3e042245b2967848d089b2a04b22424",
+  "cameras": {
+    "ProofCamera": {
+      "attributes": null,
+      "auto_translate_mode": 0,
+      "compositor": null,
+      "cull_mask": 1048575,
+      "current": false,
+      "doppler_tracking": 0,
+      "editor_description": "",
+      "environment": null,
+      "far": 250.0,
+      "fov": 70.0,
+      "frustum_offset": {
+        "$type": "Vector2",
+        "value": [
+          0.0,
+          0.0
+        ]
+      },
+      "h_offset": 0.0,
+      "keep_aspect": 1,
+      "near": 0.200000002980232,
+      "physics_interpolation_mode": 0,
+      "process_mode": 0,
+      "process_physics_priority": 0,
+      "process_priority": 0,
+      "process_thread_group": 0,
+      "projection": 0,
+      "rotation_edit_mode": 0,
+      "rotation_order": 2,
+      "size": 1.0,
+      "top_level": false,
+      "transform": {
+        "$type": "Transform3D",
+        "value": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "unique_name_in_owner": false,
+      "v_offset": 0.0,
+      "visibility_parent": {
+        "$type": "NodePath",
+        "value": ""
+      },
+      "visible": true
+    },
+    "ProofCamera2": {
+      "attributes": null,
+      "auto_translate_mode": 0,
+      "compositor": null,
+      "cull_mask": 1048575,
+      "current": false,
+      "doppler_tracking": 0,
+      "editor_description": "",
+      "environment": null,
+      "far": 250.0,
+      "fov": 70.0,
+      "frustum_offset": {
+        "$type": "Vector2",
+        "value": [
+          0.0,
+          0.0
+        ]
+      },
+      "h_offset": 0.0,
+      "keep_aspect": 1,
+      "near": 0.200000002980232,
+      "physics_interpolation_mode": 0,
+      "process_mode": 0,
+      "process_physics_priority": 0,
+      "process_priority": 0,
+      "process_thread_group": 0,
+      "projection": 0,
+      "rotation_edit_mode": 0,
+      "rotation_order": 2,
+      "size": 1.0,
+      "top_level": false,
+      "transform": {
+        "$type": "Transform3D",
+        "value": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "unique_name_in_owner": false,
+      "v_offset": 0.0,
+      "visibility_parent": {
+        "$type": "NodePath",
+        "value": ""
+      },
+      "visible": true
+    }
+  },
+  "managed_target": {
+    "path": "FaroThreshold",
+    "position": [
+      0.5,
+      0,
+      0
+    ]
+  },
+  "assets": [
+    {
+      "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+      "sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3",
+      "bytes": 64288,
+      "instance": "FaroRock",
+      "meshes": [
+        {
+          "name": "SW_dc08abe78a2a_coastal_toe",
+          "min": [
+            -64.67994689941406,
+            -1.25,
+            10.242951393127441
+          ],
+          "max": [
+            -57.35786819458008,
+            3.549999952316284,
+            15.068251609802246
+          ],
+          "surface_count": 1,
+          "glb_position_count": 312
+        },
+        {
+          "name": "SW_dc08abe78a2a_integrated_limestone",
+          "min": [
+            -65.6500015258789,
+            -1.25,
+            -1.25
+          ],
+          "max": [
+            -49.34806823730469,
+            10.170000076293945,
+            17
+          ],
+          "surface_count": 1,
+          "glb_position_count": 1648
+        },
+        {
+          "name": "SW_dc08abe78a2a_low_shelf",
+          "min": [
+            -63.48686218261719,
+            -1.25,
+            -1.2863136529922485
+          ],
+          "max": [
+            -57.304351806640625,
+            2.6500000953674316,
+            2.5652928352355957
+          ],
+          "surface_count": 1,
+          "glb_position_count": 328
+        }
+      ],
+      "blender_export_request": "7130649de9a84eb9ad626a6b6566800c"
+    },
+    {
+      "path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+      "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8",
+      "bytes": 2124,
+      "instance": "FaroThreshold",
+      "meshes": [
+        {
+          "name": "SW_c242f21a199d_bridge_threshold",
+          "min": [
+            -52.099998474121094,
+            9.600000381469727,
+            5.400000095367432
+          ],
+          "max": [
+            -50.650001525878906,
+            10.5,
+            8.600000381469727
+          ],
+          "surface_count": 1,
+          "glb_position_count": 24
+        }
+      ],
+      "blender_export_request": "d1e56ad3c7aa4efc88a6dcdcb48f8c4a"
+    }
+  ],
+  "node_paths": [
+    ".",
+    "ProofCamera",
+    "ProofCamera2",
+    "FaroRock",
+    "FaroRock/SW_dc08abe78a2a_coastal_toe",
+    "FaroRock/SW_dc08abe78a2a_integrated_limestone",
+    "FaroRock/SW_dc08abe78a2a_low_shelf",
+    "FaroThreshold",
+    "FaroThreshold/SW_c242f21a199d_bridge_threshold"
+  ]
+}
