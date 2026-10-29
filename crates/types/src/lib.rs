@@ -413,8 +413,8 @@ impl ProviderMountReference {
 }
 #[derive(Debug, Clone)]
 enum StoredReference {
-    Native(Reference),
-    ProviderMount(ProviderMountReference),
+    Native(Box<Reference>),
+    ProviderMount(Box<ProviderMountReference>),
 }
 impl StoredReference {
     fn session(&self) -> &str {
@@ -515,13 +515,13 @@ impl RefStore {
         let id = format!("{}:{}", target.kind, Uuid::new_v4().simple());
         self.entries.insert(
             id.clone(),
-            StoredReference::Native(Reference {
+            StoredReference::Native(Box::new(Reference {
                 session: session.into(),
                 backend: backend.into(),
                 target,
                 expires: now + self.ttl,
                 native_read,
-            }),
+            })),
         );
         Ok(id)
     }
@@ -574,7 +574,7 @@ impl RefStore {
         let id = format!("provider-mount:{}", Uuid::new_v4().simple());
         self.entries.insert(
             id.clone(),
-            StoredReference::ProviderMount(ProviderMountReference {
+            StoredReference::ProviderMount(Box::new(ProviderMountReference {
                 session: session.into(),
                 backend: backend.into(),
                 connection: connection.into(),
@@ -584,7 +584,7 @@ impl RefStore {
                 pair_requirement: requirements.pair,
                 expires: now + self.ttl,
                 revoked: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            }),
+            })),
         );
         Ok(id)
     }
@@ -597,7 +597,7 @@ impl RefStore {
                         !origin.binding.is_revoked() && origin.binding.expires > Instant::now()
                     }) =>
             {
-                Ok(v.clone())
+                Ok(v.as_ref().clone())
             }
             _ => Err(Error::new(
                 ErrorCode::StaleReference,
@@ -623,7 +623,7 @@ impl RefStore {
     ) -> Result<ProviderMountReference> {
         match self.entries.get(id) {
             Some(StoredReference::ProviderMount(v)) if v.session == session && !v.is_revoked() => {
-                Ok(v.clone())
+                Ok(v.as_ref().clone())
             }
             _ => Err(Error::new(
                 ErrorCode::StaleReference,
