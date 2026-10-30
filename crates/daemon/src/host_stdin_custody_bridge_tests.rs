@@ -226,7 +226,10 @@ async fn linux_real_host_nonempty_capture_drains_to_bound_original_and_terminal(
     let mut bootstrap = Bootstrap::prepare(&options, false, &config.drivers)
         .unwrap()
         .expect("explicit custody bootstrap");
-    let manifest = bootstrap.manifest(&config.drivers[0]).unwrap();
+    let (manifest, _) = bootstrap
+        .retained_manifest(&config.drivers[0])
+        .unwrap()
+        .into_parts();
     let driver_sha = manifest.sha256.clone();
     let sink = bootstrap.sink_for(&manifest).unwrap();
     let host = RealHost::connect(manifest, &config.policy.filesystem, &state, sink).await;
@@ -284,7 +287,10 @@ async fn linux_real_host_metadata_collision_preserves_partial_bytes_and_native_j
         .unwrap();
     let collision = directory.join("capture-0001.json");
     std::fs::write(&collision, b"existing-private-sentinel").unwrap();
-    let manifest = bootstrap.manifest(&config.drivers[0]).unwrap();
+    let (manifest, _) = bootstrap
+        .retained_manifest(&config.drivers[0])
+        .unwrap()
+        .into_parts();
     let sink = bootstrap.sink_for(&manifest).unwrap();
     let host = RealHost::connect(manifest, &config.policy.filesystem, &state, sink).await;
     let job = host.start("daemon-custody-publication-failure-start").await;
