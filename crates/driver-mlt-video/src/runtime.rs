@@ -3608,6 +3608,13 @@ pub fn render_argv(
         if codec == "libx264" {
             args.extend(h264_encoding_args());
         }
+        if profile.id == "lossless-video-only" {
+            // MLT's default FFV1 output can omit both chroma location and range.
+            // Request unsubsampled limited-range video at the encoder; complete
+            // readback must still observe the actual format, range and BT.709.
+            args.push("pix_fmt=yuv444p".into());
+            args.push("color_range=tv".into());
+        }
     } else {
         args.push("vn=1".into());
     }
@@ -4054,6 +4061,8 @@ mod tool_owner_tests {
             .collect::<Vec<_>>();
         assert!(command.iter().any(|value| value == "an=1"));
         assert!(command.iter().any(|value| value == "vcodec=ffv1"));
+        assert!(command.iter().any(|value| value == "pix_fmt=yuv444p"));
+        assert!(command.iter().any(|value| value == "color_range=tv"));
         assert!(!command.iter().any(|value| value.starts_with("acodec=")));
 
         let legacy = RenderProfile::get("lossless").unwrap();
@@ -4065,6 +4074,12 @@ mod tool_owner_tests {
             .collect::<Vec<_>>();
         assert!(original.iter().any(|value| value == "acodec=pcm_s16le"));
         assert!(!original.iter().any(|value| value == "an=1"));
+        assert!(!original.iter().any(|value| value.starts_with("pix_fmt=")));
+        assert!(
+            !original
+                .iter()
+                .any(|value| value.starts_with("color_range="))
+        );
     }
 
     #[test]
