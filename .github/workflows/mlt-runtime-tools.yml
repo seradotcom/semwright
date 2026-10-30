@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'crates/driver-mlt-video/**'
+      - 'crates/driver-motion-canvas/**'
+      - 'integrations/motion-canvas/runtime/**'
       - 'crates/driver-host/**'
       - 'crates/driver-sdk/**'
       - 'crates/platform-api/**'
@@ -24,6 +26,7 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_TEST_DEBUG: 0
+  PLAYWRIGHT_BROWSERS_PATH: '0'
 jobs:
   live-linux:
     runs-on: ubuntu-24.04
@@ -51,6 +54,35 @@ jobs:
         run: |
           cargo test --locked -p semwright-mlt-video-driver --all-features 2>&1 | tee verification/mlt-runtime-tools/tests.log
           cargo clippy --locked -p semwright-mlt-video-driver --all-targets --all-features -- -D warnings
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22.22.0'
+          cache: npm
+          cache-dependency-path: integrations/motion-canvas/runtime/package-lock.json
+      - name: Prepare the existing pinned Motion Canvas producer
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          evidence="$GITHUB_WORKSPACE/verification/mlt-runtime-tools"
+          mkdir -p "$evidence"
+          node --version > "$evidence/motion-node-version.original.txt"
+          test "$(cat "$evidence/motion-node-version.original.txt")" = v22.22.0
+          set +e
+          npm ci --ignore-scripts > "$evidence/motion-npm-ci.stdout.original" \
+            2> "$evidence/motion-npm-ci.stderr.original"
+          npm_rc=$?
+          set -e
+          printf '{"exit_code":%s,"preparation_retried":false}\n' "$npm_rc" \
+            > "$evidence/motion-npm-ci.terminal.original.json"
+          test "$npm_rc" -eq 0
+          set +e
+          npx --no-install playwright install --with-deps firefox \
+            > "$evidence/motion-firefox-install.stdout.original" \
+            2> "$evidence/motion-firefox-install.stderr.original"
+          browser_rc=$?
+          set -e
+          printf '{"exit_code":%s,"preparation_retried":false}\n' "$browser_rc" \
+            > "$evidence/motion-firefox-install.terminal.original.json"
+          test "$browser_rc" -eq 0
       - name: Real Host-mediated MLT discovery and live driver
         env:
           SEMWRIGHT_TEST_MLT_VIDEO_EVIDENCE_ROOT: ${{ runner.temp }}/semwright-mlt-live-${{ github.run_id }}-${{ github.run_attempt }}
@@ -60,10 +92,52 @@ jobs:
           SEMWRIGHT_TEST_FFMPEG: /usr/bin/ffmpeg
           SEMWRIGHT_TEST_BWRAP: /usr/bin/bwrap
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+          SEMWRIGHT_TEST_MOTION_DRIVER: ${{ github.workspace }}/target/debug/semwright-motion-canvas-driver
+          SEMWRIGHT_TEST_MOTION_RUNTIME: ${{ github.workspace }}/integrations/motion-canvas/runtime
+          SEMWRIGHT_TEST_MOTION_NODE: ${{ runner.temp }}/semwright-mlt-motion-node-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox \
             -p semwright-mlt-video-driver --bin semwright-mlt-video-driver \
-            -p semwright-mlt-video-driver --bin semwright-mlt-runtime-runner
+            -p semwright-mlt-video-driver --bin semwright-mlt-runtime-runner \
+            -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
+          # Stage the same owner-pinned Node tool used by the existing Motion
+          # Canvas workflow. The copy is exclusive and never replaces an original.
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, shutil, stat
+          evidence = pathlib.Path("verification/mlt-runtime-tools")
+          assert os.environ["GITHUB_RUN_ATTEMPT"] == "1"
+          selected = shutil.which("node")
+          assert selected is not None
+          source = pathlib.Path(selected).resolve(strict=True)
+          target = pathlib.Path(os.environ["SEMWRIGHT_TEST_MOTION_NODE"])
+          runner_temp = pathlib.Path(os.environ["RUNNER_TEMP"]).resolve(strict=True)
+          assert target.is_absolute() and target.parent == runner_temp
+          assert stat.S_ISREG(source.stat().st_mode)
+          with source.open("rb") as stream:
+              source_sha = hashlib.file_digest(stream, "sha256").hexdigest()
+          with (evidence / "motion-node-copy-request.original.json").open("x") as stream:
+              json.dump({"source": str(source), "source_sha256": source_sha,
+                         "target": str(target), "copy_retried": False}, stream, indent=2)
+              stream.write("\n")
+          descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o700)
+          with os.fdopen(descriptor, "wb") as output, source.open("rb") as incoming:
+              shutil.copyfileobj(incoming, output)
+              output.flush(); os.fsync(output.fileno())
+          with target.open("rb") as stream:
+              actual_sha = hashlib.file_digest(stream, "sha256").hexdigest()
+          assert actual_sha == source_sha
+          runtime = pathlib.Path(os.environ["SEMWRIGHT_TEST_MOTION_RUNTIME"]).resolve(strict=True)
+          browsers = list((runtime / "node_modules/playwright-core/.local-browsers").glob("firefox-*/firefox/firefox"))
+          assert len(browsers) == 1 and browsers[0].is_file() and not browsers[0].is_symlink()
+          with browsers[0].open("rb") as stream:
+              browser_sha = hashlib.file_digest(stream, "sha256").hexdigest()
+          with (evidence / "motion-runtime-inputs.original.json").open("x") as stream:
+              json.dump({"node_path": str(target), "node_sha256": actual_sha,
+                         "browser_path": str(browsers[0]), "browser_sha256": browser_sha,
+                         "runtime_path": str(runtime), "copy_retried": False,
+                         "native_execution_retried": False}, stream, indent=2)
+              stream.write("\n")
+          PY
           # The test requires an external custodian's empty, private destination.
           # It must never create, clear or reuse its own originals directory.
           python3 - <<'PY'
@@ -93,7 +167,17 @@ jobs:
           paths = ["Cargo.lock", "rust-toolchain.toml", ".github/workflows/mlt-runtime-tools.yml",
                    "crates/driver-mlt-video/tests/live.rs", "target/debug/semwright-sandbox",
                    "target/debug/semwright-mlt-video-driver", "target/debug/semwright-mlt-runtime-runner",
+                   "target/debug/semwright-motion-canvas-driver", "crates/driver-motion-canvas/Cargo.toml",
+                   "crates/driver-motion-canvas/src/compiler.rs", "crates/driver-motion-canvas/src/renderer.rs",
+                   "crates/driver-motion-canvas/src/security.rs", "crates/driver-motion-canvas/src/model.rs",
+                   "crates/driver-motion-canvas/src/validate.rs", "crates/driver-motion-canvas/src/driver.rs",
+                   "crates/driver-motion-canvas/src/store.rs", "integrations/motion-canvas/runtime/render.mjs",
+                   "integrations/motion-canvas/runtime/package-lock.json", "integrations/motion-canvas/runtime/package.json",
                    "/usr/bin/melt", "/usr/bin/ffprobe", "/usr/bin/ffmpeg", "/usr/bin/bwrap"]
+          motion_inputs = json.loads(pathlib.Path("verification/mlt-runtime-tools/motion-runtime-inputs.original.json").read_text())
+          paths.extend([motion_inputs["node_path"], motion_inputs["browser_path"]])
+          assert observation(motion_inputs["node_path"])["sha256"] == motion_inputs["node_sha256"]
+          assert observation(motion_inputs["browser_path"])["sha256"] == motion_inputs["browser_sha256"]
           binding = {"schema": "semwright.mlt-live-workflow-binding/1", "source_sha": head,
                      "source_tree": tree, "run_id": os.environ["GITHUB_RUN_ID"], "attempt": 1,
                      "root": str(root), "root_device": metadata.st_dev, "root_inode": metadata.st_ino,

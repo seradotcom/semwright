@@ -689,7 +689,7 @@ impl AudioLiveOriginals {
             "external_source_run_binary_binding_required":true,
             "external_custody_admitted":false,"external_deadline_attested":false,
             "external_filesystem_budget_attested":false,
-            "scope":"existing-MLT-live-plus-three-synthetic-PCM16-derivatives",
+            "scope":"existing-MLT-live-plus-three-synthetic-PCM16-derivatives-and-one-six-frame-Motion-Canvas-source",
             "formal_acceptance":false,"native_execution_retried":false
         }))?;
         Ok(value)
@@ -2108,40 +2108,592 @@ async fn audio_live_cases(
     Ok(())
 }
 
+async fn audio_live_shutdown_recorded<T>(
+    originals: &AudioLiveOriginals,
+    provider: &DriverProvider,
+    primary: AudioLiveResult<T>,
+    motion: bool,
+) -> AudioLiveResult<T> {
+    let prefix = if motion { "motion-live" } else { "audio-live" };
+    let schema = if motion {
+        "semwright.mlt-live-motion-provider-close/1"
+    } else {
+        "semwright.audio-derive-live-provider-close/1"
+    };
+    let closed = Provider::shutdown(provider).await;
+    let retained = (|| -> AudioLiveResult<()> {
+        originals.record(&format!("{prefix}-provider-shutdown.original.json"), &json!({
+            "schema":schema,
+            "result":serde_json::to_value(&closed)?,"original_operation_failed":primary.is_err(),
+            "external_process_cleanup_attested":false
+        }))
+    })();
+    let value = match primary {
+        Err(original) => {
+            if let Err(secondary) = closed {
+                originals.secondary(
+                    &format!("{prefix}-secondary-shutdown.original.json"),
+                    &secondary,
+                );
+            }
+            if let Err(secondary) = retained {
+                originals.secondary(
+                    &format!("{prefix}-shutdown-custody-error.original.json"),
+                    secondary.as_ref(),
+                );
+            }
+            return Err(original);
+        }
+        Ok(value) => value,
+    };
+    if closed.is_err()
+        && let Err(secondary) = &retained
+    {
+        originals.secondary(
+            &format!("{prefix}-shutdown-custody-error.original.json"),
+            secondary.as_ref(),
+        );
+    }
+    audio_live_finish_native(closed, retained).map(|()| value)
+}
+
 async fn audio_live_shutdown(
     originals: &AudioLiveOriginals,
     provider: &DriverProvider,
     primary: AudioLiveResult<()>,
 ) -> AudioLiveResult<()> {
-    let closed = Provider::shutdown(provider).await;
+    audio_live_shutdown_recorded(originals, provider, primary, false).await
+}
+
+// This fixture's pixels are authored before the existing Motion Canvas exporter.
+// A Canvas observation is never constructed here and no exported PNG is edited.
+fn motion_live_project() -> AudioLiveResult<semwright_driver_motion_canvas::model::Project> {
+    use semwright_driver_motion_canvas::model::{
+        AnimatedProperty, AnimatedValue, Animation, Easing, Node, NodeKind, Project, Properties,
+        Scene, TimeAnchor,
+    };
+    let mut project = Project::empty("mlt-live-six-frames".into());
+    // A deterministic synthetic source identity, not a runtime observation.
+    project.generation = "1197a71a33c1149ba1f86c1c11e0e3ef".into();
+    project.settings.width = 160;
+    project.settings.height = 90;
+    project.settings.fps = 30;
+    project.settings.fps_denominator = 1;
+    project.settings.color_space = semwright_driver_motion_canvas::model::ColorSpace::Srgb;
+    project.settings.background = Some("#0000ff".into());
+    let animations = [("caption-on", 80, 0.0, 1.0), ("caption-off", 120, 1.0, 0.0)]
+        .into_iter()
+        .map(|(id, offset_ms, from, to)| Animation {
+            id: id.into(),
+            target: "caption-box".into(),
+            property: AnimatedProperty::Opacity,
+            from: Some(AnimatedValue::Number(from)),
+            to: AnimatedValue::Number(to),
+            at: TimeAnchor {
+                cue: None,
+                offset_ms,
+            },
+            duration_ms: 1,
+            duration_cue: None,
+            easing: Easing::Linear,
+        })
+        .collect();
+    project.scenes.push(Scene {
+        id: "mlt-caption-source".into(),
+        name: "Original six-frame MLT caption source".into(),
+        duration_ms: 200,
+        nodes: vec![Node {
+            id: "caption-box".into(),
+            name: "Frame three original caption box".into(),
+            kind: NodeKind::Rect,
+            parent: None,
+            properties: Properties {
+                // Canvas origin (80,45) + Rect center (-42.5,23) gives
+                // the original pixel box [20,55) x [58,78).
+                position: Some([-42.5, 23.0]),
+                scale: Some([1.0, 1.0]),
+                rotation: Some(0.0),
+                width: Some(35.0.into()),
+                height: Some(20.0.into()),
+                fill: Some("#ffff00".into()),
+                stroke_width: Some(0.0),
+                radius: Some(0.0.into()),
+                opacity: Some(0.0),
+                ..Properties::default()
+            },
+        }],
+        // Both core's integer sample and the runtime's interior representative
+        // place frame 3 after 81 ms and before 120 ms, frames 2/4 outside it.
+        animations,
+        cues: vec![],
+        transition: None,
+    });
+    semwright_driver_motion_canvas::validate::project_valid(&project)?;
+    Ok(project)
+}
+
+fn motion_live_profile() -> semwright_driver_motion_canvas::model::RenderProfile {
+    semwright_driver_motion_canvas::model::RenderProfile {
+        first_frame: 0,
+        end_frame_exclusive: 6,
+        scale: semwright_driver_motion_canvas::model::RenderScale::Full,
+        transparent: false,
+        timeout_ms: 120_000,
+    }
+}
+
+fn motion_live_expected_pixel_sha256(index: u64) -> String {
+    // Independent, predeclared pixel oracle for this axis-aligned opaque source.
+    // These bytes are hashed only; they never become renderer input or evidence.
+    let mut hasher = Sha256::new();
+    for y in 0..90 {
+        for x in 0..160 {
+            hasher.update(
+                if index == 3 && (20..55).contains(&x) && (58..78).contains(&y) {
+                    [255, 255, 0, 255]
+                } else {
+                    [0, 0, 255, 255]
+                },
+            );
+        }
+    }
+    hex::encode(hasher.finalize())
+}
+
+fn motion_live_manifest(executable: PathBuf, node_sha256: String) -> Manifest {
+    Manifest {
+        manifest_version: 1,
+        protocol: DRIVER_PROTOCOL_VERSION,
+        id: "motion-canvas".into(),
+        version: env!("CARGO_PKG_VERSION").into(),
+        publisher: "semwright-tests".into(),
+        executable: executable.clone(),
+        sha256: digest(&executable),
+        application: ApplicationMatch {
+            desktop_id: None,
+            process_names: vec!["node".into()],
+            supported_versions: vec!["3.17.2".into(), "Node 22.22.0".into()],
+        },
+        transport: Transport::StdioV1,
+        mounts: vec![
+            DriverMount {
+                root: "project".into(),
+                read_only: false,
+                execute: false,
+            },
+            DriverMount {
+                root: "output".into(),
+                read_only: false,
+                execute: false,
+            },
+            DriverMount {
+                root: "runtime".into(),
+                read_only: true,
+                execute: true,
+            },
+            DriverMount {
+                root: "fontconfig".into(),
+                read_only: true,
+                execute: false,
+            },
+        ],
+        system_config: vec![],
+        secrets: vec![],
+        tools: vec![DriverToolMount {
+            root: "motion-node-tool".into(),
+            name: "motion-node".into(),
+            sha256: node_sha256,
+            mounts: vec![
+                "project".into(),
+                "output".into(),
+                "runtime".into(),
+                "fontconfig".into(),
+            ],
+            system_config: vec![],
+            dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
+        }],
+        network: false,
+        nvidia_gpu: false,
+        loopback_port: None,
+        // Exactly the existing Motion Canvas live producer's limits.
+        resources: DriverResources {
+            open_files: 512,
+            processes: 256,
+            cpu_seconds: 300,
+            operation_cpu_seconds: 0,
+            address_space_bytes: 4_294_967_296,
+            file_size_bytes: 1_073_741_824,
+        },
+        request_timeout_ms: 300_000,
+        interfaces: DriverInterfaces {
+            cooperative_cancellation: true,
+            progress: true,
+            artifacts: true,
+            health: true,
+            host_tools: true,
+            ..DriverInterfaces::default()
+        },
+    }
+}
+
+fn motion_live_original_artifact(
+    originals: &AudioLiveOriginals,
+    terminal: &Value,
+) -> AudioLiveResult<(String, String)> {
+    use semwright_driver_motion_canvas::{security, validate};
+    originals.before_effect()?;
+    audio_live_require(
+        terminal["state"] == "succeeded",
+        "Motion fixture did not succeed",
+    )?;
+    let artifact = &terminal["artifact"];
+    let directory = artifact["directory"]
+        .as_str()
+        .ok_or_else(|| std::io::Error::other("Motion fixture artifact directory is missing"))?;
+    audio_live_require(
+        directory.strip_prefix("render-").is_some_and(|id| {
+            id.len() == 32
+                && id
+                    .bytes()
+                    .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+        }),
+        "Motion fixture artifact is not one original render directory",
+    )?;
+    let manifest_path = format!("{directory}/artifact-manifest.json");
+    audio_live_require(
+        artifact["manifest"] == manifest_path
+            && artifact["frame_count"] == 6
+            && artifact["first_png"] == format!("{directory}/frames/000000.png")
+            && artifact["last_png"] == format!("{directory}/frames/000005.png"),
+        "Motion fixture artifact summary changed its six-frame contract",
+    )?;
+    let bytes = originals.media.read(&manifest_path, 8 * 1024 * 1024)?;
+    let manifest_sha256 = security::sha256(&bytes);
+    audio_live_require(
+        artifact["manifest_sha256"] == manifest_sha256
+            && artifact["manifest_bytes"].as_u64() == Some(bytes.len() as u64),
+        "Motion fixture original manifest does not match its Provider result",
+    )?;
+    let manifest: Value = serde_json::from_slice(&bytes)?;
+    let plan = validate::render_plan(&motion_live_project()?, &motion_live_profile())?;
+    audio_live_require(
+        manifest["renderer"] == "motion-canvas-core-renderer-v3.17.2"
+            && manifest["plan"] == serde_json::to_value(plan)?
+            && manifest["pixel_validation"] == json!({"mode":"all","sample_indices":[0,1,2,3,4,5]}),
+        "Motion fixture original manifest does not cover the exact source plan",
+    )?;
+    audio_live_require(
+        manifest["canvas_color_observation"]["path"] == "canvas-color-observations.json",
+        "Motion fixture lacks its original Canvas receipt",
+    )?;
+    let color_path = format!("{directory}/canvas-color-observations.json");
+    let color_bytes = originals.media.read(&color_path, 16 * 1024 * 1024)?;
+    let color_sha256 = security::sha256(&color_bytes);
+    audio_live_require(
+        manifest["canvas_color_observation"]["sha256"] == color_sha256
+            && manifest["canvas_color_observation"]["bytes"].as_u64()
+                == Some(color_bytes.len() as u64),
+        "Motion fixture original Canvas receipt bytes changed",
+    )?;
+    let colors: Value = serde_json::from_slice(&color_bytes)?;
+    audio_live_require(
+        colors.as_object().is_some_and(|object| object.len() == 3)
+            && colors["schema"] == "semwright.motion-canvas-context-color/1"
+            && colors["render_input_digest"]
+                .as_str()
+                .is_some_and(security::digest),
+        "Motion fixture original Canvas receipt has no render input binding",
+    )?;
+    let frames = manifest["frames"]
+        .as_array()
+        .filter(|rows| rows.len() == 6)
+        .ok_or_else(|| {
+            std::io::Error::other("Motion fixture must retain exactly six original PNGs")
+        })?;
+    let color_frames = colors["frames"]
+        .as_array()
+        .filter(|rows| rows.len() == 6)
+        .ok_or_else(|| {
+            std::io::Error::other("Motion fixture must retain six actual Canvas observations")
+        })?;
+    let mut observations = Vec::new();
+    for (index, (frame, canvas)) in frames.iter().zip(color_frames).enumerate() {
+        let relative = format!("frames/{index:06}.png");
+        audio_live_require(
+            frame["index"].as_u64() == Some(index as u64) && frame["file"] == relative,
+            "Motion fixture original frame order or path changed",
+        )?;
+        let png = originals
+            .media
+            .read(&format!("{directory}/{relative}"), 16 * 1024 * 1024)?;
+        let png_sha256 = security::sha256(&png);
+        audio_live_require(
+            frame["sha256"] == png_sha256
+                && frame["bytes"].as_u64() == Some(png.len() as u64)
+                && canvas.as_object().is_some_and(|object| object.len() == 4)
+                && canvas["index"].as_u64() == Some(index as u64)
+                && canvas["frame"].as_u64() == Some(index as u64)
+                && canvas["png_sha256"] == png_sha256
+                && canvas["canvas"] == frame["canvas_color"],
+            "Motion fixture Canvas observation is not bound to the unmodified PNG",
+        )?;
+        security::validate_canvas_color_evidence(&canvas["canvas"], 160, 90, "srgb")?;
+        let pixels = security::inspect_png(&png)?;
+        audio_live_require(
+            pixels.width == 160
+                && pixels.height == 90
+                && pixels.min_alpha == 255
+                && pixels.max_alpha == 255
+                && frame["pixel_sha256"] == pixels.pixel_sha256
+                && frame["min_alpha"] == pixels.min_alpha
+                && frame["max_alpha"] == pixels.max_alpha
+                && pixels.pixel_sha256 == motion_live_expected_pixel_sha256(index as u64),
+            "Motion fixture pixels differ from the predeclared frame-three box geometry",
+        )?;
+        observations.push(json!({"index":index,"png_sha256":png_sha256,"pixels":pixels}));
+    }
+    originals.record("motion-live-artifact-observation.original.json", &json!({
+        "schema":"semwright.mlt-live-motion-fixture-observation/1",
+        "manifest_path":manifest_path,"manifest_sha256":manifest_sha256,
+        "canvas_receipt_path":color_path,"canvas_receipt_sha256":color_sha256,
+        "render_input_digest":colors["render_input_digest"],"frames":observations,
+        "canvas_origin":"fixed-exporter-getContextAttributes-from-the-same-PNG-producing-canvas",
+        "source_pixel_oracle":"six-160x90-opaque-srgb-blue-frames-yellow-box-20-58-35-20-only-frame-3",
+        "files_modified_by_observer":false,"wire_bytes_claimed":false,
+        "host_stream_eof_attested":false,"descendant_closure_attested":false,
+        "authority_issued":false,"formal_acceptance":false,"native_execution_retried":false
+    }))?;
+    Ok((manifest_path, manifest_sha256))
+}
+
+async fn motion_live_fixture(
+    originals: &AudioLiveOriginals,
+    helper: &Path,
+) -> AudioLiveResult<(String, String)> {
+    use std::io::Write;
+    use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+    originals.before_effect()?;
+    let project = originals.directory("project")?;
+    let binary = originals.directory("binaries")?;
+    let state = originals.directory("state")?;
+    let cargo_executable = configured_tool("SEMWRIGHT_TEST_MOTION_DRIVER");
+    let runtime = configured_tool("SEMWRIGHT_TEST_MOTION_RUNTIME");
+    let node = configured_tool("SEMWRIGHT_TEST_MOTION_NODE");
+    let executable = binary.path().join("semwright-motion-canvas-driver");
+    audio_live_copy(
+        originals,
+        "motion-driver-binary",
+        &cargo_executable,
+        &executable,
+    )?;
+    std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700))?;
+    audio_live_require(
+        digest(&executable) == digest(&cargo_executable),
+        "Motion driver copy differs from its source",
+    )?;
+    let source = serde_json::to_vec_pretty(&motion_live_project()?)?;
+    originals.record_bytes(
+        "motion-live-project.original.json",
+        &source,
+        AUDIO_LIVE_METADATA_LIMIT,
+    )?;
+    let source_path = project.path().join("semwright-motion.json");
+    let mut source_file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(&source_path)?;
+    source_file.write_all(&source)?;
+    source_file.sync_all()?;
+    project.handle.sync_all()?;
+    let motion_state = state.path().join("motion-canvas");
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&motion_state)?;
+    let state_chain = audio_live_open_chain(&motion_state)?;
+    let manifest = motion_live_manifest(executable.clone(), digest(&node));
+    let grants = [
+        ("project", project.path().to_path_buf(), true),
+        ("output", originals.media_path.path().to_path_buf(), true),
+        ("runtime", runtime.clone(), false),
+        ("fontconfig", PathBuf::from("/etc/fonts"), false),
+        ("motion-node-tool", node.clone(), false),
+    ]
+    .into_iter()
+    .map(|(name, path, write)| {
+        Ok(FilesystemGrant {
+            name: name.into(),
+            path: path.canonicalize()?,
+            read: true,
+            write,
+        })
+    })
+    .collect::<std::io::Result<Vec<_>>>()?;
+    originals.record(
+        "motion-live-tool-source-pins.original.json",
+        &json!({
+            "schema":"semwright.mlt-live-motion-fixture-inputs/1",
+            "project_sha256":semwright_mlt_video::hash::sha256(&source),
+            "cargo_driver_path":cargo_executable,"cargo_driver_sha256":digest(&cargo_executable),
+            "driver_path":executable,"driver_sha256":digest(&executable),
+            "node_path":node,"node_sha256":digest(&node),
+            "runtime_path":runtime,"runtime_lock_sha256":digest(&runtime.join("package-lock.json")),
+            "runtime_render_helper_sha256":digest(&runtime.join("render.mjs")),
+            "sandbox_helper_path":helper,"sandbox_helper_sha256":digest(helper),
+            "source_scope":"same-six-frame-source-before-any-Canvas-effect",
+            "authority_issued":false,"native_execution_retried":false
+        }),
+    )?;
+    originals.before_effect()?;
+    for directory in &state_chain {
+        directory.check()?;
+    }
+    originals.record(
+        "motion-live-provider-connect-request.original.json",
+        &json!({
+            "schema":"semwright.mlt-live-provider-connect-request/1",
+            "manifest":serde_json::to_value(&manifest)?,"state":motion_state,"helper":helper,
+            "filesystem_grants":grants.iter().map(|grant| json!({
+                "name":grant.name,"path":grant.path,"read":grant.read,"write":grant.write
+            })).collect::<Vec<_>>(),"dry_run":false,"authority_issued_by_evidence_root":false
+        }),
+    )?;
+    let connected = DriverProvider::connect(manifest, &motion_state, helper, &grants, false).await;
     let retained = (|| -> AudioLiveResult<()> {
-        originals.record("audio-live-provider-shutdown.original.json", &json!({
-            "schema":"semwright.audio-derive-live-provider-close/1",
-            "result":serde_json::to_value(&closed)?,"original_operation_failed":primary.is_err(),
-            "external_process_cleanup_attested":false
+        originals.record("motion-live-provider-connect.original.json", &json!({
+            "schema":"semwright.mlt-live-motion-provider-connect/1","returned_ok":connected.is_ok(),
+            "original_error":serde_json::to_value(connected.as_ref().err())?,
+            "capture_scope":"same-original-connection-return-no-provider-serialization",
+            "native_execution_retried":false
         }))
     })();
-    if let Err(original) = primary {
-        if let Err(secondary) = closed {
-            originals.secondary("audio-live-secondary-shutdown.original.json", &secondary);
+    let provider = match connected {
+        Err(original) => {
+            originals.stop();
+            if let Err(secondary) = retained {
+                originals.secondary(
+                    "motion-live-connect-custody-error.original.json",
+                    secondary.as_ref(),
+                );
+            }
+            return Err(Box::new(original));
         }
-        if let Err(secondary) = retained {
+        Ok(provider) => {
+            if let Err(original) = retained {
+                originals.stop();
+                return audio_live_shutdown_recorded(
+                    originals,
+                    provider.as_ref(),
+                    Err(original),
+                    true,
+                )
+                .await;
+            }
+            provider
+        }
+    };
+    let operations: AudioLiveResult<Value> = async {
+        originals.before_effect()?;
+        let original = Provider::capabilities(provider.as_ref()).await;
+        let retained = (|| -> AudioLiveResult<()> {
+            let value = match &original {
+                Ok(capabilities) => json!({"Ok":capabilities.iter().map(|capability| json!({
+                    "descriptor":capability.descriptor,"aliases":capability.aliases,
+                    "tags":capability.tags,"object_types":capability.object_types
+                })).collect::<Vec<_>>()}),
+                Err(error) => json!({"Err":serde_json::to_value(error)?}),
+            };
+            originals.record_limited(
+                "motion-live-capabilities-return.original.json",
+                &json!({
+                    "schema":"semwright.mlt-live-motion-capabilities-return/1","result":value,
+                    "capture_scope":"all-original-ProvidedCapability-fields-not-wire-bytes",
+                    "native_execution_retried":false
+                }),
+                AUDIO_LIVE_CAPABILITIES_LIMIT,
+            )
+        })();
+        if original.is_err()
+            && let Err(secondary) = &retained
+        {
             originals.secondary(
-                "audio-live-shutdown-custody-error.original.json",
+                "motion-live-capabilities-custody-error.original.json",
                 secondary.as_ref(),
             );
         }
-        return Err(original);
+        let capabilities = audio_live_finish_native(original, retained)?;
+        let inspected = call(
+            originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.motion-canvas.project.inspect",
+            json!({}),
+        )
+        .await?;
+        let fingerprint = inspected["fingerprint"]
+            .as_str()
+            .filter(|value| semwright_driver_motion_canvas::security::digest(value))
+            .ok_or_else(|| {
+                std::io::Error::other("Motion fixture lacks its inspected fingerprint")
+            })?;
+        audio_live_require(
+            fingerprint == semwright_mlt_video::hash::sha256(&source),
+            "Motion inspected fingerprint differs from the retained original source",
+        )?;
+        let terminal = call(
+            originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.motion-canvas.render.execute",
+            json!({
+                "expected_fingerprint":fingerprint,"profile":motion_live_profile()
+            }),
+        )
+        .await?;
+        audio_live_require(
+            terminal["state"] == "succeeded",
+            "Original Motion fixture render did not succeed",
+        )?;
+        Ok(terminal)
     }
-    if closed.is_err()
-        && let Err(secondary) = &retained
-    {
-        originals.secondary(
-            "audio-live-shutdown-custody-error.original.json",
-            secondary.as_ref(),
+    .await;
+    if operations.is_err() {
+        originals.stop();
+    }
+    // The real public shutdown Result is retained. It does not attest stream EOF
+    // or descendant closure, and cannot turn an original UNKNOWN into known.
+    let terminal =
+        audio_live_shutdown_recorded(originals, provider.as_ref(), operations, true).await?;
+    for directory in &state_chain {
+        directory.check()?;
+    }
+    originals.before_effect()?;
+    let project_root = semwright_mlt_video::fs::Root::open(project.path(), true, false)?;
+    audio_live_require(
+        project_root.read("semwright-motion.json", AUDIO_LIVE_METADATA_LIMIT)? == source,
+        "Original Motion project changed during preparation",
+    )?;
+    let observed = motion_live_original_artifact(originals, &terminal);
+    if let Err(error) = &observed {
+        originals.stop();
+        let retained = originals.record(
+            "motion-live-artifact-validation-error.original.json",
+            &json!({
+                "error":error.to_string(),"native_execution_retried":false,
+                "host_stream_eof_attested":false,"descendant_closure_attested":false
+            }),
         );
+        if let Err(secondary) = retained {
+            originals.secondary(
+                "motion-live-validation-custody-error.original.json",
+                secondary.as_ref(),
+            );
+        }
     }
-    audio_live_finish_native(closed, retained)
+    observed
 }
 
 #[tokio::test]
@@ -2348,75 +2900,10 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
     )?.status;
     assert!(status.success(), "failed to create AV sync marker fixture");
 
-    let motion_artifact = media.path().join("motion-artifact");
-    let motion_frames = motion_artifact.join("frames");
-    std::fs::create_dir_all(&motion_frames).unwrap();
-    let motion_pattern = motion_frames.join("%06d.png");
-    let status = audio_live_command(
-        &audio_originals,
-        "fixture-motion-frames",
-        Command::new(&ffmpeg)
-            .args([
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-y",
-                "-f",
-                "lavfi",
-                "-i",
-                "color=c=blue:s=160x90:r=30:d=0.2",
-                "-frames:v",
-                "6",
-                "-start_number",
-                "0",
-            ])
-            .arg(&motion_pattern),
-    )?
-    .status;
-    assert!(status.success(), "failed to create Motion frame oracle");
-    // CI-only original source fixture: produce ONE authored glyph-like box
-    // on native frame 3 and keep 2/4 perfectly unchanged. The native driver
-    // *never* draws glyphs; it must independently inspect FFV1 and MP4.
-    let overlay = motion_frames.join("original-caption-overlay.png");
-    let before_overlay = audio_originals
-        .media
-        .read("motion-artifact/frames/000003.png", 16 * 1024 * 1024)?;
-    audio_originals.record_bytes(
-        "fixture-caption-overlay.source-frame.original.png",
-        &before_overlay,
-        16 * 1024 * 1024,
-    )?;
-    let status = audio_live_command(
-        &audio_originals,
-        "fixture-caption-overlay",
-        Command::new(&ffmpeg)
-            .args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
-            .arg(motion_frames.join("000003.png"))
-            .args([
-                "-vf",
-                "drawbox=x=20:y=58:w=35:h=20:color=yellow:t=fill",
-                "-frames:v",
-                "1",
-                "-update",
-                "1",
-            ])
-            .arg(&overlay),
-    )?
-    .status;
-    assert!(
-        status.success(),
-        "failed to author original synthetic caption fixture"
-    );
-    let produced_overlay = audio_originals.media.read(
-        "motion-artifact/frames/original-caption-overlay.png",
-        16 * 1024 * 1024,
-    )?;
-    audio_originals.record_bytes(
-        "fixture-caption-overlay.produced-frame.original.png",
-        &produced_overlay,
-        16 * 1024 * 1024,
-    )?;
-    std::fs::rename(overlay, motion_frames.join("000003.png")).unwrap();
+    // One real Motion Canvas production through the existing DriverProvider.
+    // Its manifest, Canvas receipt and PNGs remain original under retained media.
+    let (motion_manifest_path, motion_manifest_digest) =
+        motion_live_fixture(&audio_originals, &helper).await?;
 
     let caption_wav = media.path().join("caption-audio.wav");
     let status = audio_live_command(
@@ -2444,49 +2931,6 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
         status.success(),
         "failed to produce bounded synthetic stereo WAV"
     );
-
-    let frame_rows = (0..6u64)
-        .map(|index| {
-            let path = motion_frames.join(format!("{index:06}.png"));
-            let bytes = std::fs::metadata(&path).unwrap().len();
-            json!({
-                "index": index,
-                "file": format!("frames/{index:06}.png"),
-                "bytes": bytes,
-                "sha256": digest(&path),
-                "pixel_sha256": null,
-                "min_alpha": null,
-                "max_alpha": null
-            })
-        })
-        .collect::<Vec<_>>();
-    let motion_manifest = json!({
-        "native_observations": null,
-        "renderer": "motion-canvas-core-renderer-v3.17.2",
-        "plan": {
-            "renderer": "bundled_browser_v1",
-            "width": 160,
-            "height": 90,
-            "fps": 30,
-            "fps_denominator": 1,
-            "first_frame": 0,
-            "end_frame_exclusive": 6,
-            "frame_count": 6,
-            "project_duration_ms": 200,
-            "alpha": false,
-            "color_space": "srgb",
-            "timeout_ms": 120000
-        },
-        "pixel_validation": {"mode":"sampled","sample_indices":[0,1,3,4,5]},
-        "frames": frame_rows
-    });
-    let motion_manifest_path = motion_artifact.join("artifact-manifest.json");
-    std::fs::write(
-        &motion_manifest_path,
-        serde_json::to_vec_pretty(&motion_manifest).unwrap(),
-    )
-    .unwrap();
-    let motion_manifest_digest = digest(&motion_manifest_path);
 
     let manifest = Manifest {
         manifest_version: 1,
@@ -2791,7 +3235,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
             "driver.mlt-video.frames.encode",
             json!({
                 "root":"media",
-                "manifest_path":"motion-artifact/artifact-manifest.json",
+                "manifest_path":motion_manifest_path,
                 "expected_manifest_sha256":motion_manifest_digest,
                 "output_path":"motion-mezzanine.mkv",
                 "max_bytes":67108864
@@ -2817,7 +3261,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
                 "driver.mlt-video.frames.encode",
                 json!({
                     "root":"media",
-                    "manifest_path":"motion-artifact/artifact-manifest.json",
+                    "manifest_path":motion_manifest_path,
                     "expected_manifest_sha256":"0".repeat(64),
                     "output_path":"stale-mezzanine.mkv",
                     "max_bytes":67108864
@@ -3726,6 +4170,120 @@ mod audio_live_source_tests {
         let root = tempfile::tempdir().unwrap();
         std::fs::set_permissions(root.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
         root
+    }
+
+    #[test]
+    fn motion_live_source_compiles_the_original_geometry_and_six_frame_clock() {
+        use semwright_driver_motion_canvas::{compiler, validate};
+        let project = motion_live_project().unwrap();
+        let plan = validate::render_plan(&project, &motion_live_profile()).unwrap();
+        assert_eq!(
+            (plan.width, plan.height, plan.fps, plan.fps_denominator),
+            (160, 90, 30, 1)
+        );
+        assert_eq!(
+            (plan.first_frame, plan.end_frame_exclusive, plan.frame_count),
+            (0, 6, 6)
+        );
+        assert!(!plan.alpha);
+        assert_eq!(project.settings.background.as_deref(), Some("#0000ff"));
+        let scene = &project.scenes[0];
+        assert_eq!(
+            validate::animation_times(scene, &scene.animations[0]).unwrap(),
+            (80, 81)
+        );
+        assert_eq!(
+            validate::animation_times(scene, &scene.animations[1]).unwrap(),
+            (120, 121)
+        );
+        // Check both the core integer instant and render.mjs's interior frame
+        // representative, before observing any renderer output.
+        for frame in 0..6 {
+            for seconds in [
+                frame as f64 / 30.0,
+                if frame == 0 {
+                    0.0
+                } else {
+                    (frame as f64 - 0.25) / 30.0
+                },
+            ] {
+                assert_eq!((0.081..0.120).contains(&seconds), frame == 3);
+            }
+        }
+        let generated = compiler::compile(&project).unwrap();
+        let source =
+            std::str::from_utf8(&generated.files["src/scenes/mlt-caption-source.tsx"]).unwrap();
+        for fragment in [
+            "<Rect ref={n0}",
+            "position={[-42.5,23.0]}",
+            "width={35.0}",
+            "height={20.0}",
+            "fill={\"#ffff00\"}",
+            "radius={0.0}",
+            "lineWidth={0.0}",
+            "opacity={0.0}",
+            "delay(0.080",
+            "delay(0.120",
+            "n0().opacity(1.0,0.001,linear)",
+            "n0().opacity(0.0,0.001,linear)",
+        ] {
+            assert!(
+                source.contains(fragment),
+                "missing compiled fixture fragment: {fragment}"
+            );
+        }
+        let exporter = std::str::from_utf8(&generated.files["src/semwright-exporter.ts"]).unwrap();
+        assert!(exporter.contains("getContextAttributes"));
+        assert!(exporter.contains("canvas_color:observeCanvasColor(canvas)"));
+    }
+
+    #[test]
+    fn motion_live_legacy_manifest_cannot_substitute_for_original_canvas_receipt() {
+        // The original failing fixture declared the correct renderer/plan but
+        // supplied no Canvas producer receipt. This is a source-only rejection;
+        // no synthetic JSON here is treated as an admitted Native result.
+        let root = owner_root();
+        let originals = AudioLiveOriginals::open_with_exclusions(
+            root.path().to_path_buf(),
+            &[PathBuf::from("/never-a-checkout")],
+        )
+        .unwrap();
+        let directory = "render-1197a71a33c1149ba1f86c1c11e0e3ef";
+        std::fs::create_dir(originals.media_path.path().join(directory)).unwrap();
+        let manifest = json!({
+            "renderer":"motion-canvas-core-renderer-v3.17.2",
+            "plan":semwright_driver_motion_canvas::validate::render_plan(&motion_live_project().unwrap(), &motion_live_profile()).unwrap(),
+            "pixel_validation":{"mode":"all","sample_indices":[0,1,2,3,4,5]},
+            "frames":[]
+        });
+        let bytes = serde_json::to_vec(&manifest).unwrap();
+        let path = format!("{directory}/artifact-manifest.json");
+        originals.media.write_new("media", &path, &bytes).unwrap();
+        let terminal = json!({"state":"succeeded","artifact":{
+            "directory":directory,"manifest":path,"frame_count":6,
+            "first_png":format!("{directory}/frames/000000.png"),
+            "last_png":format!("{directory}/frames/000005.png"),
+            "manifest_sha256":semwright_mlt_video::hash::sha256(&bytes),"manifest_bytes":bytes.len()
+        }});
+        let error = motion_live_original_artifact(&originals, &terminal).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Motion fixture lacks its original Canvas receipt"
+        );
+        assert_eq!(originals.calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+        assert!(
+            !root
+                .path()
+                .join("records/motion-live-artifact-observation.original.json")
+                .exists()
+        );
+        assert_eq!(
+            originals
+                .media
+                .read(&path, AUDIO_LIVE_METADATA_LIMIT)
+                .unwrap(),
+            bytes
+        );
     }
 
     #[test]
