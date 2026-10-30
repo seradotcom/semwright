@@ -192,6 +192,12 @@ pub fn sandbox_spawn(
 ) -> Result<semwright_platform_api::launch::SandboxProcess> {
     launcher().spawn(s)
 }
+pub fn sandbox_spawn_with_stderr_observer(
+    s: &semwright_platform_api::launch::SandboxSpec,
+    observer: Option<std::sync::Arc<dyn semwright_platform_api::launch::SandboxStderrObserver>>,
+) -> Result<semwright_platform_api::launch::SandboxProcess> {
+    launcher().spawn_with_stderr_observer(s, observer)
+}
 pub fn sandbox_available(helper: &Path) -> bool {
     launcher().available(helper)
 }

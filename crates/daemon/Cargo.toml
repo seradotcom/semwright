@@ -11,6 +11,7 @@ publish = false
 [features]
 default = []
 private-host-stdin-custody = []
+private-driver-startup-stderr = []
 
 [lints]
 workspace = true

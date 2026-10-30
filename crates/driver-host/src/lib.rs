@@ -3,8 +3,10 @@
 mod loopback;
 mod operation_permits;
 mod profile_observation;
+mod startup_stderr;
 mod stdin_custody;
 pub use profile_observation::HostProfileObservation;
+pub use startup_stderr::{DriverStartupStderrCustody, DriverStartupStderrSnapshot};
 
 pub use stdin_custody::{
     HostStdinCapture, HostStdinCustody, HostStdinCustodyLosses, HostStdinCustodyReceiver,
@@ -3628,7 +3630,7 @@ impl DriverProvider {
             roots,
             allow_network,
             allow_nvidia_gpu,
-            (None, stdin_custody),
+            (None, stdin_custody, None),
         )
         .await
     }
@@ -3653,7 +3655,32 @@ impl DriverProvider {
             roots,
             allow_network,
             allow_nvidia_gpu,
-            (Some(retained), stdin_custody),
+            (Some(retained), stdin_custody, None),
+        )
+        .await
+    }
+
+    /// Explicit private stderr selection for the existing retained-manifest
+    /// launch. It adds no authority and does not alter the default constructor.
+    pub async fn connect_with_gpu_and_retained_manifest_observed(
+        retained_manifest: (Manifest, Arc<[u8]>),
+        state: &Path,
+        helper: &Path,
+        roots: &[FilesystemGrant],
+        allow_network: bool,
+        allow_nvidia_gpu: bool,
+        observations: (Option<HostStdinCustody>, DriverStartupStderrCustody),
+    ) -> Result<Arc<Self>> {
+        let (manifest, original) = retained_manifest;
+        let retained = profile_observation::validate_retained_manifest(&manifest, original)?;
+        Self::connect_with_gpu_and_observations(
+            manifest,
+            state,
+            helper,
+            roots,
+            allow_network,
+            allow_nvidia_gpu,
+            (Some(retained), observations.0, Some(observations.1)),
         )
         .await
     }
@@ -3668,12 +3695,16 @@ impl DriverProvider {
         observations: (
             Option<profile_observation::ValidatedManifestInput>,
             Option<HostStdinCustody>,
+            Option<DriverStartupStderrCustody>,
         ),
     ) -> Result<Arc<Self>> {
-        let (retained_manifest, stdin_custody) = observations;
+        let (retained_manifest, stdin_custody, startup_stderr) = observations;
         validate_owner_permissions(&manifest, roots, allow_network)?;
         validate_nvidia_gpu_permission(&manifest, allow_nvidia_gpu)?;
         if let Some(custody) = stdin_custody.as_ref() {
+            custody.validate_manifest(&manifest)?;
+        }
+        if let Some(custody) = startup_stderr.as_ref() {
             custody.validate_manifest(&manifest)?;
         }
         #[cfg(target_os = "windows")]
@@ -3747,7 +3778,13 @@ impl DriverProvider {
             } else {
                 None
             };
-            let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+            let mut child = match startup_stderr.as_ref() {
+                Some(custody) => semwright_platform_services::sandbox_spawn_with_stderr_observer(
+                    &spec,
+                    Some(custody.observer()?),
+                )?,
+                None => semwright_platform_services::sandbox_spawn(&spec)?,
+            };
             let process_id = child
                 .id()
                 .ok_or_else(|| Error::new(ErrorCode::Internal, "Driver child has no PID"))?;
@@ -4140,7 +4177,13 @@ impl DriverProvider {
                 };
             #[cfg(not(target_os = "linux"))]
             let tool_broker: Option<Arc<dyn HostToolExecutor>> = None;
-            let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+            let mut child = match startup_stderr.as_ref() {
+                Some(custody) => semwright_platform_services::sandbox_spawn_with_stderr_observer(
+                    &spec,
+                    Some(custody.observer()?),
+                )?,
+                None => semwright_platform_services::sandbox_spawn(&spec)?,
+            };
             let process_id = child
                 .id()
                 .ok_or_else(|| Error::new(ErrorCode::Internal, "Driver child has no PID"))?;

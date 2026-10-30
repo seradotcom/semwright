@@ -105,6 +105,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y libpipewire-0.3-dev pkg-config clang
+      - name: Private startup stderr and shared custody regression tests
+        run: |
+          set -euo pipefail
+          mkdir -p verification/native-sdk
+          cargo test --locked -p semwright-platform-api --lib startup_stderr 2>&1 | tee verification/native-sdk/startup-stderr-api.log
+          cargo test --locked -p semwright-platform-linux-sys --lib startup_stderr 2>&1 | tee verification/native-sdk/startup-stderr-linux.log
+          cargo test --locked -p semwright-driver-host --lib startup_stderr 2>&1 | tee verification/native-sdk/startup-stderr-host.log
+          cargo test --locked -p semwright-daemon --bin semwrightd startup_stderr 2>&1 | tee verification/native-sdk/startup-stderr-default-cli.log
+          cargo test --locked -p semwright-daemon --bin semwrightd --features private-driver-startup-stderr startup_stderr 2>&1 | tee verification/native-sdk/startup-stderr-selected-cli.log
+          cargo test --locked -p semwright-daemon --bin semwrightd --features private-driver-startup-stderr,private-host-stdin-custody host_stdin_custody::tests 2>&1 | tee verification/native-sdk/shared-private-custody.log
+          cargo clippy --locked -p semwright-platform-api -p semwright-platform-linux-sys -p semwright-platform-services -p semwright-driver-host -p semwright-daemon --all-targets --features semwright-daemon/private-driver-startup-stderr,semwright-daemon/private-host-stdin-custody -- -D warnings 2>&1 | tee verification/native-sdk/startup-stderr-clippy.log
       - name: Native read resource selector unit tests and strict Core Clippy
         run: |
           set -euo pipefail

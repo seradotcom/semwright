@@ -805,6 +805,25 @@ impl SandboxProcess {
     }
 }
 
+/// Private, Rust-only stderr observation for one owner-selected launch. This is
+/// not a sandbox grant or wire field. Implementations must not block, persist
+/// bytes synchronously, or retain an unbounded payload in these callbacks.
+pub trait SandboxStderrObserver: Send + Sync {
+    fn started(&self);
+    fn bytes(&self, bytes: &[u8]);
+    fn terminal(&self, terminal: SandboxStderrTerminal);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SandboxStderrTerminal {
+    Eof,
+    ReadFailed {
+        kind: std::io::ErrorKind,
+        raw_os_error: Option<i32>,
+    },
+    Interrupted,
+}
+
 pub trait SandboxLauncher: Send + Sync {
     fn command(&self, spec: &SandboxSpec) -> Result<Command>;
 
@@ -824,6 +843,22 @@ pub trait SandboxLauncher: Send + Sync {
         SandboxProcess::from_tokio_child(child)
     }
 
+    /// Selected observation must use the platform's real containment/lifecycle
+    /// path. A platform without that support refuses it before launching.
+    fn spawn_with_stderr_observer(
+        &self,
+        spec: &SandboxSpec,
+        observer: Option<Arc<dyn SandboxStderrObserver>>,
+    ) -> Result<SandboxProcess> {
+        if observer.is_some() {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Selected private sandbox stderr observation is unavailable",
+            ));
+        }
+        self.spawn(spec)
+    }
+
     fn available(&self, helper: &Path) -> bool;
     fn mechanism(&self) -> &'static str;
     fn diagnostics(&self, helper: &Path) -> serde_json::Value {
@@ -834,6 +869,70 @@ pub trait SandboxLauncher: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct UnsupportedStderrLauncher(std::sync::atomic::AtomicUsize);
+
+    impl SandboxLauncher for UnsupportedStderrLauncher {
+        fn command(&self, _: &SandboxSpec) -> Result<Command> {
+            panic!("selected observation must not fall back to command().spawn()");
+        }
+        fn spawn(&self, _: &SandboxSpec) -> Result<SandboxProcess> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "original platform failure",
+            ))
+        }
+        fn available(&self, _: &Path) -> bool {
+            true
+        }
+        fn mechanism(&self) -> &'static str {
+            "fixture"
+        }
+    }
+
+    struct UnusedStderrObserver;
+    impl SandboxStderrObserver for UnusedStderrObserver {
+        fn started(&self) {
+            panic!("no child was launched");
+        }
+        fn bytes(&self, _: &[u8]) {
+            panic!("no child was launched");
+        }
+        fn terminal(&self, _: SandboxStderrTerminal) {
+            panic!("no child was launched");
+        }
+    }
+
+    #[test]
+    fn startup_stderr_default_rejects_selection_and_preserves_disabled_spawn() {
+        let launcher = UnsupportedStderrLauncher(std::sync::atomic::AtomicUsize::new(0));
+        let spec = SandboxSpec {
+            kind: SandboxKind::Driver,
+            staged_executable: PathBuf::from("unused"),
+            helper: PathBuf::from("unused"),
+            mounts: vec![],
+            args: vec![],
+            environment: vec![],
+            sealed_tools: vec![],
+            network: false,
+            nvidia_gpu: false,
+            limits: None,
+        };
+        let error = launcher
+            .spawn_with_stderr_observer(&spec, Some(Arc::new(UnusedStderrObserver)))
+            .err()
+            .unwrap();
+        assert_eq!(error.code, ErrorCode::Unsupported);
+        assert_eq!(launcher.0.load(std::sync::atomic::Ordering::Relaxed), 0);
+        let error = launcher
+            .spawn_with_stderr_observer(&spec, None)
+            .err()
+            .unwrap();
+        assert_eq!(error.code, ErrorCode::SandboxDenied);
+        assert_eq!(error.message, "original platform failure");
+        assert_eq!(launcher.0.load(std::sync::atomic::Ordering::Relaxed), 1);
+    }
 
     fn materialized(name: &str, path: &str) -> MaterializedMount {
         MaterializedMount {
