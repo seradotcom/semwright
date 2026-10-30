@@ -48,6 +48,16 @@ impl AudioLiveOriginals {
         args: &Value,
     ) -> AudioLiveResult<String> {
         self.before_effect()?;
+        if self.terminal_case.is_some() {
+            self.terminal_started
+                .compare_exchange(
+                    false,
+                    true,
+                    std::sync::atomic::Ordering::SeqCst,
+                    std::sync::atomic::Ordering::SeqCst,
+                )
+                .map_err(|_| std::io::Error::other("Terminal negative scope already called"))?;
+        }
         let index = self
             .calls
             .fetch_update(
@@ -64,6 +74,7 @@ impl AudioLiveOriginals {
         let stem = format!("call-{index:05}");
         self.record(&format!("{stem}.request.original.json"), &json!({
             "schema":"semwright.mlt-live-provider-request-original/1",
+            "terminal_case":self.terminal_case,
             "context":{"session":context.session,"request_id":context.request_id,
                 "cancellation_requested":context.cancellation.is_cancelled()},
             "capability":name,"descriptor":descriptor,"arguments":args,
@@ -78,11 +89,15 @@ impl AudioLiveOriginals {
         stem: &str,
         original: semwright_types::Result<Value>,
     ) -> semwright_types::Result<Value> {
+        if self.terminal_case.is_some() {
+            self.stop();
+        }
         let retained = (|| -> AudioLiveResult<()> {
             self.record(
                 &format!("{stem}.result.original.json"),
                 &json!({
                     "schema":"semwright.mlt-live-provider-result-original/1",
+                    "terminal_case":self.terminal_case,
                     "result":serde_json::to_value(&original)?,
                     "capture_scope":"complete-returned-public-SDK-Result-before-interpretation",
                     "host_stream_eof_attested":false,"native_execution_retried":false
@@ -128,7 +143,10 @@ async fn call(
     args: Value,
 ) -> semwright_types::Result<Value> {
     let context = Context {
-        session: "mlt-video-live".into(),
+        session: originals.terminal_case.map_or_else(
+            || "mlt-video-live".into(),
+            |case| format!("mlt-video-live-negative-{case}"),
+        ),
         request_id: semwright_types::unique_id(),
         cancellation: CancellationToken::new(),
     };
@@ -584,8 +602,11 @@ struct AudioLiveOriginals {
     directories: Vec<RetainedLiveDirectory>,
     ancestors: Vec<RetainedLiveDirectory>,
     excluded_locations: Vec<PathBuf>,
-    calls: std::sync::atomic::AtomicUsize,
-    record_bytes: std::sync::atomic::AtomicU64,
+    calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    record_bytes: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    custody_failed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    terminal_case: Option<&'static str>,
+    terminal_started: std::sync::atomic::AtomicBool,
     blocked: std::sync::atomic::AtomicBool,
 }
 
@@ -601,6 +622,17 @@ impl AudioLiveOriginals {
     }
 
     fn open_with_exclusions(path: PathBuf, excluded: &[PathBuf]) -> AudioLiveResult<Self> {
+        Self::open_scope(path, excluded, None)
+    }
+
+    fn open_scope(
+        path: PathBuf,
+        excluded: &[PathBuf],
+        terminal: Option<(&'static str, &Self)>,
+    ) -> AudioLiveResult<Self> {
+        if let Some((_, positive)) = terminal {
+            positive.before_effect()?;
+        }
         use std::os::{
             fd::{AsRawFd, FromRawFd},
             unix::fs::MetadataExt,
@@ -674,8 +706,20 @@ impl AudioLiveOriginals {
             directories,
             ancestors,
             excluded_locations: excluded.to_vec(),
-            calls: std::sync::atomic::AtomicUsize::new(0),
-            record_bytes: std::sync::atomic::AtomicU64::new(0),
+            calls: terminal.map_or_else(
+                || std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+                |(_, positive)| positive.calls.clone(),
+            ),
+            record_bytes: terminal.map_or_else(
+                || std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
+                |(_, positive)| positive.record_bytes.clone(),
+            ),
+            custody_failed: terminal.map_or_else(
+                || std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                |(_, positive)| positive.custody_failed.clone(),
+            ),
+            terminal_case: terminal.map(|(case, _)| case),
+            terminal_started: std::sync::atomic::AtomicBool::new(false),
             blocked: std::sync::atomic::AtomicBool::new(false),
         };
         value.check_directories()?;
@@ -721,8 +765,14 @@ impl AudioLiveOriginals {
 
     fn before_effect(&self) -> AudioLiveResult<()> {
         audio_live_require(
-            !self.blocked.load(std::sync::atomic::Ordering::SeqCst),
-            "Audio live attempt is stopped after an uncertain outcome or incomplete custody",
+            !self.blocked.load(std::sync::atomic::Ordering::SeqCst)
+                && !self
+                    .custody_failed
+                    .load(std::sync::atomic::Ordering::SeqCst)
+                && self.calls.load(std::sync::atomic::Ordering::SeqCst) < AUDIO_LIVE_CALL_LIMIT
+                && self.record_bytes.load(std::sync::atomic::Ordering::SeqCst)
+                    < AUDIO_LIVE_RECORDS_LIMIT,
+            "Audio live attempt is stopped after uncertainty, custody failure or budget exhaustion",
         )?;
         self.check_directories()
     }
@@ -809,6 +859,8 @@ impl AudioLiveOriginals {
         })();
         if result.is_err() {
             self.stop();
+            self.custody_failed
+                .store(true, std::sync::atomic::Ordering::SeqCst);
         }
         result
     }
@@ -2696,13 +2748,446 @@ async fn motion_live_fixture(
     observed
 }
 
+#[derive(Clone, Copy)]
+struct AudioLiveNegativeCase {
+    id: &'static str,
+    capability: &'static str,
+    expected: semwright_types::ErrorCode,
+    absent_outputs: &'static [&'static str],
+}
+
+const AUDIO_LIVE_NEGATIVES: [AudioLiveNegativeCase; 6] = [
+    AudioLiveNegativeCase {
+        id: "stale_frames",
+        capability: "driver.mlt-video.frames.encode",
+        expected: semwright_types::ErrorCode::StaleReference,
+        absent_outputs: &["stale-mezzanine.mkv"],
+    },
+    AudioLiveNegativeCase {
+        id: "stale",
+        capability: "driver.mlt-video.av.caption_pixels.verify",
+        expected: semwright_types::ErrorCode::StaleReference,
+        absent_outputs: &[],
+    },
+    AudioLiveNegativeCase {
+        id: "denied",
+        capability: "driver.mlt-video.av.caption_pixels.verify",
+        expected: semwright_types::ErrorCode::BackendFailed,
+        absent_outputs: &[],
+    },
+    AudioLiveNegativeCase {
+        id: "invalid",
+        capability: "driver.mlt-video.av.caption_pixels.verify",
+        expected: semwright_types::ErrorCode::InvalidArgument,
+        absent_outputs: &[],
+    },
+    AudioLiveNegativeCase {
+        id: "stale_sync",
+        capability: "driver.mlt-video.sync.probe",
+        expected: semwright_types::ErrorCode::StaleReference,
+        absent_outputs: &[],
+    },
+    AudioLiveNegativeCase {
+        id: "stale_mux",
+        capability: "driver.mlt-video.av.mux",
+        expected: semwright_types::ErrorCode::StaleReference,
+        absent_outputs: &["stale-av-master.mp4", "stale-av-master.decoded.wav"],
+    },
+];
+const AUDIO_LIVE_NEGATIVE_INPUT_LIMIT: usize = 16 * 1024 * 1024;
+const AUDIO_LIVE_NEGATIVE_TOTAL_INPUT_LIMIT: usize = 32 * 1024 * 1024;
+
+struct AudioLiveNegativePlan {
+    case: AudioLiveNegativeCase,
+    args: Value,
+    inputs: Vec<(&'static str, String)>,
+}
+
+struct AudioLiveNegativeInput {
+    root: &'static str,
+    path: String,
+    bytes: Vec<u8>,
+    sha256: String,
+}
+
+fn audio_live_negative_root<'a>(
+    originals: &'a AudioLiveOriginals,
+    root: &str,
+) -> AudioLiveResult<&'a semwright_mlt_video::fs::Root> {
+    match root {
+        "media" => Ok(&originals.media),
+        "output" => Ok(&originals.output),
+        _ => Err(std::io::Error::other("Undeclared negative input root").into()),
+    }
+}
+
+fn audio_live_negative_grants(
+    originals: &AudioLiveOriginals,
+    shared: &[FilesystemGrant],
+) -> AudioLiveResult<Vec<FilesystemGrant>> {
+    shared
+        .iter()
+        .map(|grant| {
+            let path = match grant.name.as_str() {
+                "project" | "media" | "output" | "scratch" => {
+                    originals.directory(&grant.name)?.path
+                }
+                _ => {
+                    audio_live_require(!grant.write, "A shared negative input grant is writable")?;
+                    grant.path.clone()
+                }
+            };
+            Ok(FilesystemGrant {
+                name: grant.name.clone(),
+                path,
+                read: grant.read,
+                write: grant.write,
+            })
+        })
+        .collect()
+}
+
+fn audio_live_prepare_negative_inputs(
+    positive: &AudioLiveOriginals,
+    scopes: &[AudioLiveOriginals],
+    plans: &[AudioLiveNegativePlan],
+) -> AudioLiveResult<Vec<Vec<AudioLiveNegativeInput>>> {
+    audio_live_require(
+        scopes.len() == 6 && plans.len() == 6,
+        "Six terminal negatives are required",
+    )?;
+    let mut total = 0usize;
+    let mut count = 0usize;
+    let mut prepared = Vec::new();
+    for ((scope, plan), declared) in scopes.iter().zip(plans).zip(AUDIO_LIVE_NEGATIVES) {
+        scope.before_effect()?;
+        audio_live_require(
+            scope.terminal_case == Some(declared.id) && plan.case.id == declared.id,
+            "Terminal case order or scope binding differs",
+        )?;
+        let mut inputs = Vec::new();
+        for (root, path) in &plan.inputs {
+            audio_live_require(
+                !path.is_empty()
+                    && Path::new(path)
+                        .components()
+                        .all(|part| matches!(part, std::path::Component::Normal(_))),
+                "Negative input is not a relative closed path",
+            )?;
+            let bytes = audio_live_negative_root(positive, root)?
+                .read(path, AUDIO_LIVE_NEGATIVE_INPUT_LIMIT)?;
+            total = total
+                .checked_add(bytes.len())
+                .ok_or_else(|| std::io::Error::other("Negative input size overflow"))?;
+            count += 1;
+            audio_live_require(
+                total <= AUDIO_LIVE_NEGATIVE_TOTAL_INPUT_LIMIT && count <= 10,
+                "Negative preparation exceeds its aggregate ten-file / 32 MiB bound",
+            )?;
+            inputs.push(AudioLiveNegativeInput {
+                root,
+                path: path.clone(),
+                sha256: semwright_mlt_video::hash::sha256(&bytes),
+                bytes,
+            });
+        }
+        // Capture every selected original and the exact request before copies or
+        // any negative Provider connection. No runtime, binary or long PCM copy.
+        scope.record(
+            "negative-plan.original.json",
+            &json!({
+                "case":plan.case.id,"capability":plan.case.capability,"arguments":plan.args,
+                "expected_code":plan.case.expected,"expected_outcome_known":false,
+                "inputs":inputs.iter().map(|input| json!({"root":input.root,"path":input.path,
+                    "bytes":input.bytes.len(),"sha256":input.sha256})).collect::<Vec<_>>(),
+                "absent_outputs":plan.case.absent_outputs,"native_execution_retried":false
+            }),
+        )?;
+        prepared.push(inputs);
+    }
+    positive.record("negative-preparation-budget.original.json", &json!({
+        "cases":AUDIO_LIVE_NEGATIVES.map(|case| case.id),"input_files":count,"input_bytes":total,
+        "maximum_files":10,"maximum_input_bytes":AUDIO_LIVE_NEGATIVE_TOTAL_INPUT_LIMIT,
+        "records_limit_shared":AUDIO_LIVE_RECORDS_LIMIT,"calls_limit_shared":AUDIO_LIVE_CALL_LIMIT,
+        "runtime_and_binaries_copied":false,"all_positives_and_shutdown_completed":true
+    }))?;
+    for (scope, inputs) in scopes.iter().zip(&prepared) {
+        for input in inputs {
+            scope.before_effect()?;
+            let directory = scope.directory(input.root)?;
+            if let Some(parent) = Path::new(&input.path).parent() {
+                // Every path component was checked above; this newly opened,
+                // private scope has not yet been granted to any provider.
+                std::fs::create_dir_all(directory.path().join(parent))?;
+            }
+            audio_live_negative_root(scope, input.root)?.write_new(
+                input.root,
+                &input.path,
+                &input.bytes,
+            )?;
+            let retained = audio_live_negative_root(scope, input.root)?
+                .read(&input.path, AUDIO_LIVE_NEGATIVE_INPUT_LIMIT)?;
+            audio_live_require(
+                retained == input.bytes,
+                "Negative input copy differs from its original",
+            )?;
+        }
+    }
+    Ok(prepared)
+}
+
+fn audio_live_observe_negative(
+    positive: &AudioLiveOriginals,
+    scope: &AudioLiveOriginals,
+    plan: &AudioLiveNegativePlan,
+    inputs: &[AudioLiveNegativeInput],
+) -> AudioLiveResult<Value> {
+    positive.check_directories()?;
+    scope.check_directories()?;
+    let mut observed = Vec::new();
+    for input in inputs {
+        for (label, originals) in [("positive", positive), ("negative", scope)] {
+            let bytes = audio_live_negative_root(originals, input.root)?
+                .read(&input.path, AUDIO_LIVE_NEGATIVE_INPUT_LIMIT)?;
+            let actual = semwright_mlt_video::hash::sha256(&bytes);
+            audio_live_require(
+                actual == input.sha256 && bytes.len() == input.bytes.len(),
+                "Terminal negative changed a retained source",
+            )?;
+            observed.push(json!({"scope":label,"root":input.root,"path":input.path,
+                "bytes":bytes.len(),"sha256":actual}));
+        }
+    }
+    for path in plan.case.absent_outputs {
+        match scope.output.read_file(path, 1) {
+            Err(error) if error.code == "NotFound" => {}
+            Err(error) => return Err(Box::new(error)),
+            Ok(_) => {
+                return Err(std::io::Error::other("Terminal negative published an output").into());
+            }
+        }
+    }
+    Ok(
+        json!({"case":plan.case.id,"sources":observed,"absent_outputs":plan.case.absent_outputs,
+        "observation_scope":"named-files-only","all_effects_absent_claimed":false,
+        "host_stream_eof_attested":false,"descendant_closure_attested":false}),
+    )
+}
+
+fn audio_live_evaluate_terminal_negative(
+    scope: &AudioLiveOriginals,
+    plan: &AudioLiveNegativePlan,
+    index: usize,
+    original: semwright_types::Result<Value>,
+    observations: AudioLiveResult<Value>,
+) -> AudioLiveResult<()> {
+    let checked = (|| -> AudioLiveResult<()> {
+        audio_live_require(
+            scope.terminal_case == Some(plan.case.id)
+                && scope
+                    .terminal_started
+                    .load(std::sync::atomic::Ordering::SeqCst)
+                && scope.blocked.load(std::sync::atomic::Ordering::SeqCst)
+                && !scope
+                    .custody_failed
+                    .load(std::sync::atomic::Ordering::SeqCst)
+                && scope.calls.load(std::sync::atomic::Ordering::SeqCst) == index,
+            "Terminal negative scope or custody is incomplete",
+        )?;
+        let error = original
+            .as_ref()
+            .err()
+            .ok_or_else(|| std::io::Error::other("Terminal negative unexpectedly succeeded"))?;
+        audio_live_require(
+            error.code == plan.case.expected && !error.outcome_known,
+            "Terminal negative returned a different code or unexpected known certainty",
+        )?;
+        if plan.case.id == "stale" {
+            audio_live_require(
+                !error.message.contains("caption-oracle-master.mp4"),
+                "Caption rejection disclosed the private master name",
+            )?;
+        }
+        let stem = format!("call-{index:05}");
+        let declared: Value = serde_json::from_slice(
+            &scope
+                .records
+                .read("negative-plan.original.json", AUDIO_LIVE_METADATA_LIMIT)?,
+        )?;
+        let request: Value = serde_json::from_slice(&scope.records.read(
+            &format!("{stem}.request.original.json"),
+            AUDIO_LIVE_METADATA_LIMIT,
+        )?)?;
+        let result: Value = serde_json::from_slice(&scope.records.read(
+            &format!("{stem}.result.original.json"),
+            AUDIO_LIVE_METADATA_LIMIT,
+        )?)?;
+        audio_live_require(
+            declared["case"] == plan.case.id
+                && declared["capability"] == plan.case.capability
+                && declared["arguments"] == plan.args
+                && declared["expected_code"] == serde_json::to_value(plan.case.expected)?
+                && declared["expected_outcome_known"] == false
+                && request["terminal_case"] == plan.case.id
+                && request["capability"] == plan.case.capability
+                && request["arguments"] == plan.args
+                && request["context"]["session"]
+                    == format!("mlt-video-live-negative-{}", plan.case.id)
+                && result["terminal_case"] == plan.case.id
+                && result["result"] == serde_json::to_value(&original)?,
+            "Terminal evaluation is not bound to the complete original request and return",
+        )?;
+        let observed = observations
+            .as_ref()
+            .map_err(|error| std::io::Error::other(error.to_string()))?;
+        audio_live_require(
+            observed["case"] == plan.case.id,
+            "Terminal file observation belongs to another case",
+        )?;
+        scope.record("negative-files-observation.original.json", observed)?;
+        Ok(())
+    })();
+    let retained = scope.record(
+        "negative-evaluation.json",
+        &json!({
+            "case":plan.case.id,"call_index":index,"expected_code":plan.case.expected,
+            "assessment":if checked.is_ok() {"EXPECTED_TERMINAL_REJECTION"} else {"FAILED"},
+            "assessment_error":checked.as_ref().err().map(ToString::to_string),
+            "original_result":format!("call-{index:05}.result.original.json"),
+            "original_outcome_known":original.as_ref().err().map(|error| error.outcome_known),
+            "outcome_reclassified":false,"another_execute_permitted":false,
+            "formal_acceptance":false,"native_execution_retried":false
+        }),
+    );
+    match (checked, retained) {
+        (Ok(()), Ok(())) => Ok(()),
+        (checked, retained) => {
+            let secondary = checked
+                .err()
+                .or_else(|| retained.err())
+                .ok_or_else(|| std::io::Error::other("Missing terminal evaluation failure"))?;
+            scope.secondary(
+                "negative-evaluation-error.original.json",
+                secondary.as_ref(),
+            );
+            // A custody/evaluation failure never replaces a native primary error.
+            match original {
+                Err(error) => Err(Box::new(error)),
+                Ok(_) => Err(secondary),
+            }
+        }
+    }
+}
+
+async fn audio_live_terminal_negatives(
+    positive: &AudioLiveOriginals,
+    scopes: &[AudioLiveOriginals],
+    plans: &[AudioLiveNegativePlan],
+    manifest: &Value,
+    shared_grants: &[FilesystemGrant],
+    helper: &Path,
+) -> AudioLiveResult<()> {
+    let prepared = audio_live_prepare_negative_inputs(positive, scopes, plans)?;
+    for ((scope, plan), inputs) in scopes.iter().zip(plans).zip(&prepared) {
+        scope.before_effect()?;
+        let state = scope.directory("state")?;
+        let grants = audio_live_negative_grants(scope, shared_grants)?;
+        scope.record(
+            "negative-connect-request.original.json",
+            &json!({
+                "case":plan.case.id,"manifest":manifest,"state":state.path(),"helper":helper,
+                "filesystem_grants":grants.iter().map(|grant| json!({"name":grant.name,
+                    "path":grant.path,"read":grant.read,"write":grant.write})).collect::<Vec<_>>()
+            }),
+        )?;
+        let connected = DriverProvider::connect(
+            serde_json::from_value(manifest.clone())?,
+            state.path(),
+            helper,
+            &grants,
+            false,
+        )
+        .await;
+        let retained = scope.record("negative-connect-return.original.json", &json!({
+            "returned_ok":connected.is_ok(),"original_error":serde_json::to_value(connected.as_ref().err())?
+        }));
+        let provider = match connected {
+            Err(original) => {
+                if let Err(secondary) = retained {
+                    scope.secondary(
+                        "negative-connect-custody-error.original.json",
+                        secondary.as_ref(),
+                    );
+                }
+                return Err(Box::new(original));
+            }
+            Ok(provider) => {
+                if let Err(error) = retained {
+                    return audio_live_shutdown(scope, provider.as_ref(), Err(error)).await;
+                }
+                provider
+            }
+        };
+        let evaluated: AudioLiveResult<()> = async {
+            let original_capabilities = Provider::capabilities(provider.as_ref()).await;
+            let retained = scope.record_limited(
+                "negative-capabilities.original.json",
+                &match &original_capabilities {
+                    Ok(capabilities) => json!({"Ok":capabilities.iter().map(|capability| json!({
+                    "descriptor":capability.descriptor,"aliases":capability.aliases,
+                    "tags":capability.tags,"object_types":capability.object_types
+                })).collect::<Vec<_>>()}),
+                    Err(error) => json!({"Err":serde_json::to_value(error)?}),
+                },
+                AUDIO_LIVE_CAPABILITIES_LIMIT,
+            );
+            let capabilities = audio_live_finish_native(original_capabilities, retained)?;
+            let index = scope
+                .calls
+                .load(std::sync::atomic::Ordering::SeqCst)
+                .checked_add(1)
+                .ok_or_else(|| std::io::Error::other("Negative call index overflow"))?;
+            // Exactly one call in this predeclared scope; finish_call permanently
+            // fences it even for an unexpected Ok or known Error.
+            let original = call(
+                scope,
+                provider.as_ref(),
+                &capabilities,
+                plan.case.capability,
+                plan.args.clone(),
+            )
+            .await;
+            let observations = audio_live_observe_negative(positive, scope, plan, inputs);
+            audio_live_evaluate_terminal_negative(scope, plan, index, original, observations)
+        }
+        .await;
+        audio_live_shutdown(scope, provider.as_ref(), evaluated).await?;
+    }
+    Ok(())
+}
+
 #[tokio::test]
 #[ignore = "requires bubblewrap, real melt and ffprobe on a Linux host"]
 async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
     let selector = std::env::var("SEMWRIGHT_TEST_MLT_VIDEO").ok();
     audio_live_selector(selector.as_deref())?;
-    let audio_originals =
-        AudioLiveOriginals::open(std::env::var_os(AUDIO_LIVE_ORIGINALS_ENV).map(PathBuf::from))?;
+    let evidence_root = std::env::var_os(AUDIO_LIVE_ORIGINALS_ENV)
+        .map(PathBuf::from)
+        .ok_or_else(|| std::io::Error::other("External live evidence root is required"))?;
+    let audio_originals = AudioLiveOriginals::open(Some(evidence_root.join("positive")))?;
+    // The workflow creates these empty scopes before the attempt. Every scope
+    // shares the original aggregate counters; only its terminal fence is local.
+    let negative_originals = AUDIO_LIVE_NEGATIVES
+        .iter()
+        .map(|case| {
+            AudioLiveOriginals::open_scope(
+                evidence_root.join(case.id),
+                &audio_originals.excluded_locations,
+                Some((case.id, &audio_originals)),
+            )
+        })
+        .collect::<AudioLiveResult<Vec<_>>>()?;
+    let mut negative_plans = Vec::new();
 
     let cargo_executable = PathBuf::from(env!("CARGO_BIN_EXE_semwright-mlt-video-driver"));
     let cargo_runtime_runner = PathBuf::from(env!("CARGO_BIN_EXE_semwright-mlt-runtime-runner"));
@@ -3123,6 +3608,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
             })).collect::<Vec<_>>(),"dry_run":false,"authority_issued_by_evidence_root":false
         }),
     )?;
+    let negative_manifest = serde_json::to_value(&manifest)?;
     let connected = DriverProvider::connect(manifest, state.path(), &helper, &grants, false).await;
     let retained = (|| -> AudioLiveResult<()> {
         audio_originals.record(
@@ -3253,27 +3739,13 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
             output.path().join("motion-mezzanine.mkv").is_file(),
             "frames.encode did not publish its verified mezzanine"
         );
-        let stale_frames = audio_live_expect_known_error(
-            call(
-                &audio_originals,
-                provider.as_ref(),
-                &capabilities,
-                "driver.mlt-video.frames.encode",
-                json!({
-                    "root":"media",
-                    "manifest_path":motion_manifest_path,
-                    "expected_manifest_sha256":"0".repeat(64),
-                    "output_path":"stale-mezzanine.mkv",
-                    "max_bytes":67108864
-                }),
-            )
-            .await,
-        )?;
-        assert_eq!(
-            stale_frames.code,
-            semwright_types::ErrorCode::StaleReference
-        );
-        assert!(!output.path().join("stale-mezzanine.mkv").exists());
+        negative_plans.push(AudioLiveNegativePlan {
+            case: AUDIO_LIVE_NEGATIVES[0],
+            args: json!({"root":"media","manifest_path":motion_manifest_path,
+                "expected_manifest_sha256":"0".repeat(64),
+                "output_path":"stale-mezzanine.mkv","max_bytes":67108864}),
+            inputs: vec![("media", motion_manifest_path.clone())],
+        });
 
         // The same original six source PNGs now flow through the *real* pinned
         // FFV1 driver + MLT H264/AAC mux, followed by the brand-new read-only
@@ -3340,57 +3812,34 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
         assert!(!observed.to_string().contains("caption-audio.wav"));
         assert!(!observed.to_string().contains("caption-oracle-master.mp4"));
         let _source_len = std::fs::metadata(&original_ffv1).unwrap().len();
-        let stale = audio_live_expect_known_error(
-            call(
-                &audio_originals,
-                provider.as_ref(),
-                &capabilities,
-                "driver.mlt-video.av.caption_pixels.verify",
-                {
-                    let mut forged = owner_args.clone();
-                    forged["source_sha256"] = json!("0".repeat(64));
-                    forged
-                },
-            )
-            .await,
-        )?;
-        assert_eq!(stale.code, semwright_types::ErrorCode::StaleReference);
-        // The upstream Broker may conservatively classify Host tool errors as
-        // unknown. That flag cannot turn a rejected read-only observation into
-        // approval or authorize a render retry.
-        assert!(!stale.message.contains("caption-oracle-master.mp4"));
-        let denied = audio_live_expect_known_error(
-            call(
-                &audio_originals,
-                provider.as_ref(),
-                &capabilities,
-                "driver.mlt-video.av.caption_pixels.verify",
-                {
-                    let mut forged = owner_args.clone();
-                    forged["source_path"] = json!("../private/master.mkv");
-                    forged
-                },
-            )
-            .await,
-        )?;
-        // The existing Host AV envelope currently maps runtime-tool denial to
-        // BackendFailed rather than granting any filesystem access.
-        assert_eq!(denied.code, semwright_types::ErrorCode::BackendFailed);
-        let invalid = audio_live_expect_known_error(
-            call(
-                &audio_originals,
-                provider.as_ref(),
-                &capabilities,
-                "driver.mlt-video.av.caption_pixels.verify",
-                {
-                    let mut forged = owner_args;
-                    forged["cues"] = json!([{"start_frame":0,"end_frame_exclusive":1}]);
-                    forged
-                },
-            )
-            .await,
-        )?;
-        assert_eq!(invalid.code, semwright_types::ErrorCode::InvalidArgument);
+        for (case, key, value) in [
+            (
+                AUDIO_LIVE_NEGATIVES[1],
+                "source_sha256",
+                json!("0".repeat(64)),
+            ),
+            (
+                AUDIO_LIVE_NEGATIVES[2],
+                "source_path",
+                json!("../private/master.mkv"),
+            ),
+            (
+                AUDIO_LIVE_NEGATIVES[3],
+                "cues",
+                json!([{"start_frame":0,"end_frame_exclusive":1}]),
+            ),
+        ] {
+            let mut args = owner_args.clone();
+            args[key] = value;
+            negative_plans.push(AudioLiveNegativePlan {
+                case,
+                args,
+                inputs: vec![
+                    ("output", "motion-mezzanine.mkv".into()),
+                    ("output", "caption-oracle-master.mp4".into()),
+                ],
+            });
+        }
         assert_eq!(digest(&master_mp4), original_master_sha);
 
         let sync_digest = digest(&sync_source);
@@ -3425,23 +3874,13 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
         assert!(impulse_us.abs_diff(1_000_000) <= 10_000, "{sync:#}");
         assert!(flash_us.abs_diff(impulse_us) <= 35_000, "{sync:#}");
 
-        let stale_sync = audio_live_expect_known_error(
-            call(
-                &audio_originals,
-                provider.as_ref(),
-                &capabilities,
-                "driver.mlt-video.sync.probe",
-                json!({
-                    "root":"media",
-                    "path":"sync-markers.mkv",
-                    "expected_sha256":"0".repeat(64),
-                    "window_us":100000,
-                    "cues":[{"id":"technical","expected_us":1000000}]
-                }),
-            )
-            .await,
-        )?;
-        assert_eq!(stale_sync.code, semwright_types::ErrorCode::StaleReference);
+        negative_plans.push(AudioLiveNegativePlan {
+            case: AUDIO_LIVE_NEGATIVES[4],
+            args: json!({"root":"media","path":"sync-markers.mkv",
+                "expected_sha256":"0".repeat(64),"window_us":100000,
+                "cues":[{"id":"technical","expected_us":1000000}]}),
+            inputs: vec![("media", "sync-markers.mkv".into())],
+        });
 
         let muxed = call(
             &audio_originals,
@@ -3496,36 +3935,16 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
                 .is_some_and(|frames| frames > 0)
         );
 
-        let stale_mux = audio_live_expect_known_error(
-            call(
-                &audio_originals,
-                provider.as_ref(),
-                &capabilities,
-                "driver.mlt-video.av.mux",
-                json!({
-                    "video_root":"media",
-                    "video_path":"red.mkv",
-                    "video_sha256":"0".repeat(64),
-                    "audio_root":"media",
-                    "audio_path":"sine.wav",
-                    "audio_sha256":digest(&media.path().join("sine.wav")),
-                    "width":160,
-                    "height":90,
-                    "fps_num":25,
-                    "fps_den":1,
-                    "frame_count":50,
-                    "sample_rate":48000,
-                    "channels":2,
-                    "profile":"h264-aac-mp4",
-                    "output_path":"stale-av-master.mp4",
-                    "max_bytes":67108864
-                }),
-            )
-            .await,
-        )?;
-        assert_eq!(stale_mux.code, semwright_types::ErrorCode::StaleReference);
-        assert!(!output.path().join("stale-av-master.mp4").exists());
-        assert!(!output.path().join("stale-av-master.decoded.wav").exists());
+        negative_plans.push(AudioLiveNegativePlan {
+            case: AUDIO_LIVE_NEGATIVES[5],
+            args: json!({"video_root":"media","video_path":"red.mkv",
+                "video_sha256":"0".repeat(64),"audio_root":"media","audio_path":"sine.wav",
+                "audio_sha256":digest(&media.path().join("sine.wav")),
+                "width":160,"height":90,"fps_num":25,"fps_den":1,"frame_count":50,
+                "sample_rate":48000,"channels":2,"profile":"h264-aac-mp4",
+                "output_path":"stale-av-master.mp4","max_bytes":67108864}),
+            inputs: vec![("media", "red.mkv".into()), ("media", "sine.wav".into())],
+        });
 
         let created_project = call(
             &audio_originals,
@@ -4159,7 +4578,16 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
         }
         Ok(()) => body_retained,
     };
-    audio_live_shutdown(&audio_originals, provider.as_ref(), operations).await
+    audio_live_shutdown(&audio_originals, provider.as_ref(), operations).await?;
+    audio_live_terminal_negatives(
+        &audio_originals,
+        &negative_originals,
+        &negative_plans,
+        &negative_manifest,
+        &grants,
+        &helper,
+    )
+    .await
 }
 
 #[cfg(test)]
@@ -4642,6 +5070,323 @@ mod audio_live_source_tests {
                 .outcome_known
         );
         assert!(audio_live_expect_known_error(Ok(json!({"unexpected":"success"}))).is_err());
+    }
+
+    fn terminal_plan(case: AudioLiveNegativeCase) -> AudioLiveNegativePlan {
+        AudioLiveNegativePlan {
+            case,
+            args: json!({"source_control_only":true}),
+            inputs: vec![],
+        }
+    }
+
+    fn terminal_scope(
+        root: &tempfile::TempDir,
+        positive: &AudioLiveOriginals,
+        plan: &AudioLiveNegativePlan,
+    ) -> AudioLiveOriginals {
+        let scope = AudioLiveOriginals::open_scope(
+            root.path().canonicalize().unwrap(),
+            &positive.excluded_locations,
+            Some((plan.case.id, positive)),
+        )
+        .unwrap();
+        scope
+            .record(
+                "negative-plan.original.json",
+                &json!({"case":plan.case.id,
+            "capability":plan.case.capability,"arguments":plan.args,
+            "expected_code":plan.case.expected,"expected_outcome_known":false}),
+            )
+            .unwrap();
+        scope
+    }
+
+    fn terminal_request(
+        scope: &AudioLiveOriginals,
+        plan: &AudioLiveNegativePlan,
+    ) -> (usize, String) {
+        let ctx = Context {
+            session: format!("mlt-video-live-negative-{}", plan.case.id),
+            request_id: "source-only-terminal-control".into(),
+            cancellation: CancellationToken::new(),
+        };
+        let stem = scope
+            .begin_call(
+                &ctx,
+                plan.case.capability,
+                &json!({"name":plan.case.capability}),
+                &plan.args,
+            )
+            .unwrap();
+        (scope.calls.load(std::sync::atomic::Ordering::SeqCst), stem)
+    }
+
+    #[test]
+    fn audio_live_terminal_negative_preserves_unknown_and_fences_only_its_declared_scope() {
+        // These exercise the actual capture/evaluation/fence implementation with
+        // a source-only Error; they do not stand in for the ignored Native live.
+        let owner = owner_root();
+        let first = owner_root();
+        let second = owner_root();
+        let positive = open_owner(&owner);
+        let plan = terminal_plan(AUDIO_LIVE_NEGATIVES[0]);
+        let next_plan = terminal_plan(AUDIO_LIVE_NEGATIVES[1]);
+        let scope = terminal_scope(&first, &positive, &plan);
+        let next = terminal_scope(&second, &positive, &next_plan);
+        let (index, stem) = terminal_request(&scope, &plan);
+        let mut original = semwright_types::Error::new(plan.case.expected, "complete original")
+            .uncertain()
+            .recipe_progress(2, "source-only-negative-control");
+        original.candidates = vec!["original-candidate".into()];
+        let expected = serde_json::to_value(&original).unwrap();
+        let pointer = original.message.as_ptr();
+        let returned = scope.finish_call(&stem, Err(original)).unwrap_err();
+        assert_eq!(returned.message.as_ptr(), pointer);
+        assert_eq!(serde_json::to_value(&returned).unwrap(), expected);
+        let observed = audio_live_observe_negative(&positive, &scope, &plan, &[]);
+        audio_live_evaluate_terminal_negative(&scope, &plan, index, Err(returned), observed)
+            .unwrap();
+        let retained: Value = serde_json::from_slice(
+            &scope
+                .records
+                .read(
+                    &format!("{stem}.result.original.json"),
+                    AUDIO_LIVE_METADATA_LIMIT,
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(retained["result"]["Err"], expected);
+        assert!(
+            scope
+                .begin_call(
+                    &context("second-call"),
+                    plan.case.capability,
+                    &json!({}),
+                    &plan.args
+                )
+                .is_err()
+        );
+        assert_eq!(
+            positive.calls.load(std::sync::atomic::Ordering::SeqCst),
+            index
+        );
+        assert!(
+            !first
+                .path()
+                .join(format!(
+                    "records/call-{:05}.request.original.json",
+                    index + 1
+                ))
+                .exists()
+        );
+        assert!(next.before_effect().is_ok());
+        let (next_index, _) = terminal_request(&next, &next_plan);
+        assert_eq!(next_index, index + 1);
+        assert!(std::sync::Arc::ptr_eq(&positive.calls, &next.calls));
+        assert!(std::sync::Arc::ptr_eq(
+            &scope.record_bytes,
+            &next.record_bytes
+        ));
+    }
+
+    #[test]
+    fn audio_live_terminal_negative_rejects_ok_other_code_and_known_certainty() {
+        for original in [
+            Ok(json!({"unexpected":"success"})),
+            Err(semwright_types::Error::new(
+                semwright_types::ErrorCode::BackendFailed,
+                "different code",
+            )
+            .uncertain()),
+            Err(semwright_types::Error::new(
+                semwright_types::ErrorCode::StaleReference,
+                "unexpected known",
+            )),
+        ] {
+            let owner = owner_root();
+            let negative = owner_root();
+            let positive = open_owner(&owner);
+            let plan = terminal_plan(AUDIO_LIVE_NEGATIVES[0]);
+            let scope = terminal_scope(&negative, &positive, &plan);
+            let expected = serde_json::to_value(&original).unwrap();
+            let (index, stem) = terminal_request(&scope, &plan);
+            let returned = scope.finish_call(&stem, original);
+            let observed = audio_live_observe_negative(&positive, &scope, &plan, &[]);
+            assert!(
+                audio_live_evaluate_terminal_negative(&scope, &plan, index, returned, observed)
+                    .is_err()
+            );
+            assert!(scope.before_effect().is_err());
+            let retained: Value = serde_json::from_slice(
+                &scope
+                    .records
+                    .read(
+                        &format!("{stem}.result.original.json"),
+                        AUDIO_LIVE_METADATA_LIMIT,
+                    )
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(retained["result"], expected);
+            let assessment: Value = serde_json::from_slice(
+                &scope
+                    .records
+                    .read("negative-evaluation.json", AUDIO_LIVE_METADATA_LIMIT)
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(assessment["assessment"], "FAILED");
+        }
+    }
+
+    #[test]
+    fn audio_live_terminal_collision_preserves_primary_and_stops_all_later_effects() {
+        use std::io::Write;
+        let owner = owner_root();
+        let negative = owner_root();
+        let other = owner_root();
+        let positive = open_owner(&owner);
+        let plan = terminal_plan(AUDIO_LIVE_NEGATIVES[0]);
+        let scope = terminal_scope(&negative, &positive, &plan);
+        let next = terminal_scope(&other, &positive, &terminal_plan(AUDIO_LIVE_NEGATIVES[1]));
+        let (index, stem) = terminal_request(&scope, &plan);
+        let result_path = format!("{stem}.result.original.json");
+        let mut file = scope.new_record_file(&result_path).unwrap();
+        file.write_all(b"original partial prefix").unwrap();
+        file.sync_all().unwrap();
+        let original =
+            semwright_types::Error::new(plan.case.expected, "primary unknown").uncertain();
+        let pointer = original.message.as_ptr();
+        let expected = serde_json::to_value(&original).unwrap();
+        let returned = scope.finish_call(&stem, Err(original));
+        let observed = audio_live_observe_negative(&positive, &scope, &plan, &[]);
+        let error = audio_live_evaluate_terminal_negative(&scope, &plan, index, returned, observed)
+            .unwrap_err()
+            .downcast::<semwright_types::Error>()
+            .unwrap();
+        assert_eq!(error.message.as_ptr(), pointer);
+        assert_eq!(serde_json::to_value(&error).unwrap(), expected);
+        assert_eq!(
+            scope
+                .records
+                .read(&result_path, AUDIO_LIVE_METADATA_LIMIT)
+                .unwrap(),
+            b"original partial prefix"
+        );
+        assert!(next.before_effect().is_err());
+        assert!(
+            next.begin_call(
+                &context("later"),
+                plan.case.capability,
+                &json!({}),
+                &json!({})
+            )
+            .is_err()
+        );
+        assert_eq!(
+            positive.calls.load(std::sync::atomic::Ordering::SeqCst),
+            index
+        );
+    }
+
+    #[test]
+    fn audio_live_terminal_scopes_share_remaining_budgets_without_refunds() {
+        use std::sync::atomic::Ordering::SeqCst;
+        let owner = owner_root();
+        let first = owner_root();
+        let second = owner_root();
+        let positive = open_owner(&owner);
+        let plan = terminal_plan(AUDIO_LIVE_NEGATIVES[0]);
+        let scope = terminal_scope(&first, &positive, &plan);
+        let next = terminal_scope(&second, &positive, &terminal_plan(AUDIO_LIVE_NEGATIVES[1]));
+        positive.calls.store(AUDIO_LIVE_CALL_LIMIT - 1, SeqCst);
+        let (index, _) = terminal_request(&scope, &plan);
+        assert_eq!(index, AUDIO_LIVE_CALL_LIMIT);
+        assert!(
+            next.begin_call(
+                &context("over-limit"),
+                plan.case.capability,
+                &json!({}),
+                &json!({})
+            )
+            .is_err()
+        );
+        assert_eq!(positive.calls.load(SeqCst), AUDIO_LIVE_CALL_LIMIT);
+        assert!(
+            !second
+                .path()
+                .join("records/call-16385.request.original.json")
+                .exists()
+        );
+
+        let owner = owner_root();
+        let first = owner_root();
+        let second = owner_root();
+        let positive = open_owner(&owner);
+        let scope = terminal_scope(&first, &positive, &plan);
+        let next = terminal_scope(&second, &positive, &terminal_plan(AUDIO_LIVE_NEGATIVES[1]));
+        positive
+            .record_bytes
+            .store(AUDIO_LIVE_RECORDS_LIMIT - 3, SeqCst);
+        scope
+            .record_bytes("last-two.original.bin", b"ab", 2)
+            .unwrap();
+        assert_eq!(next.record_bytes.load(SeqCst), AUDIO_LIVE_RECORDS_LIMIT - 1);
+        assert!(
+            next.record_bytes("over-limit.original.bin", b"cd", 2)
+                .is_err()
+        );
+        assert_eq!(
+            positive.record_bytes.load(SeqCst),
+            AUDIO_LIVE_RECORDS_LIMIT - 1
+        );
+        assert!(
+            !second
+                .path()
+                .join("records/over-limit.original.bin")
+                .exists()
+        );
+        assert!(scope.before_effect().is_err());
+        assert_eq!(
+            scope.records.read("last-two.original.bin", 2).unwrap(),
+            b"ab"
+        );
+    }
+
+    #[test]
+    fn audio_live_terminal_observer_keeps_sources_and_rejects_published_negative_outputs() {
+        let owner = owner_root();
+        let negative = owner_root();
+        let positive = open_owner(&owner);
+        let plan = terminal_plan(AUDIO_LIVE_NEGATIVES[0]);
+        let scope = terminal_scope(&negative, &positive, &plan);
+        let input = AudioLiveNegativeInput {
+            root: "media",
+            path: "source.json".into(),
+            bytes: b"synthetic original manifest".to_vec(),
+            sha256: semwright_mlt_video::hash::sha256(b"synthetic original manifest"),
+        };
+        for originals in [&positive, &scope] {
+            originals
+                .media
+                .write_new("media", &input.path, &input.bytes)
+                .unwrap();
+        }
+        assert!(
+            audio_live_observe_negative(&positive, &scope, &plan, std::slice::from_ref(&input))
+                .is_ok()
+        );
+        scope
+            .output
+            .write_new("output", "stale-mezzanine.mkv", b"unexpected output")
+            .unwrap();
+        assert!(
+            audio_live_observe_negative(&positive, &scope, &plan, std::slice::from_ref(&input))
+                .is_err()
+        );
+        assert_eq!(positive.media.read(&input.path, 100).unwrap(), input.bytes);
     }
 
     #[test]

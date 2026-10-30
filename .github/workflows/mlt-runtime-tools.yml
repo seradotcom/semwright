@@ -157,6 +157,20 @@ jobs:
           assert stat.S_ISDIR(metadata.st_mode) and stat.S_IMODE(metadata.st_mode) == 0o700
           assert metadata.st_uid == os.geteuid() and root.resolve(strict=True) == root
           assert not list(root.iterdir())
+          # Distinct, externally declared attempts: one positive provider and six
+          # single-call terminal negatives. The test shares one aggregate budget.
+          scope_names = ["positive", "stale_frames", "stale", "denied", "invalid", "stale_sync", "stale_mux"]
+          scope_bindings = []
+          for name in scope_names:
+              scope = root / name
+              scope.mkdir(mode=0o700, exist_ok=False)
+              observed = scope.lstat()
+              assert stat.S_ISDIR(observed.st_mode) and stat.S_IMODE(observed.st_mode) == 0o700
+              assert observed.st_uid == os.geteuid() and scope.resolve(strict=True) == scope
+              assert not list(scope.iterdir())
+              scope_bindings.append({"case": name, "path": str(scope), "device": observed.st_dev,
+                                     "inode": observed.st_ino, "uid": observed.st_uid,
+                                     "mode": stat.S_IMODE(observed.st_mode), "initially_empty": True})
           def observation(path):
               path = pathlib.Path(path).resolve(strict=True)
               value = path.stat()
@@ -182,7 +196,10 @@ jobs:
                      "source_tree": tree, "run_id": os.environ["GITHUB_RUN_ID"], "attempt": 1,
                      "root": str(root), "root_device": metadata.st_dev, "root_inode": metadata.st_ino,
                      "root_uid": metadata.st_uid, "root_mode": stat.S_IMODE(metadata.st_mode),
-                     "initially_empty": True, "inputs": [observation(path) for path in paths],
+                     "initially_empty": True, "scope_bindings": scope_bindings,
+                     "shared_record_limit_bytes": 134217728, "shared_provider_call_limit": 16384,
+                     "negative_input_copy_limit_bytes": 33554432, "negative_input_copy_limit_files": 10,
+                     "inputs": [observation(path) for path in paths],
                      "job_timeout_minutes": 25, "deadline_enforcer": "GitHub Actions job",
                      "external_filesystem_budget_attested": False,
                      "descendant_closure_attested": False, "formal_acceptance": False,
