@@ -62,14 +62,10 @@ pub(super) fn validate_provider_contract(
 
 fn requested_resource<'a>(
     descriptor: &CommandDescriptor,
-    lease: &ProviderLease,
+    provider_id: &str,
     args: &'a Value,
 ) -> Result<Option<&'a str>> {
-    let slug = lease
-        .identity
-        .id
-        .strip_prefix("driver:")
-        .ok_or_else(denied)?;
+    let slug = provider_id.strip_prefix("driver:").ok_or_else(denied)?;
     if descriptor.name == format!("driver.{slug}.observe") {
         return args
             .get("resource")
@@ -85,8 +81,43 @@ fn requested_resource<'a>(
             .ok_or_else(denied);
     }
     if !descriptor.risk.mutates() {
-        // Other row-disclosing routes need an explicit canonical resource
-        // selector contract. Broad driver authority cannot invent one.
+        // A marked observed read selects its resource only through the genuine
+        // RefStore entry, exactly as an observed mutation does. Payload resource
+        // fields cannot grant authority; admission below requires native_read
+        // and rechecks the policy, primary/secondary refs, and provider lifetime.
+        let prefix = format!("driver.{slug}.");
+        if descriptor.risk == Risk::ReadOnly
+            && descriptor.name.starts_with(&prefix)
+            && descriptor.name.len() > prefix.len()
+            && descriptor.backends.len() == 1
+            && descriptor.backends[0] == provider_id
+            && descriptor
+                .requires
+                .iter()
+                .any(|required| required == provider_id)
+            && descriptor
+                .requires
+                .iter()
+                .any(|required| required == NATIVE_RESOURCE_READ_REQUIREMENT)
+            && descriptor.input_schema.get("type").and_then(Value::as_str) == Some("object")
+            && descriptor
+                .input_schema
+                .get("required")
+                .and_then(Value::as_array)
+                .is_some_and(|keys| keys.iter().any(|key| key == "ref"))
+            && descriptor
+                .input_schema
+                .pointer("/properties/ref/type")
+                .and_then(Value::as_str)
+                == Some("string")
+            && args
+                .get("ref")
+                .and_then(Value::as_str)
+                .is_some_and(|reference| !reference.is_empty())
+        {
+            return Ok(None);
+        }
+        // Unclassified read routes still have no canonical selector contract.
         return Err(denied());
     }
     // Ordinary observed mutations carry their project in the genuine ref.
@@ -236,7 +267,7 @@ impl NativeReadAdmission {
         broker
             .check_bound_provider(&context.session, bound, Some(lease))
             .map_err(|_| denied())?;
-        let requested = requested_resource(descriptor, lease, args)?;
+        let requested = requested_resource(descriptor, &lease.identity.id, args)?;
         let resource = requested
             .or_else(|| {
                 reference.and_then(|reference| {
@@ -416,5 +447,151 @@ impl Broker {
             pause.proceed.notified().await;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod resource_selector_tests {
+    use super::*;
+    use semwright_types::Idempotency;
+    use serde_json::json;
+
+    const PROVIDER: &str = "driver:motionwright";
+
+    fn observed_read() -> CommandDescriptor {
+        CommandDescriptor {
+            name: "driver.motionwright.project.preview".into(),
+            version: "1.0.0".into(),
+            description: "Preview an observed project".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {"ref": {"type": "string"}},
+                "required": ["ref"]
+            }),
+            output_schema: json!({"type": "object"}),
+            requires: vec![PROVIDER.into(), NATIVE_RESOURCE_READ_REQUIREMENT.into()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+            timeout_ms: 1_000,
+            dry_run: false,
+            interactive_consent: false,
+            backends: vec![PROVIDER.into()],
+        }
+    }
+
+    #[test]
+    fn observed_read_never_selects_resource_from_payload() {
+        let descriptor = observed_read();
+        for args in [
+            json!({"ref": "opaque-broker-ref"}),
+            json!({"ref": "opaque-broker-ref", "resource": "project:foreign"}),
+            json!({"ref": "opaque-broker-ref", "request": {"resource": "project:foreign"}}),
+        ] {
+            // None is a request for the genuine RefStore origin, not admission.
+            assert_eq!(
+                requested_resource(&descriptor, PROVIDER, &args).unwrap(),
+                None
+            );
+        }
+    }
+
+    #[test]
+    fn observed_read_requires_nonempty_request_ref() {
+        let descriptor = observed_read();
+        for args in [
+            json!({"resource": "project:authorized"}),
+            json!({"ref": ""}),
+            json!({"ref": null}),
+            json!({"ref": {"native_read": {"resource": "project:authorized"}}}),
+        ] {
+            assert!(requested_resource(&descriptor, PROVIDER, &args).is_err());
+        }
+    }
+
+    #[test]
+    fn observed_read_requires_explicit_string_ref_schema() {
+        let args = json!({"ref": "opaque-broker-ref", "resource": "project:authorized"});
+        for schema in [
+            json!({"type": "object", "properties": {"ref": {"type": "string"}}}),
+            json!({"type": "object", "required": ["ref"]}),
+            json!({"type": "object", "required": ["ref"], "properties": {"ref": {"type": "object"}}}),
+            json!({"required": ["ref"], "properties": {"ref": {"type": "string"}}}),
+        ] {
+            let mut descriptor = observed_read();
+            descriptor.input_schema = schema;
+            assert!(requested_resource(&descriptor, PROVIDER, &args).is_err());
+        }
+    }
+
+    #[test]
+    fn observed_read_requires_marker_and_canonical_provider_scope() {
+        let args = json!({"ref": "opaque-broker-ref", "resource": "project:authorized"});
+        let original = observed_read();
+        let mut unmarked = original.clone();
+        unmarked
+            .requires
+            .retain(|required| required != NATIVE_RESOURCE_READ_REQUIREMENT);
+        let mut no_provider_requirement = original.clone();
+        no_provider_requirement
+            .requires
+            .retain(|required| required != PROVIDER);
+        let mut foreign_backend = original.clone();
+        foreign_backend.backends = vec!["driver:foreign".into()];
+        let mut multiple_backends = original.clone();
+        multiple_backends.backends.push("driver:foreign".into());
+        let mut foreign_name = original.clone();
+        foreign_name.name = "driver.foreign.project.preview".into();
+        for descriptor in [
+            unmarked,
+            no_provider_requirement,
+            foreign_backend,
+            multiple_backends,
+            foreign_name,
+        ] {
+            assert!(requested_resource(&descriptor, PROVIDER, &args).is_err());
+        }
+        assert!(requested_resource(&original, "mcp:motionwright", &args).is_err());
+    }
+
+    #[test]
+    fn canonical_reads_keep_their_explicit_resource_selectors() {
+        let mut descriptor = observed_read();
+        descriptor.name = "driver.motionwright.observe".into();
+        let args =
+            json!({"resource": "project:observed", "request": {"resource": "project:other"}});
+        assert_eq!(
+            requested_resource(&descriptor, PROVIDER, &args).unwrap(),
+            Some("project:observed")
+        );
+        assert!(
+            requested_resource(&descriptor, PROVIDER, &json!({"ref": "opaque-broker-ref"}))
+                .is_err()
+        );
+        descriptor.name = "driver.motionwright.operation.get".into();
+        assert_eq!(
+            requested_resource(&descriptor, PROVIDER, &args).unwrap(),
+            Some("project:other")
+        );
+        assert!(
+            requested_resource(
+                &descriptor,
+                PROVIDER,
+                &json!({"ref": "opaque-broker-ref", "resource": "project:observed"}),
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn observed_mutation_keeps_the_genuine_reference_selector() {
+        let mut descriptor = observed_read();
+        descriptor.name = "driver.motionwright.lock.set".into();
+        descriptor.risk = Risk::Mutating;
+        descriptor.requires = vec![PROVIDER.into()];
+        let args = json!({"ref": "opaque-broker-ref", "resource": "scene:payload"});
+        assert_eq!(
+            requested_resource(&descriptor, PROVIDER, &args).unwrap(),
+            None
+        );
     }
 }
