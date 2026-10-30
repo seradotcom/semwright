@@ -106,11 +106,11 @@ impl CustodyRoot {
 }
 impl Drop for CustodyRoot {
     fn drop(&mut self) {
-        if !self.remove_on_drop {
-            if let Some(directory) = self.directory.take() {
-                let retained = directory.keep();
-                eprintln!("RETAINED_OWNER_PERMIT_FIXTURE_ROOT={}", retained.display());
-            }
+        if !self.remove_on_drop
+            && let Some(directory) = self.directory.take()
+        {
+            let retained = directory.keep();
+            eprintln!("RETAINED_OWNER_PERMIT_FIXTURE_ROOT={}", retained.display());
         }
     }
 }
@@ -2690,7 +2690,8 @@ impl GraphFixture {
         let original_request = graph_field(&original, "request_id")?.to_owned();
         let (binding, native, observed) = self.current_refs(&self.base.session).await?;
         require(
-            observed["page"]["version"]["revision"] == graph_revision(&current)?.to_string(),
+            observed["page"]["version"]["revision"].as_str()
+                == Some(graph_revision(&current)?.to_string().as_str()),
             "Replay Native Ref is not current",
         )?;
         let bound = self
@@ -2770,7 +2771,8 @@ impl GraphFixture {
         let (_, _, observed) = self.current_refs(&self.base.session).await?;
         require(
             observed["page"]["version"]["generation"] == copied["project"]["generation"]
-                && observed["page"]["version"]["revision"] == graph_revision(&copied)?.to_string(),
+                && observed["page"]["version"]["revision"].as_str()
+                    == Some(graph_revision(&copied)?.to_string().as_str()),
             "Ordinary copied-DB observation was not preserved",
         )?;
         self.start_public(GRAPH_UPSERT, json!({"graph":self.runtime.source["graph"]}))
@@ -3070,7 +3072,8 @@ fn security_summary_matches_readback(observed: &Value, snapshot: &Value) -> Resu
         items.len() == 1
             && items[0]["id"] == snapshot["project"]["id"]
             && items[0]["title"] == snapshot["project"]["title"]
-            && items[0]["revision"] == graph_revision(snapshot)?.to_string(),
+            && items[0]["revision"].as_str()
+                == Some(graph_revision(snapshot)?.to_string().as_str()),
         "Allowed summary identity/title/revision differs from independent owned readback",
     )
 }
@@ -5950,8 +5953,8 @@ fn postcommit_review_extension(
     require(
         result["project"]["id"] == previous_project["id"]
             && result["generation"] == previous_project["generation"]
-            && result["previous_revision"] == previous_revision.to_string()
-            && result["revision"] == (previous_revision + 1).to_string()
+            && result["previous_revision"].as_str() == Some(previous_revision.to_string().as_str())
+            && result["revision"].as_str() == Some((previous_revision + 1).to_string().as_str())
             && result["project"]["revision"] == previous_revision + 1
             && current_reviews.len() == previous_reviews.len() + 1
             && current_reviews.starts_with(previous_reviews)
