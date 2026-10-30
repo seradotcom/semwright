@@ -2751,46 +2751,46 @@ impl MltVideoDriver {
                     "Render job disappeared during status update",
                 )
             })?;
-        if next.state.terminal() {
-            if let (Some(plan), Some(inputs), Some((input_root, work_root))) = (
+        if next.state.terminal()
+            && let (Some(plan), Some(inputs), Some((input_root, work_root))) = (
                 job.originals.take(),
                 job.original_inputs.as_mut(),
                 original_roots.as_ref(),
-            ) {
-                let source = observation_request
-                    .as_deref()
-                    .and_then(|bytes| color::NativeObservationRequest::parse(bytes).ok())
-                    .map(|request| request.project_sha256);
-                let complete = next.state == State::Succeeded;
-                let original = match &next.error {
-                    Some(error) => Err(error.clone()),
-                    None => Ok(()),
-                };
-                let secondary = if complete {
-                    Vec::new()
-                } else {
-                    vec![
-                        serde_json::json!({"stage":"host-original-terminal","complete":false,
-                        "process_tree_quiescence_observed":false}),
-                    ]
-                };
-                let retained = plan.finish(
-                    original,
-                    source.as_deref(),
-                    complete,
-                    &secondary,
-                    inputs,
-                    &mut job.scratch,
-                    input_root,
-                    work_root,
-                );
-                if next.error.is_none() {
-                    if let Err(mut error) = retained {
-                        error.outcome_known = false;
-                        next.state = State::Unknown;
-                        next.error = Some(error);
-                    }
-                }
+            )
+        {
+            let source = observation_request
+                .as_deref()
+                .and_then(|bytes| color::NativeObservationRequest::parse(bytes).ok())
+                .map(|request| request.project_sha256);
+            let complete = next.state == State::Succeeded;
+            let original = match &next.error {
+                Some(error) => Err(error.clone()),
+                None => Ok(()),
+            };
+            let secondary = if complete {
+                Vec::new()
+            } else {
+                vec![
+                    serde_json::json!({"stage":"host-original-terminal","complete":false,
+                    "process_tree_quiescence_observed":false}),
+                ]
+            };
+            let retained = plan.finish(
+                original,
+                source.as_deref(),
+                complete,
+                &secondary,
+                inputs,
+                &mut job.scratch,
+                input_root,
+                work_root,
+            );
+            if next.error.is_none()
+                && let Err(mut error) = retained
+            {
+                error.outcome_known = false;
+                next.state = State::Unknown;
+                next.error = Some(error);
             }
         }
         if !job.snapshot.state.terminal() {
