@@ -1503,10 +1503,66 @@ mod native_staging_closure_tests {
             entered.get(),
             "fixture must reach the actual staged render boundary"
         );
-        assert_eq!(std::fs::read_dir(output.path()).unwrap().count(), 0);
-        result
+        let error = result
             .err()
-            .expect("fixture does not produce an accepted native render")
+            .expect("fixture does not produce an accepted native render");
+        let output_root = &roots["output"];
+        // Failure must publish no accepted video, while preserving the raw
+        // originals and their primary error for inspection.
+        assert!(!output_root.exists("result.mkv").unwrap());
+        for directory in [
+            "result.mkv.raw-original-inputs",
+            "result.mkv.raw-original-work",
+        ] {
+            assert!(
+                std::fs::symlink_metadata(output.path().join(directory))
+                    .unwrap()
+                    .file_type()
+                    .is_dir()
+            );
+        }
+        let retained_xml = output_root
+            .read("result.mkv.native-input.mlt", crate::xml::MAX_XML)
+            .unwrap();
+        assert_eq!(
+            output_root
+                .read(
+                    "result.mkv.raw-original-inputs/project.mlt",
+                    crate::xml::MAX_XML,
+                )
+                .unwrap(),
+            retained_xml
+        );
+        let originals: serde_json::Value = serde_json::from_slice(
+            &output_root
+                .read("result.mkv.raw-originals.json", crate::color::REPORT_LIMIT)
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            originals["schema"],
+            "semwright.native-video-raw-originals/1"
+        );
+        assert_eq!(originals["output_path"], "result.mkv");
+        assert_eq!(originals["source_sha256"], sha256(&retained_xml));
+        assert_eq!(originals["original_operation_succeeded"], false);
+        assert_eq!(originals["original_error"]["code"], error.code);
+        assert_eq!(originals["original_error"]["message"], error.message);
+        assert_eq!(
+            originals["original_error"]["outcome_known"],
+            error.outcome_known
+        );
+        assert_eq!(originals["raw_members_complete"], true);
+        assert_eq!(originals["process_originals_complete"], true);
+        assert!(
+            originals["process_secondary_errors"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(originals["native_execution_retried"], false);
+        assert_eq!(originals["physical_acceptance"], false);
+        error
     }
 
     #[test]
