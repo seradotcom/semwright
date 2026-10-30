@@ -5626,7 +5626,7 @@ mod owner_operation_pending_tests {
             assert!(Arc::ptr_eq(original.owner_scope.as_ref().unwrap(), &owner));
         }
         io.cancel_pending(id).await;
-        assert!(matches!(first.await, Err(_)));
+        assert!(first.await.is_err());
     }
 }
 

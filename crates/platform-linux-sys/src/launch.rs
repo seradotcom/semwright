@@ -1184,7 +1184,9 @@ mod tests {
         assert_eq!(bytes.len(), 16 * 16384);
         assert!(
             bytes
-                .chunks_exact(16)
+                .as_chunks::<16>()
+                .0
+                .iter()
                 .all(|chunk| chunk == b"0123456789abcdef")
         );
     }
