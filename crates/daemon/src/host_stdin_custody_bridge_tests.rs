@@ -320,11 +320,10 @@ async fn linux_genuine_capture_stop_during_consumer_terminal_wait_stays_incomple
         genuine_capture("daemon-custody-pending-terminal-start").await;
     let path = directory.path.clone();
     let (sender, receiver) = mpsc::channel(1);
-    sender
-        .send(capture)
-        .await
-        .ok()
-        .expect("move genuine capture once");
+    assert!(
+        sender.send(capture).await.is_ok(),
+        "move genuine capture once"
+    );
     drop(sender);
     let entered = Arc::new(Notify::new());
     let observed = entered.clone();
