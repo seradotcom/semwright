@@ -37,7 +37,9 @@ impl ObservationProfile {
 }
 pub const MLT_SOURCE_POLICY: &str = "mlt-render-project-bytes-v1";
 pub const MLT_RECIPE: &str = "mlt-native-processing-no-additional-transfer-conversion-v1";
-pub const READBACK_FILTER_LEFT: &str = "zscale=pin=709:tin=709:min=709:rin=limited:p=709:t=709:m=gbr:r=full:dither=none:agamma=0:chromalin=left,format=rgba";
+// zscale negotiates planar RGB; packed RGBA is selected only afterward.
+// Keep the reviewed matrix, transfer, range and chroma-site options intact.
+pub const READBACK_FILTER_LEFT: &str = "zscale=pin=709:tin=709:min=709:rin=limited:p=709:t=709:m=gbr:r=full:dither=none:agamma=0:chromalin=left,format=gbrp,format=rgba";
 
 /// The source pix_fmt and chroma location must come from the actual decoder.
 /// 4:4:4 has no chroma subsampling. Other admitted 8-bit formats require an
@@ -224,7 +226,7 @@ fn validate_audio_stream(audio: &Value, video_stream: u64) -> Result<()> {
 pub const SOURCE_POLICY: &str = "motion-canvas-srgb-rgb8-opaque-v1";
 pub const RECIPE: &str = "srgb-to-rec709-relative-linear-v1";
 pub const ENCODE_FILTER: &str = "format=gbrp,zscale=pin=709:tin=iec61966-2-1:min=gbr:rin=full:p=709:t=709:m=709:r=limited:dither=none:agamma=0,format=yuv444p";
-pub const READBACK_FILTER: &str = "zscale=pin=709:tin=709:min=709:rin=limited:p=709:t=709:m=gbr:r=full:dither=none:agamma=0,format=rgba";
+pub const READBACK_FILTER: &str = "zscale=pin=709:tin=709:min=709:rin=limited:p=709:t=709:m=gbr:r=full:dither=none:agamma=0,format=gbrp,format=rgba";
 pub const REPORT_LIMIT: usize = 8 * 1024 * 1024;
 pub const PNG_LIMIT: usize = 32 * 1024 * 1024;
 // Wire limit inherited from the selected complete PNG decoder; the driver
@@ -1022,6 +1024,48 @@ mod complete_tests {
         }
         v
     }
+
+    #[test]
+    fn readback_negotiates_planar_rgb_before_packed_rgba() {
+        for (profile, pixel_format, chroma) in [
+            (ObservationProfile::MotionCanvasFfv1, "yuv444p", None),
+            (ObservationProfile::MltVisualFfv1, "yuv444p", None),
+            (ObservationProfile::MltVisualFfv1, "yuv422p", Some("left")),
+            (ObservationProfile::MltVisualFfv1, "yuv420p", Some("left")),
+            (
+                ObservationProfile::MltH264AacMaster,
+                "yuv420p",
+                Some("left"),
+            ),
+        ] {
+            let selected = readback_filter(profile, pixel_format, chroma).unwrap();
+            let filters = selected.split(',').collect::<Vec<_>>();
+            assert_eq!(filters.len(), 3);
+            assert_eq!(&filters[1..], &["format=gbrp", "format=rgba"]);
+            let mut conversion = "zscale=pin=709:tin=709:min=709:rin=limited:p=709:t=709:m=gbr:r=full:dither=none:agamma=0".to_owned();
+            if chroma == Some("left") {
+                conversion.push_str(":chromalin=left");
+            }
+            assert_eq!(filters[0], conversion);
+        }
+    }
+
+    #[test]
+    fn complete_observation_rejects_the_old_unnegotiated_rgb_filter() {
+        for mut value in [
+            document(false),
+            mlt_document(false, false),
+            mlt_document(true, false),
+        ] {
+            assert!(parse(&value).is_ok());
+            let original = value["rgba_filter"].as_str().unwrap();
+            let old = original.replace(",format=gbrp,format=rgba", ",format=rgba");
+            assert_ne!(old, original);
+            value["rgba_filter"] = json!(old);
+            assert!(parse(&value).is_err());
+        }
+    }
+
     #[test]
     fn native_visual_keeps_xml_and_quantized_video_clock_without_retiming() {
         let v = mlt_document(false, true);

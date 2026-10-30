@@ -229,11 +229,7 @@ impl VideoOriginals {
                     from_inputs: false,
                     destination: format!("{output_path}.{basename}"),
                     basename,
-                    maximum: if *stage == "complete-probe" {
-                        crate::runtime::FFV1_CUSTODY_PROBE_STREAM as u64
-                    } else {
-                        crate::runtime::FFV1_CUSTODY_STREAM_PREFIX as u64
-                    },
+                    maximum: crate::runtime::ffv1_stream_original_limit(stage) as u64,
                     reuse_exact_publication: true,
                     required_on_success: true,
                 });
@@ -2224,5 +2220,207 @@ mod auxiliary_workspace_contract_tests {
         );
         assert_eq!(receipt["secondary_error"]["code"], "Conflict");
         assert_eq!(receipt["output_publication_retried"], false);
+    }
+}
+
+#[cfg(test)]
+mod zscale_help_reservation_tests {
+    use super::*;
+
+    fn output() -> (tempfile::TempDir, Root) {
+        let directory = tempfile::tempdir().unwrap();
+        let path = std::fs::canonicalize(directory.path()).unwrap();
+        let root = Root::open(&path, true, true).unwrap();
+        (directory, root)
+    }
+
+    #[test]
+    fn help_originals_charge_both_streams_and_both_copies_before_effects() {
+        let (_directory, root) = output();
+        let (_work_directory, work) = output();
+        let plan = VideoOriginals::new(
+            &root,
+            &work,
+            "case.mkv",
+            (32, 32),
+            2,
+            "mezzanine.mkv",
+            VideoOriginalKind::MotionFrames,
+            0,
+        )
+        .unwrap();
+        let help = plan
+            .members
+            .iter()
+            .filter(|member| {
+                member.basename.starts_with("ffv1-zscale-help.")
+                    && member.basename.ends_with(".bin")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(help.len(), 2);
+        for member in &help {
+            assert_eq!(member.maximum, 262_144);
+            assert_eq!(
+                member.maximum,
+                crate::runtime::ffv1_stream_original_limit("zscale-help") as u64
+            );
+        }
+        let old_process_bound = (5 * 2 * crate::runtime::FFV1_CUSTODY_STREAM_PREFIX
+            + 2 * crate::runtime::FFV1_CUSTODY_PROBE_STREAM
+            + 7 * crate::runtime::FFV1_CUSTODY_METADATA) as u64;
+        let one_copy_growth = 2 * (262_144 - 16_384);
+        assert_eq!(
+            plan.process_backup_bound - old_process_bound,
+            one_copy_growth
+        );
+        let old_raw_bound = plan.manifest_limit as u64
+            + plan
+                .members
+                .iter()
+                .map(|member| {
+                    if member.basename.starts_with("ffv1-zscale-help.")
+                        && member.basename.ends_with(".bin")
+                    {
+                        16_384
+                    } else {
+                        member.maximum
+                    }
+                })
+                .sum::<u64>();
+        let old_peak = crate::color::observation_budget(32, 32, 2)
+            .unwrap()
+            .peak_free_bytes
+            + old_raw_bound
+            + old_process_bound
+            + plan.failure_receipt_limit as u64;
+        assert_eq!(plan.required_free_bytes - old_peak, 983_040);
+        assert!(
+            !root
+                .exists("case.mkv.raw-original-workspaces.json")
+                .unwrap()
+        );
+        assert!(!work.exists("mezzanine.mkv").unwrap());
+    }
+
+    #[test]
+    fn declared_help_roster_charges_its_exact_extra_serialized_bytes() {
+        let (_directory, root) = output();
+        let (inputs, work) = root.create_original_workspaces("case.mkv").unwrap();
+        let work_root = work.owned_root(true, true).unwrap();
+        let mut plan = VideoOriginals::new(
+            &root,
+            &work_root,
+            "case.mkv",
+            (32, 32),
+            2,
+            "mezzanine.mkv",
+            VideoOriginalKind::MotionFrames,
+            0,
+        )
+        .unwrap();
+        let before = plan.required_free_bytes;
+        let artifact = plan
+            .declare_workspaces(
+                &inputs,
+                &work,
+                &[
+                    ("000000.png".into(), 32 * 1024 * 1024),
+                    ("000001.png".into(), 32 * 1024 * 1024),
+                ],
+            )
+            .unwrap();
+        let mut document: serde_json::Value = serde_json::from_slice(
+            &root
+                .read(&artifact.path, crate::color::REPORT_LIMIT)
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(document["native_effect_started"], false);
+        let receipt_limit = document["workspace_receipt_maximum_bytes"]
+            .as_u64()
+            .unwrap();
+        let metadata = document["native_metadata_bound"].as_u64().unwrap();
+        assert_eq!(plan.required_free_bytes - before, receipt_limit + metadata);
+        for role in ["output_root", "inputs", "work"] {
+            document[role]["device"] = serde_json::json!(u64::MAX);
+            document[role]["inode"] = serde_json::json!(u64::MAX);
+        }
+        document["workspace_receipt_maximum_bytes"] = serde_json::json!(u64::MAX);
+        document["required_free_bytes"] = serde_json::json!(u64::MAX);
+        assert_eq!(
+            serde_json::to_vec(&document).unwrap().len() as u64,
+            receipt_limit
+        );
+        let mut changed = 0;
+        for row in document["work_members"].as_array_mut().unwrap() {
+            let name = row["basename"].as_str().unwrap();
+            if name.starts_with("ffv1-zscale-help.") && name.ends_with(".bin") {
+                assert_eq!(row["maximum_bytes"], 262_144);
+                row["maximum_bytes"] = serde_json::json!(16_384);
+                changed += 1;
+            }
+        }
+        assert_eq!(changed, 2);
+        assert_eq!(
+            receipt_limit - serde_json::to_vec(&document).unwrap().len() as u64,
+            2
+        );
+        assert!(!work_root.exists("mezzanine.mkv").unwrap());
+    }
+
+    #[test]
+    fn unavailable_custody_space_denies_the_workspace_receipt_before_writing() {
+        let (_directory, root) = output();
+        let (inputs, work) = root.create_original_workspaces("case.mkv").unwrap();
+        let work_root = work.owned_root(true, true).unwrap();
+        let mut plan = VideoOriginals::new(
+            &root,
+            &work_root,
+            "case.mkv",
+            (32, 32),
+            2,
+            "mezzanine.mkv",
+            VideoOriginalKind::MotionFrames,
+            0,
+        )
+        .unwrap();
+        // Exercise the existing pre-write space check without filling a disk,
+        // changing quotas or adding a production space-check override.
+        assert!(root.available_bytes_for("case.mkv").unwrap() < u64::MAX / 2);
+        plan.required_free_bytes = u64::MAX / 2;
+        let error = plan
+            .declare_workspaces(
+                &inputs,
+                &work,
+                &[
+                    ("000000.png".into(), 32 * 1024 * 1024),
+                    ("000001.png".into(), 32 * 1024 * 1024),
+                ],
+            )
+            .unwrap_err();
+        assert_eq!(error.code, "ResourceExhausted");
+        assert_eq!(
+            error.message,
+            "Output lacks the original declared workspace and custody peak"
+        );
+        assert!(plan.workspace_receipt().is_none());
+        assert!(
+            !root
+                .exists("case.mkv.raw-original-workspaces.json")
+                .unwrap()
+        );
+        assert!(!work_root.exists("mezzanine.mkv").unwrap());
+        assert!(
+            !work_root
+                .exists("ffv1-zscale-help.stdout.original.bin")
+                .unwrap()
+        );
+        assert!(
+            !inputs
+                .owned_root(true, false)
+                .unwrap()
+                .exists("000000.png")
+                .unwrap()
+        );
     }
 }

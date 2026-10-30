@@ -148,11 +148,13 @@ pub const FFV1_CUSTODY_STREAM_PREFIX: usize = 16_384;
 // must not truncate those accepted original buffers a second time.
 pub const FFV1_CUSTODY_PROBE_STREAM: usize = crate::color::REPORT_LIMIT;
 
-fn ffv1_stream_original_limit(stage: &str) -> usize {
-    if stage == "complete-probe" {
-        FFV1_CUSTODY_PROBE_STREAM
-    } else {
-        FFV1_CUSTODY_STREAM_PREFIX
+pub(crate) fn ffv1_stream_original_limit(stage: &str) -> usize {
+    match stage {
+        "complete-probe" => FFV1_CUSTODY_PROBE_STREAM,
+        // Help is an original, not a diagnostic preview. Keep every byte up to
+        // its existing observed-output cap; the roster charges both copies.
+        "zscale-help" => TOTAL_LOG,
+        _ => FFV1_CUSTODY_STREAM_PREFIX,
     }
 }
 pub const FFV1_CUSTODY_HOST_STREAM: usize = 262_144;
@@ -225,8 +227,10 @@ pub fn preflight_ffv1_custody(output: &crate::fs::Root, path: &str, host: bool) 
         }
     }
     // Read-only space check, never a reservation or a replacement scheduler.
-    let native = 5 * 2 * FFV1_CUSTODY_STREAM_PREFIX
-        + 2 * FFV1_CUSTODY_PROBE_STREAM
+    let native = FFV1_CUSTODY_STAGES
+        .iter()
+        .map(|stage| 2 * ffv1_stream_original_limit(stage))
+        .sum::<usize>()
         + 7 * FFV1_CUSTODY_METADATA;
     let host_bytes = if host {
         2 * (FFV1_CUSTODY_STDIN + 2 * FFV1_CUSTODY_HOST_STREAM + FFV1_CUSTODY_METADATA)
@@ -565,8 +569,8 @@ impl<'a> Ffv1ProcessCustody<'a> {
         }
         self.stages.borrow_mut().push(stage);
         if let Some(observed) = observation {
-            let failed_pipe =
-                |pipe: &CapturedPipe| pipe.panicked || pipe.stopped || pipe.read_error.is_some();
+            // EOF alone does not prove that every observed byte was retained.
+            let failed_pipe = |pipe: &CapturedPipe| !pipe.complete();
             if observed.drain_stop_reason.is_some()
                 || observed.stdout.as_ref().is_some_and(failed_pipe)
                 || observed.stderr.as_ref().is_some_and(failed_pipe)
@@ -2728,7 +2732,7 @@ impl Runtime {
             "zscale-help",
             &spec,
             cancel,
-            RETAIN_LOG,
+            ffv1_stream_original_limit("zscale-help"),
             TOTAL_LOG,
             crate::jobs::MAX_ARTIFACT_BYTES,
         )?;
@@ -4996,6 +5000,216 @@ mod ffv1_original_custody_tests {
             "before-this-summary-retention"
         );
         assert_eq!(before["original_error"]["message"], primary_message);
+    }
+
+    fn complete_original_observation(result: &ProcessResult) -> ProcessObservation {
+        let pipe = |bytes: &[u8]| CapturedPipe {
+            retained: bytes.to_vec(),
+            observed_bytes: bytes.len() as u64,
+            eof: true,
+            ..CapturedPipe::default()
+        };
+        ProcessObservation {
+            spawn_attempted: true,
+            terminal_observed: true,
+            exit_code: result.exit_code,
+            cancelled: Some(result.cancelled),
+            timed_out: Some(result.timed_out),
+            output_exceeded: Some(result.output_exceeded),
+            stdout: Some(pipe(&result.stdout)),
+            stderr: Some(pipe(&result.stderr)),
+            ..ProcessObservation::default()
+        }
+    }
+
+    #[test]
+    fn ffv1_eof_truncation_is_incomplete_without_replacing_the_primary_error() {
+        let (directory, root) = fixture();
+        let pin = "a".repeat(64);
+        let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        let mut returned = result(0);
+        returned.stdout = vec![b'x'; RETAIN_LOG];
+        returned.stderr.clear();
+        let mut observation = complete_original_observation(&returned);
+        observation.stdout.as_mut().unwrap().observed_bytes = 18_860;
+        custody.record_observed(
+            "zscale-help",
+            &spec(directory.path()),
+            &Ok(returned),
+            RETAIN_LOG,
+            TOTAL_LOG,
+            Some(&observation),
+            Some(crate::jobs::MAX_ARTIFACT_BYTES),
+        );
+        assert!(!custody.original_capture_complete());
+        let saved = document(&root, "first.mkv.ffv1-zscale-help.terminal.original.json");
+        assert_eq!(
+            saved["same_spawn_observation"]["stdout"]["eof_observed"],
+            true
+        );
+        assert_eq!(
+            saved["same_spawn_observation"]["stdout"]["observed_bytes"],
+            18_860
+        );
+        assert_eq!(
+            saved["same_spawn_observation"]["stdout"]["retained_bytes"],
+            RETAIN_LOG
+        );
+        assert_eq!(saved["same_spawn_observation"]["stdout"]["truncated"], true);
+        assert_eq!(saved["same_spawn_observation"]["capture_complete"], false);
+        assert_eq!(
+            root.read("first.mkv.ffv1-zscale-help.stdout.original.bin", RETAIN_LOG)
+                .unwrap(),
+            vec![b'x'; RETAIN_LOG]
+        );
+        let mut primary = Error::new("BackendFailed", "synthetic-primary-unknown");
+        primary.outcome_known = false;
+        let original: Result<()> = Err(primary);
+        let error = custody.complete(original).unwrap_err();
+        assert_eq!(error.code, "BackendFailed");
+        assert_eq!(error.message, "synthetic-primary-unknown");
+        assert!(!error.outcome_known);
+        let report = document(&root, "first.mkv.ffv1-process-custody.original.json");
+        assert_eq!(
+            report["secondary_failures"],
+            serde_json::json!(["observed-stream-capture-incomplete"])
+        );
+        assert_eq!(report["stream_eof_attested"], false);
+        assert_eq!(report["native_execution_retried"], false);
+    }
+
+    #[test]
+    fn ffv1_zscale_help_keeps_all_accepted_bytes_with_the_original_total_limit() {
+        let (directory, root) = fixture();
+        let pin = "a".repeat(64);
+        let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        let bytes = vec![0xfe; 18_860];
+        for stage in FFV1_CUSTODY_STAGES {
+            let mut returned = result(0);
+            if stage == "zscale-help" {
+                returned.stdout = bytes.clone();
+                returned.stderr.clear();
+            }
+            let observation = complete_original_observation(&returned);
+            let retained_limit = ffv1_stream_original_limit(stage);
+            let total_limit = if stage == "complete-probe" {
+                FFV1_CUSTODY_PROBE_STREAM
+            } else {
+                TOTAL_LOG
+            };
+            custody.record_observed(
+                stage,
+                &spec(directory.path()),
+                &Ok(returned),
+                retained_limit,
+                total_limit,
+                Some(&observation),
+                Some(crate::jobs::MAX_ARTIFACT_BYTES),
+            );
+        }
+        custody.complete(Ok(())).unwrap();
+        assert!(custody.original_capture_complete());
+        assert_eq!(
+            root.read("first.mkv.ffv1-zscale-help.stdout.original.bin", TOTAL_LOG)
+                .unwrap(),
+            bytes
+        );
+        let saved = document(&root, "first.mkv.ffv1-zscale-help.terminal.original.json");
+        assert_eq!(saved["source_capture_retained_limit"], 262_144);
+        assert_eq!(saved["source_capture_total_limit"], 262_144);
+        assert_eq!(saved["diagnostic_prefix_limit"], 262_144);
+        assert_eq!(saved["same_spawn_observation"]["capture_complete"], true);
+        assert_eq!(
+            saved["same_spawn_observation"]["stdout"]["truncated"],
+            false
+        );
+        assert_eq!(saved["physical_acceptance"], false);
+    }
+
+    #[test]
+    fn ffv1_missing_eof_or_truncation_on_either_pipe_denies_complete_custody() {
+        for stdout in [true, false] {
+            for truncated in [true, false] {
+                let (directory, root) = fixture();
+                let pin = "a".repeat(64);
+                let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+                let returned = result(0);
+                let mut observation = complete_original_observation(&returned);
+                let pipe = if stdout {
+                    observation.stdout.as_mut()
+                } else {
+                    observation.stderr.as_mut()
+                }
+                .unwrap();
+                if truncated {
+                    pipe.observed_bytes += 1;
+                } else {
+                    pipe.eof = false;
+                }
+                custody.record_observed(
+                    "zscale-help",
+                    &spec(directory.path()),
+                    &Ok(returned),
+                    ffv1_stream_original_limit("zscale-help"),
+                    TOTAL_LOG,
+                    Some(&observation),
+                    Some(crate::jobs::MAX_ARTIFACT_BYTES),
+                );
+                assert!(!custody.original_capture_complete());
+                let secondary = custody.secondary_report().unwrap();
+                assert_eq!(
+                    secondary["secondary_failures"],
+                    serde_json::json!(["observed-stream-capture-incomplete"])
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn ffv1_help_retention_changes_no_other_stage_or_diagnostic_limit() {
+        assert_eq!(RETAIN_LOG, 16_384);
+        assert_eq!(TOTAL_LOG, 262_144);
+        assert_eq!(FFV1_CUSTODY_STREAM_PREFIX, 16_384);
+        assert_eq!(ffv1_stream_original_limit("zscale-help"), TOTAL_LOG);
+        assert_eq!(
+            ffv1_stream_original_limit("complete-probe"),
+            FFV1_CUSTODY_PROBE_STREAM
+        );
+        for stage in [
+            "encode",
+            "media-probe",
+            "decoder-version",
+            "decode",
+            "render",
+            "audio-extract",
+        ] {
+            assert_eq!(
+                ffv1_stream_original_limit(stage),
+                FFV1_CUSTODY_STREAM_PREFIX
+            );
+        }
+    }
+
+    #[test]
+    fn ffv1_help_capture_retains_the_exact_cap_and_denies_cap_plus_one() {
+        for count in [18_860, TOTAL_LOG, TOTAL_LOG + 1] {
+            let overflow = Arc::new(AtomicBool::new(false));
+            let pipe = capture(
+                std::io::Cursor::new(vec![0xab; count]),
+                overflow.clone(),
+                ffv1_stream_original_limit("zscale-help"),
+                TOTAL_LOG,
+                Arc::new(AtomicBool::new(false)),
+                false,
+            )
+            .unwrap()
+            .finish();
+            assert_eq!(pipe.observed_bytes, count as u64);
+            assert_eq!(pipe.retained.len(), count.min(TOTAL_LOG));
+            assert!(pipe.eof);
+            assert_eq!(pipe.complete(), count <= TOTAL_LOG);
+            assert_eq!(overflow.load(Ordering::Acquire), count > TOTAL_LOG);
+        }
     }
 }
 
