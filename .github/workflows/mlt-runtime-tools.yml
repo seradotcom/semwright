@@ -28,8 +28,6 @@ jobs:
   live-linux:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
-    env:
-      SEMWRIGHT_TEST_MLT_VIDEO_EVIDENCE_ROOT: ${{ runner.temp }}/semwright-mlt-live-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
@@ -55,6 +53,7 @@ jobs:
           cargo clippy --locked -p semwright-mlt-video-driver --all-targets --all-features -- -D warnings
       - name: Real Host-mediated MLT discovery and live driver
         env:
+          SEMWRIGHT_TEST_MLT_VIDEO_EVIDENCE_ROOT: ${{ runner.temp }}/semwright-mlt-live-${{ github.run_id }}-${{ github.run_attempt }}
           SEMWRIGHT_TEST_MLT_VIDEO: '1'
           SEMWRIGHT_TEST_MELT: /usr/bin/melt
           SEMWRIGHT_TEST_FFPROBE: /usr/bin/ffprobe
@@ -228,6 +227,8 @@ jobs:
           test "${live_pipeline[1]}" -eq 0
       - name: Preserve complete synthetic live originals
         if: always()
+        env:
+          SEMWRIGHT_TEST_MLT_VIDEO_EVIDENCE_ROOT: ${{ runner.temp }}/semwright-mlt-live-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           python3 - <<'PY'
           import hashlib, json, os, pathlib, stat, tarfile
