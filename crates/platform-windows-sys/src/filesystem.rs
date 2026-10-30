@@ -795,7 +795,7 @@ impl Root {
             Ok((ancestors, parents, basename))
         })();
         let (ancestors, parents, basename) = prepared.map_err(|error| RetainedStageError {
-            error,
+            error: Box::new(error),
             retained: None,
         })?;
         let file = nt_open_relative(
@@ -810,7 +810,7 @@ impl Root {
             "Windows retained stage creation failed",
         )
         .map_err(|error| RetainedStageError {
-            error,
+            error: Box::new(error),
             retained: None,
         })?;
         // Construct custody immediately after successful creation. Every later
@@ -837,7 +837,7 @@ impl Root {
         match stage.populate(bytes) {
             Ok(()) => Ok(Box::new(stage)),
             Err(error) => Err(RetainedStageError {
-                error: error.uncertain(),
+                error: Box::new(error.uncertain()),
                 retained: Some(Box::new(stage)),
             }),
         }

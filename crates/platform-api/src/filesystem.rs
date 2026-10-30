@@ -55,7 +55,8 @@ pub trait RetainedFileStage: Send + Sync {
 }
 
 pub struct RetainedStageError {
-    pub error: Error,
+    /// Full error payload, boxed so retained staging does not return a large Err.
+    pub error: Box<Error>,
     /// Present whenever creation succeeded, even if a later step failed.
     pub retained: Option<Box<dyn RetainedFileStage>>,
 }
@@ -112,10 +113,10 @@ pub trait ScopedRoot: Send + Sync {
     /// it does not grant access to other files under a write-only root.
     fn stage_new_retained(&self, _path: &Path, _bytes: &[u8]) -> RetainedStageResult {
         Err(RetainedStageError {
-            error: Error::new(
+            error: Box::new(Error::new(
                 ErrorCode::Unsupported,
                 "Retained file staging is unavailable",
-            ),
+            )),
             retained: None,
         })
     }
