@@ -670,13 +670,11 @@ impl Broker {
         // their wrappers. Reject partial recordings instead of omitting an effect.
         let bound_execution = bound.is_some() || request.command == "providers.execute_bound";
         let record_workflow = !bound_execution && request.command != "providers.mount.observe";
-        if bound_execution {
-            if let Ok(mut workflows) = self.workflows.lock() {
-                workflows.invalidate(
-                    &session,
-                    "Provider mount bindings are ephemeral; workflow recording cannot capture bound execution",
-                );
-            }
+        if bound_execution && let Ok(mut workflows) = self.workflows.lock() {
+            workflows.invalidate(
+                &session,
+                "Provider mount bindings are ephemeral; workflow recording cannot capture bound execution",
+            );
         }
         let descriptor = self.invocation(&request.command);
         let trace_context = descriptor.as_ref().ok().map(|invocation| {
@@ -742,13 +740,11 @@ impl Broker {
         };
         // Recording may start while the bound operation awaits its provider.
         // Invalidate that recording too; canonical audit has already completed.
-        if bound_execution {
-            if let Ok(mut workflows) = self.workflows.lock() {
-                workflows.invalidate(
-                    &session,
-                    "Provider mount bindings are ephemeral; workflow recording cannot capture bound execution",
-                );
-            }
+        if bound_execution && let Ok(mut workflows) = self.workflows.lock() {
+            workflows.invalidate(
+                &session,
+                "Provider mount bindings are ephemeral; workflow recording cannot capture bound execution",
+            );
         }
         if let Some((trace_descriptor, trace_metadata)) =
             trace_context.as_ref().filter(|_| record_workflow)
@@ -1293,18 +1289,17 @@ impl Broker {
                 error
             });
         }
-        if let Some(bound) = &bound {
-            if result.is_ok()
-                && self
-                    .check_bound_completion(session, bound, selected_provider.as_ref())
-                    .is_err()
-            {
-                result = Err(Error::new(
-                    ErrorCode::StaleReference,
-                    "Bound result is historical; provider or mount admission changed",
-                )
-                .uncertain());
-            }
+        if let Some(bound) = &bound
+            && result.is_ok()
+            && self
+                .check_bound_completion(session, bound, selected_provider.as_ref())
+                .is_err()
+        {
+            result = Err(Error::new(
+                ErrorCode::StaleReference,
+                "Bound result is historical; provider or mount admission changed",
+            )
+            .uncertain());
         }
         if descriptor.risk.mutates() {
             *self.features.write().await = None;
