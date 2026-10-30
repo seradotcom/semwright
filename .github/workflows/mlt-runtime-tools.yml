@@ -28,6 +28,8 @@ jobs:
   live-linux:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    env:
+      SEMWRIGHT_TEST_MLT_VIDEO_EVIDENCE_ROOT: ${{ runner.temp }}/semwright-mlt-live-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
@@ -63,6 +65,48 @@ jobs:
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox \
             -p semwright-mlt-video-driver --bin semwright-mlt-video-driver \
             -p semwright-mlt-video-driver --bin semwright-mlt-runtime-runner
+          # The test requires an external custodian's empty, private destination.
+          # It must never create, clear or reuse its own originals directory.
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, stat, subprocess
+          root = pathlib.Path(os.environ["SEMWRIGHT_TEST_MLT_VIDEO_EVIDENCE_ROOT"])
+          workspace = pathlib.Path(os.environ["GITHUB_WORKSPACE"]).resolve(strict=True)
+          runner_temp = pathlib.Path(os.environ["RUNNER_TEMP"]).resolve(strict=True)
+          assert root.is_absolute() and root.parent == runner_temp
+          assert not root.is_relative_to(workspace)
+          assert os.environ["GITHUB_RUN_ATTEMPT"] == "1", "An uncertain live attempt is not replayable"
+          head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          assert head == os.environ["GITHUB_SHA"]
+          subprocess.run(["git", "diff", "--exit-code", "HEAD", "--"], check=True)
+          tree = subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip()
+          root.mkdir(mode=0o700, exist_ok=False)
+          metadata = root.lstat()
+          assert stat.S_ISDIR(metadata.st_mode) and stat.S_IMODE(metadata.st_mode) == 0o700
+          assert metadata.st_uid == os.geteuid() and root.resolve(strict=True) == root
+          assert not list(root.iterdir())
+          def observation(path):
+              path = pathlib.Path(path).resolve(strict=True)
+              value = path.stat()
+              assert stat.S_ISREG(value.st_mode)
+              with path.open("rb") as stream:
+                  digest = hashlib.file_digest(stream, "sha256").hexdigest()
+              return {"path": str(path), "bytes": value.st_size, "sha256": digest}
+          paths = ["Cargo.lock", "rust-toolchain.toml", ".github/workflows/mlt-runtime-tools.yml",
+                   "crates/driver-mlt-video/tests/live.rs", "target/debug/semwright-sandbox",
+                   "target/debug/semwright-mlt-video-driver", "target/debug/semwright-mlt-runtime-runner",
+                   "/usr/bin/melt", "/usr/bin/ffprobe", "/usr/bin/ffmpeg", "/usr/bin/bwrap"]
+          binding = {"schema": "semwright.mlt-live-workflow-binding/1", "source_sha": head,
+                     "source_tree": tree, "run_id": os.environ["GITHUB_RUN_ID"], "attempt": 1,
+                     "root": str(root), "root_device": metadata.st_dev, "root_inode": metadata.st_ino,
+                     "root_uid": metadata.st_uid, "root_mode": stat.S_IMODE(metadata.st_mode),
+                     "initially_empty": True, "inputs": [observation(path) for path in paths],
+                     "job_timeout_minutes": 25, "deadline_enforcer": "GitHub Actions job",
+                     "external_filesystem_budget_attested": False,
+                     "descendant_closure_attested": False, "formal_acceptance": False,
+                     "native_execution_retried": False}
+          with pathlib.Path("verification/mlt-runtime-tools/live-source-binding.json").open("x") as output:
+              json.dump(binding, output, indent=2); output.write("\n")
+          PY
           MELT_REAL=$(realpath /usr/bin/melt)
           MLT_RUNTIME_ROOT=$(dirname "$(dirname "$MELT_REAL")")
           target/debug/semwright-mlt-runtime-runner \
@@ -118,9 +162,9 @@ jobs:
           PY
 
           FFPROBE_REAL=$(realpath /usr/bin/ffprobe)
-          PROBE_ROOT="$RUNNER_TEMP/mlt-probe-scratch"
-          rm -rf "$PROBE_ROOT"
-          install -d -m 0700 "$PROBE_ROOT/job-probe"
+          PROBE_ROOT=$(mktemp -d "$RUNNER_TEMP/mlt-probe-scratch.XXXXXXXX")
+          printf 'SEMWRIGHT_MLT_PROBE_ORIGINALS=%s\n' "$PROBE_ROOT" >> "$GITHUB_ENV"
+          mkdir -m 0700 -- "$PROBE_ROOT/job-probe"
           ffmpeg -hide_banner -loglevel error -y -f lavfi -i color=c=red:s=160x90:d=1 \
             -an -c:v ffv1 -f matroska "$PROBE_ROOT/job-probe/probe.bin"
           chmod 0400 "$PROBE_ROOT/job-probe/probe.bin"
@@ -173,8 +217,74 @@ jobs:
           assert value["media"]["streams"]
           PY
 
+          set +e
           cargo test --locked -p semwright-mlt-video-driver real_mlt_video_driver_runs_inside_sandbox -- --ignored --nocapture \
             2>&1 | tee verification/mlt-runtime-tools/live.log
+          live_pipeline=("${PIPESTATUS[@]}")
+          set -e
+          printf '{"cargo_exit_code":%s,"capture_exit_code":%s,"native_execution_retried":false}\n' \
+            "${live_pipeline[0]}" "${live_pipeline[1]}" > verification/mlt-runtime-tools/live-exit.json
+          test "${live_pipeline[0]}" -eq 0
+          test "${live_pipeline[1]}" -eq 0
+      - name: Preserve complete synthetic live originals
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, stat, tarfile
+          evidence = pathlib.Path("verification/mlt-runtime-tools")
+          evidence.mkdir(parents=True, exist_ok=True)
+          sources = {"live": pathlib.Path(os.environ["SEMWRIGHT_TEST_MLT_VIDEO_EVIDENCE_ROOT"])}
+          if os.environ.get("SEMWRIGHT_MLT_PROBE_ORIGINALS"):
+              sources["probe"] = pathlib.Path(os.environ["SEMWRIGHT_MLT_PROBE_ORIGINALS"])
+          rows = []; total = 0; roster = []
+          for label, root in sources.items():
+              if not root.exists():
+                  rows.append({"root": label, "state": "NOT_CREATED"}); continue
+              assert root.resolve(strict=True) == root and root.is_dir() and not root.is_symlink()
+              paths = [root, *sorted(root.rglob("*"))]
+              for path in paths:
+                  metadata = path.lstat()
+                  assert stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode), "Non-regular original: custody refused"
+                  total += metadata.st_size if path.is_file() else 0
+                  assert len(roster) < 20000 and total <= 512 * 1024 * 1024, "Original archive budget exceeded; no truncation"
+                  member = label + ("/" + path.relative_to(root).as_posix() if path != root else "")
+                  row = {"member": member, "device": metadata.st_dev, "inode": metadata.st_ino,
+                         "mode": metadata.st_mode, "uid": metadata.st_uid, "gid": metadata.st_gid,
+                         "bytes": metadata.st_size, "mtime_ns": metadata.st_mtime_ns}
+                  if path.is_file():
+                      with path.open("rb") as stream:
+                          row["sha256"] = hashlib.file_digest(stream, "sha256").hexdigest()
+                  rows.append(row); roster.append((path, member, row))
+          manifest = {"schema": "semwright.mlt-live-workflow-custody/1", "source_sha": os.environ["GITHUB_SHA"],
+                      "run_id": os.environ["GITHUB_RUN_ID"], "attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+                      "rows": rows, "regular_file_bytes": total, "native_execution_retried": False,
+                      "formal_acceptance": False, "descendant_closure_attested": False,
+                      "data_scope": "SDK public-source binaries and synthetic live fixtures; manifest secrets=[]; no credentials collected"}
+          with (evidence / "live-originals-manifest.json").open("x") as output:
+              json.dump(manifest, output, indent=2); output.write("\n")
+          if roster:
+              archive = evidence / "live-originals.tar.gz"
+              with tarfile.open(archive, "x:gz", dereference=False) as output:
+                  for path, member, row in roster:
+                      before = path.lstat()
+                      assert (before.st_dev, before.st_ino, before.st_mode, before.st_size, before.st_mtime_ns) == \
+                          (row["device"], row["inode"], row["mode"], row["bytes"], row["mtime_ns"])
+                      output.add(path, arcname=member, recursive=False)
+              with tarfile.open(archive, "r:gz") as retained:
+                  members = retained.getmembers()
+                  assert len(members) == len(roster)
+                  for (_, name, row), member in zip(roster, members):
+                      assert member.name == name
+                      if "sha256" in row:
+                          with retained.extractfile(member) as stream:
+                              assert hashlib.file_digest(stream, "sha256").hexdigest() == row["sha256"]
+              with archive.open("rb") as stream:
+                  digest = hashlib.file_digest(stream, "sha256").hexdigest()
+              with (evidence / "live-originals-archive.json").open("x") as output:
+                  json.dump({"file": archive.name, "bytes": archive.stat().st_size,
+                             "sha256": digest, "members_verified": len(roster)}, output, indent=2)
+                  output.write("\n")
+          PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
