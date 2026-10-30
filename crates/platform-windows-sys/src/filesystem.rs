@@ -1306,20 +1306,57 @@ mod tests {
         std::fs::create_dir(foreign.path().join("workspace")).unwrap();
         std::fs::write(foreign.path().join("workspace/data.txt"), b"foreign").unwrap();
         let root = Root::open(&workspace, true, true).unwrap();
-        std::fs::rename(&original, &retained).unwrap();
-        junction(&original, foreign.path());
+        let renamed = match std::fs::rename(&original, &retained) {
+            Ok(()) => {
+                eprintln!("retained-root ancestor rename: moved while retained");
+                junction(&original, foreign.path());
+                true
+            }
+            Err(error) => {
+                // Windows can protect the ancestor while its descendant root is retained.
+                // Prove below that releasing only our custody permits this same rename.
+                assert!(
+                    matches!(error.raw_os_error(), Some(5 | 32)),
+                    "unexpected ancestor rename error: {error}"
+                );
+                eprintln!(
+                    "retained-root ancestor rename: denied while retained (error={:?})",
+                    error.raw_os_error()
+                );
+                assert!(original.is_dir());
+                assert!(!retained.exists());
+                false
+            }
+        };
         assert_eq!(root.read(Path::new("data.txt"), 16).unwrap(), b"owned");
         let stage = root
             .stage_new_retained(Path::new("new.bin"), b"new-owned")
             .unwrap();
         assert!(stage.verify_entry().is_ok());
-        assert!(stage.verify_handoff_path().is_err());
+        if renamed {
+            assert!(stage.verify_handoff_path().is_err());
+        } else {
+            assert!(stage.verify_handoff_path().is_ok());
+        }
         assert_eq!(stage.observe(64).unwrap().bytes, b"new-owned");
         assert!(!foreign.path().join("workspace/new.bin").exists());
         drop(stage);
+        drop(root);
+        if !renamed {
+            std::fs::rename(&original, &retained).unwrap();
+            assert!(!original.exists());
+        }
         assert_eq!(
             std::fs::read(retained.join("workspace/new.bin")).unwrap(),
             b"new-owned"
+        );
+        assert_eq!(
+            std::fs::read(retained.join("workspace/data.txt")).unwrap(),
+            b"owned"
+        );
+        assert_eq!(
+            std::fs::read(foreign.path().join("workspace/data.txt")).unwrap(),
+            b"foreign"
         );
     }
 

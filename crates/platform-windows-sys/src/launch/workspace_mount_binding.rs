@@ -500,7 +500,21 @@ mod tests {
         let state = fixture.state();
         let path = wide_null(fixture.mount.source.as_os_str()).unwrap();
         let sid = PSID(state.sid.as_ptr().cast_mut().cast());
+        binding.validate_current().unwrap();
+        assert!(dacl_has_deny(&path, sid, state.denied_permissions, state.inheritance).unwrap());
+        // The native REVOKE operation leaves a DENY-only ACL. Absence inspection must
+        // still see this SID, and full cleanup must work for a partially applied grant.
+        set_mount_ace(&path, sid, REVOKE_ACCESS, 0, NO_INHERITANCE).unwrap();
+        assert!(!dacl_has_grant(&path, sid, state.permissions, state.inheritance).unwrap());
+        assert!(dacl_has_deny(&path, sid, state.denied_permissions, state.inheritance).unwrap());
+        assert!(dacl_has_sid(&path, sid).unwrap());
+        assert_eq!(
+            binding.validate_current().unwrap_err().code,
+            ErrorCode::StaleReference
+        );
         revoke_mount_sid(&path, sid).unwrap();
+        assert!(!dacl_has_sid(&path, sid).unwrap());
+        assert!(!dacl_has_deny(&path, sid, state.denied_permissions, state.inheritance).unwrap());
         set_mount_ace(
             &path,
             sid,
@@ -509,11 +523,122 @@ mod tests {
             state.inheritance,
         )
         .unwrap();
+        assert!(dacl_has_grant(&path, sid, state.permissions, state.inheritance).unwrap());
+        assert!(!dacl_has_deny(&path, sid, state.denied_permissions, state.inheritance).unwrap());
         assert_eq!(
             binding.validate_current().unwrap_err().code,
             ErrorCode::StaleReference
         );
+        // Restore the exact missing ACE: the same retained binding must be current again.
+        set_mount_ace(
+            &path,
+            sid,
+            DENY_ACCESS,
+            state.denied_permissions,
+            state.inheritance,
+        )
+        .unwrap();
+        binding.validate_current().unwrap();
     }
+
+    fn unrelated_ace_bytes(path: &[u16], excluded_sid: &[u8]) -> Vec<Vec<u8>> {
+        let (dacl, _descriptor) = named_dacl(path).unwrap();
+        let mut acl_info = ACL_SIZE_INFORMATION::default();
+        // SAFETY: the descriptor owns dacl and acl_info is a sized output buffer.
+        unsafe {
+            GetAclInformation(
+                dacl,
+                (&mut acl_info as *mut ACL_SIZE_INFORMATION).cast(),
+                std::mem::size_of::<ACL_SIZE_INFORMATION>() as u32,
+                AclSizeInformation,
+            )
+        }
+        .unwrap();
+        assert!(acl_info.AceCount <= 4_096);
+        let acl_in_use = usize::try_from(acl_info.AclBytesInUse).unwrap();
+        // SAFETY: GetAclInformation accepted this live descriptor-owned ACL header.
+        let acl_capacity = usize::from(unsafe { (*dacl).AclSize });
+        assert!(acl_in_use >= std::mem::size_of::<ACL>() && acl_in_use <= acl_capacity);
+        let acl_start = dacl as usize;
+        let first_ace = acl_start.checked_add(std::mem::size_of::<ACL>()).unwrap();
+        let acl_end = acl_start.checked_add(acl_in_use).unwrap();
+        let mut entries = Vec::new();
+        for index in 0..acl_info.AceCount {
+            let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
+            // SAFETY: the index is within AceCount and raw is a live output pointer.
+            unsafe { GetAce(dacl, index, &mut raw) }.unwrap();
+            let ace_start = raw as usize;
+            let header_end = ace_start
+                .checked_add(std::mem::size_of::<ACE_HEADER>())
+                .unwrap();
+            assert!(ace_start >= first_ace && header_end <= acl_end);
+            // SAFETY: the complete header is bounded by the live descriptor-owned ACL.
+            let header = unsafe { &*(raw.cast::<ACE_HEADER>()) };
+            let ace_len = usize::from(header.AceSize);
+            assert!(ace_len >= std::mem::size_of::<ACE_HEADER>());
+            assert!(ace_start.checked_add(ace_len).unwrap() <= acl_end);
+            // SAFETY: the complete ACE is bounded by the live descriptor-owned ACL.
+            let bytes = unsafe { std::slice::from_raw_parts(raw.cast::<u8>(), ace_len) };
+            let sid_offset = match u32::from(header.AceType) {
+                ACCESS_ALLOWED_ACE_TYPE => std::mem::offset_of!(ACCESS_ALLOWED_ACE, SidStart),
+                ACCESS_DENIED_ACE_TYPE => std::mem::offset_of!(ACCESS_DENIED_ACE, SidStart),
+                _ => panic!("unexpected complex ACE in workspace fixture"),
+            };
+            if bounded_sid_bytes(bytes, sid_offset).unwrap() != excluded_sid {
+                entries.push(bytes.to_vec());
+            }
+        }
+        entries
+    }
+
+    #[test]
+    fn revocation_removes_own_allow_and_deny_without_changing_other_trustees() {
+        let mut fixture = Fixture::new();
+        let binding = fixture.binding();
+        let own_sid = fixture.state().sid.clone();
+        let path = wide_null(fixture.mount.source.as_os_str()).unwrap();
+        let sid = PSID(own_sid.as_ptr().cast_mut().cast());
+        let other_profile = AppContainerProfile::create(&[]).unwrap();
+        let prepared = prepare_mount_grant(&fixture.mount).unwrap();
+        let other_grant = WindowsMountGrant::grant(&prepared, other_profile.sid).unwrap();
+        let other_binding =
+            capture_workspace_mount_bindings(std::slice::from_ref(&other_grant), current_process())
+                .unwrap()
+                .remove(0);
+        binding.validate_current().unwrap();
+        other_binding.validate_current().unwrap();
+        assert!(dacl_has_grant(&path, sid, prepared.permissions, prepared.inheritance).unwrap());
+        assert!(
+            dacl_has_deny(
+                &path,
+                sid,
+                prepared.denied_permissions,
+                prepared.inheritance
+            )
+            .unwrap()
+        );
+        let unrelated_before = unrelated_ace_bytes(&path, &own_sid);
+        assert!(!unrelated_before.is_empty());
+        fixture.grant.revoke().unwrap();
+        assert!(!dacl_has_sid(&path, sid).unwrap());
+        assert!(!dacl_has_grant(&path, sid, prepared.permissions, prepared.inheritance).unwrap());
+        assert!(
+            !dacl_has_deny(
+                &path,
+                sid,
+                prepared.denied_permissions,
+                prepared.inheritance
+            )
+            .unwrap()
+        );
+        assert_eq!(unrelated_ace_bytes(&path, &own_sid), unrelated_before);
+        assert_eq!(
+            binding.validate_current().unwrap_err().code,
+            ErrorCode::StaleReference
+        );
+        other_binding.validate_current().unwrap();
+    }
+
     #[test]
     fn retained_workspace_rejects_expanded_allow_ace() {
         let fixture = Fixture::new();
@@ -630,6 +755,8 @@ mod tests {
         require_single_link_regular(&metadata).unwrap();
         let mut dacl: *mut ACL = std::ptr::null_mut();
         let mut descriptor = PSECURITY_DESCRIPTOR::default();
+        // SAFETY: file owns the live HANDLE, all output pointers reference live locals,
+        // and the returned descriptor is freed by SecurityDescriptor below.
         let status = unsafe {
             GetSecurityInfo(
                 HANDLE(file.as_raw_handle()),

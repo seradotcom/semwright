@@ -1174,7 +1174,7 @@ fn render_impl<F: FnOnce(&Path)>(
                 color_observation,
             })
         })();
-        let original = if let Some(custody) = &custody {
+        if let Some(custody) = &custody {
             let result = custody.complete(original);
             process_originals_complete &= custody.original_capture_complete();
             if let Some(report) = custody.secondary_report() {
@@ -1183,8 +1183,7 @@ fn render_impl<F: FnOnce(&Path)>(
             result
         } else {
             original
-        };
-        original
+        }
     })();
     if let Some(raw) = raw_originals {
         raw.finish(

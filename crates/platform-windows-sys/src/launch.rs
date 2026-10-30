@@ -47,7 +47,7 @@ use windows::Win32::{
         Authorization::{
             ConvertSidToStringSidW, DENY_ACCESS, EXPLICIT_ACCESS_W, GRANT_ACCESS,
             GetNamedSecurityInfoW, GetSecurityInfo, NO_MULTIPLE_TRUSTEE, REVOKE_ACCESS,
-            SE_FILE_OBJECT, SetEntriesInAclW, SetNamedSecurityInfoW, TRUSTEE_IS_SID,
+            SE_FILE_OBJECT, SET_ACCESS, SetEntriesInAclW, SetNamedSecurityInfoW, TRUSTEE_IS_SID,
             TRUSTEE_IS_USER, TRUSTEE_W,
         },
         CopySid, CreateWellKnownSid, DACL_SECURITY_INFORMATION, DeriveCapabilitySidsFromName,
@@ -1173,14 +1173,23 @@ fn dacl_has_sid(path: &[u16], sid: PSID) -> Result<bool> {
         }
         // SAFETY: GetAce returned storage owned by the live DACL/security descriptor.
         let header = unsafe { &*(raw.cast::<ACE_HEADER>()) };
-        if header.AceType as u32 != ACCESS_ALLOWED_ACE_TYPE
-            || usize::from(header.AceSize) < std::mem::size_of::<ACCESS_ALLOWED_ACE>()
-        {
-            continue;
-        }
-        // SAFETY: a simple access-allowed ACE is at least ACCESS_ALLOWED_ACE bytes.
-        let ace = unsafe { &*(raw.cast::<ACCESS_ALLOWED_ACE>()) };
-        let ace_sid = PSID((&ace.SidStart as *const u32).cast_mut().cast());
+        let ace_sid = match u32::from(header.AceType) {
+            ACCESS_ALLOWED_ACE_TYPE
+                if usize::from(header.AceSize) >= std::mem::size_of::<ACCESS_ALLOWED_ACE>() =>
+            {
+                // SAFETY: this live simple ACE includes the ACCESS_ALLOWED_ACE fields.
+                let ace = unsafe { &*(raw.cast::<ACCESS_ALLOWED_ACE>()) };
+                PSID((&ace.SidStart as *const u32).cast_mut().cast())
+            }
+            ACCESS_DENIED_ACE_TYPE
+                if usize::from(header.AceSize) >= std::mem::size_of::<ACCESS_DENIED_ACE>() =>
+            {
+                // SAFETY: this live simple ACE includes the ACCESS_DENIED_ACE fields.
+                let ace = unsafe { &*(raw.cast::<ACCESS_DENIED_ACE>()) };
+                PSID((&ace.SidStart as *const u32).cast_mut().cast())
+            }
+            _ => continue,
+        };
         // SAFETY: both SIDs are live for this comparison.
         if unsafe { EqualSid(ace_sid, sid).is_ok() } {
             return Ok(true);
@@ -1322,7 +1331,14 @@ fn dacl_has_deny(
 }
 
 fn revoke_mount_sid(path: &[u16], sid: PSID) -> Result<()> {
-    set_mount_ace(path, sid, REVOKE_ACCESS, 0, NO_INHERITANCE)?;
+    let (dacl, _descriptor) = named_dacl(path)?;
+    // REVOKE_ACCESS removes ALLOW, not DENY. Replace this SID's entries with a
+    // zero-rights ALLOW in a private ACL, then remove that entry in another private
+    // ACL. Apply only the final ACL, preserving other trustees and their flags.
+    // No intermediate DACL without the original DENY is exposed on the object.
+    let replaced = mount_acl_with_ace(dacl, sid, SET_ACCESS, 0, NO_INHERITANCE)?;
+    let removed = mount_acl_with_ace(replaced.0, sid, REVOKE_ACCESS, 0, NO_INHERITANCE)?;
+    apply_mount_acl(path, &removed)?;
     if dacl_has_sid(path, sid)? {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
@@ -1340,6 +1356,17 @@ fn set_mount_ace(
     inheritance: windows::Win32::Security::ACE_FLAGS,
 ) -> Result<()> {
     let (dacl, _descriptor) = named_dacl(path)?;
+    let updated = mount_acl_with_ace(dacl, sid, access_mode, permissions, inheritance)?;
+    apply_mount_acl(path, &updated)
+}
+
+fn mount_acl_with_ace(
+    dacl: *mut ACL,
+    sid: PSID,
+    access_mode: windows::Win32::Security::Authorization::ACCESS_MODE,
+    permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+) -> Result<LocalAcl> {
     let entry = EXPLICIT_ACCESS_W {
         grfAccessPermissions: permissions,
         grfAccessMode: access_mode,
@@ -1362,8 +1389,11 @@ fn set_mount_ace(
             "Windows sandbox mount ACE could not be constructed",
         ));
     }
-    let updated = LocalAcl(updated);
-    // SAFETY: path is NUL-terminated and updated contains a valid ACL allocated above.
+    Ok(LocalAcl(updated))
+}
+
+fn apply_mount_acl(path: &[u16], updated: &LocalAcl) -> Result<()> {
+    // SAFETY: path is NUL-terminated and updated owns a valid SetEntriesInAclW ACL.
     let status = unsafe {
         SetNamedSecurityInfoW(
             PCWSTR(path.as_ptr()),
