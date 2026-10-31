@@ -56,5 +56,16 @@ Tradeoff: a change *only* to a property that does not trigger any of those other
 - `cargo test --locked --offline -p semwright-platform-windows --lib`: **10 PASS, 0 FAIL**, including property-handler exclusion and a real COM actor init/event subscription/shutdown.
 - `cargo clippy --locked --offline -p semwright-platform-windows --lib -- -D warnings -A clippy::manual_is_multiple_of`: **PASS**. The narrowly waived lint originates in an unrelated, unmodified Windows sandbox source file (`crates/platform-windows-sys/src/launch/initial_lpac.rs`), not this fix.
 - Isolated Win32 interactive fixture: **NOT PASS** due to expected `StaleReference` after a concurrent desktop-wide structure event, not a crash. No safety override or force-retry.
-- A full daemon dependency-graph check was started against the existing Cargo target. Three unrelated concurrent edits appeared in protocol, platform services, and Windows paths while that check was running; they are **excluded from this change and its commit**. The daemon graph check alone must not be treated as validation of an unchanged production tree unless its source state is reconciled.
+- The full daemon dependency-graph check **PASS** included concurrent local edits in protocol, platform services and Windows paths. They were excluded from the standalone UIA commit `7b59d49` and subsequently committed and validated as the companion fix `40870de`. This does not constitute a deployed production build.
 - No production daemon was replaced or restarted, and no Figma document was modified.
+
+## Companion session fix and one-time native verification
+
+- Commit `40870de` restores Windows broker ticket persistence with protected owner/System file ACLs, bounded interprocess locking, and an atomic session-file update. The CLI and inspector now use real local filesystem tickets scoped to the named-pipe endpoint; no changes to Unix persistence.
+- `cargo test --offline --locked -p semwright-protocol --lib windows_ticket_tests`: **2 PASS, 0 FAIL**. This verifies ticket replacement and distinct local paths. It is not a cross-process soak.
+- `cargo check --offline --locked -p semwright-cli -p semwright-tui --bins`: **PASS**.
+- `cargo build --offline --locked -p semwright-daemon --bin semwrightd`: **PASS** using the existing E: Cargo target. Debug executable SHA-256: `410DBB62DFEC5139C8347F7BF5EA82E07431B04D289715203F26AD710449DDA9`.
+- A single real Windows broker smoke used a separate `-heap-smoke` named pipe, a new owner-only E: state root, observe policy, and no drivers. Installed CLI `--json doctor` returned exit 0. The **test-only process was stopped**, leaving no `semwrightd.exe` running.
+- The installed `%LOCALAPPDATA%\Semwright\bin\semwrightd.exe` remains the old October build; the pinned Olevu/Figma broker and all other driver instances were not replaced or restarted. Updating each pinned release binary and digest is a distinct rollout step.
+- The existing native UIA fixture remains **NOT PASS** due to a legitimate `StaleReference`; no long-duration crash-free soak, original heap dump, or full Figma/Blender/Godot/OBS release acceptance was claimed.
+- Source branch `fix/windows-uia-variant-heap-20261031` was pushed to GitHub. A1 can roll out an owner-reviewed release artifact to one isolated broker and run only the affected driver checks. Do not substitute this debug artifact into production or bypass manifest digests.
