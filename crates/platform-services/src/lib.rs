@@ -35,6 +35,10 @@ pub fn private_data_directory(path: &Path) -> Result<()> {
     semwright_platform_windows_sys::paths::ensure_owner_only_directory(path)
 }
 #[cfg(target_os = "windows")]
+pub fn protect_owner_only_file(path: &Path) -> Result<()> {
+    semwright_platform_windows_sys::paths::ensure_owner_only_file(path)
+}
+#[cfg(target_os = "windows")]
 pub fn windows_pipe_path(kind: &str) -> Result<PathBuf> {
     semwright_platform_windows_sys::pipe::pipe_path(kind)
 }

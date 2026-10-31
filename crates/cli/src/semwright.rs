@@ -1309,7 +1309,8 @@ async fn run(cli: &Cli) -> Result<i32> {
     let ticket = cli
         .session_file
         .clone()
-        .unwrap_or(socket.with_file_name("cli.session"));
+        .map(Ok)
+        .unwrap_or_else(|| ipc::default_session_ticket(&socket))?;
     let mut client = ipc::connect_persistent(&socket, &ticket).await?;
     if let Command::Skill { command } = &cli.command {
         return manage_skill_remote(cli, command, &mut client).await;
