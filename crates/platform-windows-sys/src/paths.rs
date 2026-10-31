@@ -128,6 +128,63 @@ pub fn ensure_owner_only_directory(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Protect a single broker-owned ticket or lock file before any secret bytes
+/// are read or written. Directory inheritance alone does not protect a file
+/// that was already present before the directory was hardened.
+pub fn ensure_owner_only_file(path: &Path) -> Result<()> {
+    let check = || -> Result<()> {
+        let metadata = std::fs::symlink_metadata(path)?;
+        if !metadata.is_file()
+            || metadata.file_type().is_symlink()
+            || metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+        {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Windows private file must be a regular non-reparse file",
+            ));
+        }
+        Ok(())
+    };
+    check()?;
+    let sid = crate::identity::current_user_sid()?;
+    let sddl = HSTRING::from(format!("D:P(A;;GA;;;SY)(A;;GA;;;{sid})"));
+    let mut descriptor = PSECURITY_DESCRIPTOR::default();
+    // SAFETY: the SDDL input is live and the returned descriptor is LocalAlloc-owned.
+    unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            &sddl,
+            SDDL_REVISION_1,
+            &mut descriptor,
+            None,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::PermissionDenied,
+            "Private-file ACL creation failed",
+        )
+    })?;
+    let descriptor = OwnedSecurityDescriptor(descriptor);
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain([0]).collect();
+    // SAFETY: the path is terminated, the descriptor is live, and only the
+    // current user and LocalSystem retain access (protected DACL).
+    unsafe {
+        windows::Win32::Security::SetFileSecurityW(
+            windows::core::PCWSTR(wide.as_ptr()),
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            descriptor.0,
+        )
+    }
+    .ok()
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::PermissionDenied,
+            "Private-file ACL hardening failed",
+        )
+    })?;
+    check()
+}
+
 pub fn paths() -> Result<PlatformPaths> {
     let local = known_folder(&FOLDERID_LocalAppData)?.join("Semwright");
     let roaming = known_folder(&FOLDERID_RoamingAppData)?.join("Semwright");

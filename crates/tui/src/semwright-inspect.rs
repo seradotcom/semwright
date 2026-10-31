@@ -154,7 +154,8 @@ async fn run() -> Result<()> {
     let socket = args.socket.map(Ok).unwrap_or_else(default_socket)?;
     let ticket = args
         .session_file
-        .unwrap_or(socket.with_file_name("cli.session"));
+        .map(Ok)
+        .unwrap_or_else(|| semwright_protocol::default_session_ticket(&socket))?;
     let job = args.job;
     enable_raw_mode()?;
     let _restore = Restore;
