@@ -303,16 +303,26 @@ pub fn inspect_png(bytes: &[u8]) -> Result<PngEvidence> {
         png::ColorType::Rgba => 4,
         _ => return Err(Error::invalid("Unexpanded PNG pixels")),
     };
-    for pixel in buffer.chunks_exact(stride) {
-        let rgba = match stride {
-            1 => [pixel[0], pixel[0], pixel[0], 255],
-            2 => [pixel[0], pixel[0], pixel[0], pixel[1]],
-            3 => [pixel[0], pixel[1], pixel[2], 255],
-            _ => [pixel[0], pixel[1], pixel[2], pixel[3]],
-        };
-        min_alpha = min_alpha.min(rgba[3]);
-        max_alpha = max_alpha.max(rgba[3]);
-        hash.update(rgba);
+    if stride == 4 {
+        // Decoded RGBA already has the canonical byte order. Hash it as one
+        // slice; millions of four-byte updates delay terminal job observation.
+        hash.update(buffer);
+        for &alpha in buffer.iter().skip(3).step_by(4) {
+            min_alpha = min_alpha.min(alpha);
+            max_alpha = max_alpha.max(alpha);
+        }
+    } else {
+        for pixel in buffer.chunks_exact(stride) {
+            let rgba = match stride {
+                1 => [pixel[0], pixel[0], pixel[0], 255],
+                2 => [pixel[0], pixel[0], pixel[0], pixel[1]],
+                3 => [pixel[0], pixel[1], pixel[2], 255],
+                _ => unreachable!("RGBA is handled without conversion"),
+            };
+            min_alpha = min_alpha.min(rgba[3]);
+            max_alpha = max_alpha.max(rgba[3]);
+            hash.update(rgba);
+        }
     }
     Ok(PngEvidence {
         width: output.width,
@@ -397,5 +407,126 @@ mod canvas_color_tests {
         let mut v = observed();
         v["extra"] = json!(1);
         assert!(validate_canvas_color_evidence(&v, 1920, 1080, "srgb").is_err());
+    }
+}
+
+#[cfg(test)]
+mod png_digest_regressions {
+    use super::*;
+    use sha2::Digest;
+    fn png_data(color: png::ColorType, depth: png::BitDepth, pixels: &[u8], width: u32) -> Vec<u8> {
+        let mut output = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(&mut output, width, 1);
+            encoder.set_color(color);
+            encoder.set_depth(depth);
+            encoder
+                .write_header()
+                .unwrap()
+                .write_image_data(pixels)
+                .unwrap();
+        }
+        output
+    }
+    fn check(data: &[u8], rgba: &[u8], min: u8, max: u8) {
+        let b = inspect_png(data).unwrap();
+        let expected = hex::encode(sha2::Sha256::digest(rgba));
+        assert_eq!(b.pixel_sha256, expected);
+        assert_eq!((b.min_alpha, b.max_alpha), (min, max));
+    }
+    #[test]
+    fn rgba_mixed_alpha_keeps_canonical_bytes() {
+        let pixels = [1, 2, 3, 0, 4, 5, 6, 127, 7, 8, 9, 255];
+        check(
+            &png_data(png::ColorType::Rgba, png::BitDepth::Eight, &pixels, 3),
+            &pixels,
+            0,
+            255,
+        );
+    }
+    #[test]
+    fn rgb_keeps_opaque_rgba_expansion() {
+        check(
+            &png_data(
+                png::ColorType::Rgb,
+                png::BitDepth::Eight,
+                &[3, 4, 5, 6, 7, 8],
+                2,
+            ),
+            &[3, 4, 5, 255, 6, 7, 8, 255],
+            255,
+            255,
+        );
+    }
+    #[test]
+    fn grayscale_keeps_rgb_replication() {
+        check(
+            &png_data(png::ColorType::Grayscale, png::BitDepth::Eight, &[0, 70], 2),
+            &[0, 0, 0, 255, 70, 70, 70, 255],
+            255,
+            255,
+        );
+    }
+    #[test]
+    fn grayscale_alpha_keeps_transparency() {
+        check(
+            &png_data(
+                png::ColorType::GrayscaleAlpha,
+                png::BitDepth::Eight,
+                &[40, 9, 120, 230],
+                2,
+            ),
+            &[40, 40, 40, 9, 120, 120, 120, 230],
+            9,
+            230,
+        );
+    }
+    #[test]
+    fn rgba_sixteen_bit_retains_existing_strip_transform() {
+        check(
+            &png_data(
+                png::ColorType::Rgba,
+                png::BitDepth::Sixteen,
+                &[0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0],
+                1,
+            ),
+            &[0x12, 0x56, 0x9a, 0xde],
+            0xde,
+            0xde,
+        );
+    }
+    #[test]
+    fn indexed_transparency_is_expanded_before_digest() {
+        let mut data = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(&mut data, 2, 1);
+            encoder.set_color(png::ColorType::Indexed);
+            encoder.set_depth(png::BitDepth::Eight);
+            encoder.set_palette(vec![10, 20, 30, 40, 50, 60]);
+            encoder.set_trns(vec![0, 128]);
+            encoder
+                .write_header()
+                .unwrap()
+                .write_image_data(&[0, 1])
+                .unwrap();
+        }
+        check(&data, &[10, 20, 30, 0, 40, 50, 60, 128], 0, 128);
+    }
+    #[test]
+    fn corrupted_compressed_pixels_still_fail() {
+        let mut data = png_data(png::ColorType::Rgba, png::BitDepth::Eight, &[1, 2, 3, 4], 1);
+        let offset = data.windows(4).position(|v| v == b"IDAT").unwrap() + 4;
+        data[offset] ^= 0x80;
+        assert!(inspect_png(&data).is_err());
+    }
+    #[test]
+    fn excessive_width_still_fails_before_decode() {
+        let data = png_data(
+            png::ColorType::Rgba,
+            png::BitDepth::Eight,
+            &vec![255; 4097 * 4],
+            4097,
+        );
+        assert!(inspect_png(&data).is_err());
     }
 }
