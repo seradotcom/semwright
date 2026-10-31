@@ -2,6 +2,9 @@ import importlib.util
 import random
 import string
 import tempfile
+import types
+import unittest
+from contextlib import contextmanager
 from pathlib import Path
 
 SEMANTIC = Path(__file__).resolve().parents[1] / "src" / "semantic.py"
@@ -32,6 +35,173 @@ def expect_semantic_error(fn, code=None):
             assert error.code == code, (error.code, code)
         return
     raise AssertionError("expected SemanticError")
+
+
+class RenderEngineEnumTests(unittest.TestCase):
+    """Source-only native API boundary tests; no Blender or renderer is started."""
+
+    def fixture(self, current="CYCLES"):
+        prop = Prop("engine", "ENUM", subtype="NONE")
+        prop.name = "Engine"
+        prop.description = "Engine to use for rendering"
+        prop.is_animatable = False
+        prop.enum_items = [types.SimpleNamespace(identifier="BLENDER_EEVEE_NEXT", name="EEVEE")]
+
+        class Scene:
+            pass
+
+        class Owner:
+            def __init__(self):
+                self._engine = current
+                self.writes = 0
+
+            @property
+            def engine(self):
+                return self._engine
+
+            @engine.setter
+            def engine(self, value):
+                self.writes += 1
+                self._engine = value
+
+        owner = Owner()
+        scene = Scene()
+        scene.render = owner
+        owner.id_data = scene
+        owner.bl_rna = types.SimpleNamespace(identifier="RenderSettings", properties={"engine": prop})
+        ambient = object()
+
+        class Context:
+            scene = ambient
+
+            @contextmanager
+            def temp_override(self, *, scene):
+                previous = self.scene
+                self.scene = scene
+                try:
+                    yield
+                finally:
+                    self.scene = previous
+
+        context = Context()
+        calls = []
+        labels = {"BLENDER_EEVEE_NEXT": "EEVEE", "CYCLES": "Cycles"}
+
+        def enum_item_name(data, property_id, identifier):
+            self.assertIs(data, owner)
+            self.assertEqual(property_id, "engine")
+            self.assertIs(context.scene, scene)
+            calls.append(identifier)
+            result = labels.get(identifier, "")
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        bpy = types.SimpleNamespace(context=context,
+            types=types.SimpleNamespace(Scene=Scene,
+                UILayout=types.SimpleNamespace(enum_item_name=enum_item_name)))
+        return types.SimpleNamespace(prop=prop, owner=owner, scene=scene, bpy=bpy,
+                                     labels=labels, calls=calls, ambient=ambient)
+
+    def test_current_engine_absent_from_static_enum_needs_native_instance_membership(self):
+        case = self.fixture()
+        self.assertEqual([item.identifier for item in case.prop.enum_items], ["BLENDER_EEVEE_NEXT"])
+        descriptor = semantic._property_descriptor(case.prop, "RenderSettings", case.owner, case.bpy)
+        self.assertEqual(descriptor["enum"], [
+            {"id": "BLENDER_EEVEE_NEXT", "name": "EEVEE"}, {"id": "CYCLES", "name": "Cycles"}])
+        self.assertTrue(descriptor["writable"])
+        self.assertEqual(semantic._coerce("CYCLES", case.prop, case.owner, case.bpy), "CYCLES")
+        self.assertEqual(case.owner.engine, "CYCLES")
+        self.assertEqual(case.owner.writes, 0)
+        self.assertIs(case.bpy.context.scene, case.ambient)
+        self.assertIn("not an exhaustive", descriptor["reason"])
+
+    def test_invalid_or_stale_candidates_are_never_admitted(self):
+        case = self.fixture()
+        case.prop.enum_items.append(types.SimpleNamespace(identifier="UNREGISTERED", name="Untrusted label"))
+        values = semantic._enum_items(case.prop, case.owner, case.bpy)
+        self.assertNotIn("UNREGISTERED", {item["id"] for item in values})
+        with self.assertRaises(ValueError):
+            semantic._coerce("UNREGISTERED", case.prop, case.owner, case.bpy)
+        case.owner._engine = "UNREGISTERED"
+        with self.assertRaises(ValueError):
+            semantic._property_descriptor(case.prop, "RenderSettings", case.owner, case.bpy)
+        self.assertEqual(case.owner.writes, 0)
+        self.assertIs(case.bpy.context.scene, case.ambient)
+
+    def test_type_only_engine_descriptor_does_not_invent_instance_choices(self):
+        case = self.fixture()
+        descriptor = semantic._property_descriptor(case.prop, "RenderSettings")
+        self.assertNotIn("enum", descriptor)
+        self.assertIn("authenticated instance", descriptor["reason"])
+        self.assertEqual(case.calls, [])
+        prop = Prop("mode", "ENUM")
+        prop.enum_items = [types.SimpleNamespace(identifier="STATIC", name="Static")]
+        self.assertEqual(semantic._enum_items(prop), [{"id": "STATIC", "name": "Static"}])
+        self.assertEqual(semantic._coerce("STATIC", prop), "STATIC")
+
+    def test_foreign_scene_owner_or_property_cannot_supply_membership(self):
+        changes = (
+            lambda c: setattr(c.owner, "id_data", object()),
+            lambda c: setattr(c.scene, "render", object()),
+            lambda c: c.owner.bl_rna.properties.update(engine=Prop("engine", "ENUM")),
+            lambda c: setattr(c.bpy.types, "Scene", None),
+        )
+        for change in changes:
+            with self.subTest(change=changes.index(change)):
+                case = self.fixture()
+                change(case)
+                with self.assertRaises(ValueError):
+                    semantic._enum_items(case.prop, case.owner, case.bpy)
+                self.assertEqual(case.calls, [])
+                self.assertEqual(case.owner.writes, 0)
+                self.assertIs(case.bpy.context.scene, case.ambient)
+
+    def test_engine_instance_profile_rejects_non_scalar_or_runtime_rna(self):
+        for name, value in (("type", "STRING"), ("array_length", 1),
+                            ("is_enum_flag", True), ("is_runtime", True)):
+            with self.subTest(name=name):
+                case = self.fixture()
+                setattr(case.prop, name, value)
+                with self.assertRaises(ValueError):
+                    semantic._instance_render_engine_enum_items(case.prop, case.owner, case.bpy)
+                self.assertEqual(case.calls, [])
+
+    def test_current_identifier_and_candidate_count_are_bounded(self):
+        for current in (None, 1, "", "x" * 257, "CYCLES\x00"):
+            with self.subTest(current=current):
+                case = self.fixture(current)
+                with self.assertRaises(ValueError):
+                    semantic._enum_items(case.prop, case.owner, case.bpy)
+                self.assertEqual(case.calls, [])
+        case = self.fixture()
+        case.prop.enum_items = [types.SimpleNamespace(identifier=f"ENGINE_{i}", name=f"Engine {i}")
+                                for i in range(128)]
+        with self.assertRaises(ValueError):
+            semantic._enum_items(case.prop, case.owner, case.bpy)
+        self.assertEqual(case.calls, [])
+
+    def test_native_lookup_failure_restores_context_without_authoring(self):
+        for answer in (None, RuntimeError("native enum lookup unavailable")):
+            with self.subTest(answer=type(answer).__name__):
+                case = self.fixture()
+                case.labels["CYCLES"] = answer
+                with self.assertRaises((ValueError, RuntimeError)):
+                    semantic._enum_items(case.prop, case.owner, case.bpy)
+                self.assertIs(case.bpy.context.scene, case.ambient)
+                self.assertEqual(case.owner.engine, "CYCLES")
+                self.assertEqual(case.owner.writes, 0)
+
+    def test_write_admission_rechecks_membership_and_deduplicates_current(self):
+        case = self.fixture("BLENDER_EEVEE_NEXT")
+        values = semantic._enum_items(case.prop, case.owner, case.bpy)
+        self.assertEqual(values, [{"id": "BLENDER_EEVEE_NEXT", "name": "EEVEE"}])
+        self.assertEqual(case.calls, ["BLENDER_EEVEE_NEXT"])
+        case.labels.clear()
+        with self.assertRaises(ValueError):
+            semantic._coerce("BLENDER_EEVEE_NEXT", case.prop, case.owner, case.bpy)
+        self.assertEqual(case.owner.writes, 0)
+        self.assertIs(case.bpy.context.scene, case.ambient)
 
 
 def main():
@@ -89,6 +259,10 @@ def main():
     for token in forbidden:
         assert token not in source, token
 
+    result = unittest.TextTestRunner(verbosity=2).run(
+        unittest.defaultTestLoader.loadTestsFromTestCase(RenderEngineEnumTests))
+    if not result.wasSuccessful():
+        raise AssertionError("render engine instance enum tests failed")
     print("blender semantic security tests: ok")
 
 

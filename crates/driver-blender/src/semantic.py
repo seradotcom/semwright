@@ -207,12 +207,62 @@ def _enum_items(prop, owner=None, bpy_module=None):
         instance_values = _instance_color_enum_items(prop, owner, bpy_module)
         if instance_values is not None:
             return instance_values
+        instance_values = _instance_render_engine_enum_items(prop, owner, bpy_module)
+        if instance_values is not None:
+            return instance_values
     values = []
     try:
         for item in list(prop.enum_items)[:128]:
             values.append({"id": _text(item.identifier, 256), "name": _text(item.name, 512)})
     except Exception:
         pass
+    return values
+
+
+def _instance_render_engine_enum_items(prop, owner, bpy_module):
+    """Validate bounded static/current candidates against the native instance."""
+    owner_identifier = str(getattr(getattr(owner, "bl_rna", None), "identifier", ""))
+    property_id = str(getattr(prop, "identifier", ""))
+    if (owner_identifier, property_id) != ("RenderSettings", "engine"):
+        return None
+    if (
+        str(getattr(prop, "type", "")) != "ENUM"
+        or int(getattr(prop, "array_length", 0) or 0) != 0
+        or bool(getattr(prop, "is_enum_flag", False))
+        or bool(getattr(prop, "is_runtime", False))
+        or bpy_module is None
+    ):
+        raise ValueError("render engine enum requires a native scalar instance property")
+    scene = getattr(owner, "id_data", None)
+    scene_type = getattr(bpy_module.types, "Scene", None)
+    if (
+        scene_type is None
+        or not isinstance(scene, scene_type)
+        or getattr(scene, "render", None) != owner
+        or owner.bl_rna.properties.get(property_id) != prop
+    ):
+        raise ValueError("render engine enum is not owned by the resolved scene")
+    current = getattr(owner, property_id, None)
+    if not isinstance(current, str) or not current or len(current) > 256 or "\x00" in current:
+        raise ValueError("native render engine identifier is unavailable")
+    candidates = list(dict.fromkeys(item["id"] for item in _enum_items(prop)))
+    if current not in candidates:
+        candidates.append(current)
+    if len(candidates) > 128:
+        raise ValueError("render engine enum exceeds the bounded instance profile")
+    values = []
+    # Blender's rna_ui_get_enum_name resolves the dynamic items with this pointer
+    # and context, returning an empty name for an unknown identifier:
+    # https://github.com/blender/blender/blob/v4.5.0/source/blender/makesrna/intern/rna_ui_api.cc
+    with bpy_module.context.temp_override(scene=scene):
+        for candidate in candidates:
+            label = bpy_module.types.UILayout.enum_item_name(owner, property_id, candidate)
+            if not isinstance(label, str):
+                raise ValueError("native render engine membership is unavailable")
+            if label:
+                values.append({"id": candidate, "name": _text(label, 512)})
+    if not any(item["id"] == current for item in values):
+        raise ValueError("native current render engine membership is unavailable")
     return values
 
 
@@ -247,13 +297,17 @@ def _property_descriptor(prop, owner_identifier=None, owner=None, bpy_module=Non
         if _finite(value):
             out[target] = value
     color_profile = (str(owner_identifier or ""), identifier) in INSTANCE_COLOR_ENUM_PROFILE
-    if color_profile and owner is None:
+    engine_profile = (str(owner_identifier or ""), identifier) == ("RenderSettings", "engine")
+    if (color_profile or engine_profile) and owner is None:
         enum = []
-        out["reason"] = "Color enum choices require an authenticated instance"
+        out["reason"] = ("Render engine enum choices require an authenticated instance" if engine_profile
+                         else "Color enum choices require an authenticated instance")
     else:
         enum = _enum_items(prop, owner, bpy_module)
         if color_profile:
             out["reason"] = "Bounded instance color profile; not an exhaustive native enum catalog"
+        elif engine_profile:
+            out["reason"] = "Bounded static/current render engine choices; not an exhaustive native enum catalog"
     if enum:
         out["enum"] = enum
     return out
