@@ -35,7 +35,8 @@ env:
 jobs:
   plasma-wayland:
     if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    runs-on: ubuntu-24.04
+    # KWin 6.8+ virtual sessions on hosted runners require software DMA buffers.
+    runs-on: ubuntu-26.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -47,6 +48,18 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: plasma-wayland-live
+
+      - name: Verify the virtual KWin software-buffer device
+        run: |
+          # Fail early, before downloading the multi-GB KDE image. This is a
+          # software DMA-BUF device, not a physical GPU or unrestricted /dev.
+          mkdir -p verification/live-plasma-ci
+          if ! test -c /dev/udmabuf; then
+            sudo modprobe udmabuf
+          fi
+          test -c /dev/udmabuf
+          stat -c 'device=%n mode=%a uid=%u gid=%g' /dev/udmabuf \
+            | tee verification/live-plasma-ci/udmabuf-device.log
 
       - name: Build the production KWin backend integration test
         run: |
@@ -89,7 +102,7 @@ jobs:
 
       - name: Real KWin 6 virtual Wayland bridge lifecycle
         run: |
-          docker run --rm --init --network none             --security-opt seccomp=unconfined             --cap-add SYS_NICE             --user "$(id -u):$(id -g)"             --entrypoint /usr/bin/dbus-run-session             -e DISPLAY=             -e SEMWRIGHT_KWIN_TEST_BIN=/test/kwin-live             -e SEMWRIGHT_KWIN_EVIDENCE_DIR=/evidence             -v "$GITHUB_WORKSPACE:/workspace:ro"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci:/evidence"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci/kwin-live-test:/test/kwin-live:ro"             "$KDE_NEON_IMAGE"             -- /usr/bin/bash /workspace/scripts/dev/kwin-live-ci.sh
+          docker run --rm --init --network none             --security-opt seccomp=unconfined             --cap-add SYS_NICE             --device /dev/udmabuf:/dev/udmabuf             --group-add "$(stat -c '%g' /dev/udmabuf)"             --user "$(id -u):$(id -g)"             --entrypoint /usr/bin/dbus-run-session             -e DISPLAY=             -e SEMWRIGHT_KWIN_TEST_BIN=/test/kwin-live             -e SEMWRIGHT_KWIN_EVIDENCE_DIR=/evidence             -v "$GITHUB_WORKSPACE:/workspace:ro"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci:/evidence"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci/kwin-live-test:/test/kwin-live:ro"             "$KDE_NEON_IMAGE"             -- /usr/bin/bash /workspace/scripts/dev/kwin-live-ci.sh
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
