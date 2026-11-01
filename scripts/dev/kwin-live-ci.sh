@@ -7,7 +7,7 @@ HOME_DIR=${SEMWRIGHT_KWIN_HOME:-/tmp/semwright-plasma-home}
 RUNTIME_DIR=${SEMWRIGHT_KWIN_RUNTIME:-/tmp/semwright-plasma-runtime}
 WAYLAND_SOCKET=${SEMWRIGHT_KWIN_WAYLAND_DISPLAY:-semwright-plasma}
 
-for command in dbus-run-session dbus-update-activation-environment gdbus kwin_wayland kpackagetool6 kwriteconfig6 kdialog; do
+for command in dbus-run-session gdbus kwin_wayland kpackagetool6 kwriteconfig6 kdialog; do
   command -v "$command" >/dev/null || {
     echo "missing Plasma test dependency: $command" >&2
     exit 5
@@ -30,31 +30,24 @@ export XDG_CURRENT_DESKTOP=KDE
 export KDE_FULL_SESSION=true
 export QT_QPA_PLATFORM=wayland
 export WAYLAND_DISPLAY="$WAYLAND_SOCKET"
-# The output of KWin is a private host Xvfb; window fixtures are real
-# Wayland clients of KWin's separate, owner-only socket.
-: "${DISPLAY:?private Xvfb output display is required}"
-: "${XAUTHORITY:?private Xvfb authorization file is required}"
-test -r "$XAUTHORITY"
-# This fixture tests native KWin window management, not desktop document
-# portals. Do not activate a FUSE-backed file portal in a network-isolated,
-# unprivileged container; it is unrelated to the compositor contract.
-export QT_NO_XDG_DESKTOP_PORTAL=1
-export GDK_BACKEND=wayland
-# D-Bus activates KDE/GTK portal helpers as separate processes. They need the
-# same private Wayland socket as our clients; exporting to this shell alone does
-# not update the already-running session bus's activation environment.
-dbus-update-activation-environment \
-  WAYLAND_DISPLAY QT_QPA_PLATFORM XDG_SESSION_TYPE XDG_CURRENT_DESKTOP XDG_RUNTIME_DIR \
-  QT_NO_XDG_DESKTOP_PORTAL GDK_BACKEND \
-  >"$EVIDENCE_DIR/dbus-activation.log" 2>&1
-# The X11-windowed output requires a real compositor. Force Mesa's CPU
-# llvmpipe OpenGL path instead of the virtual backend's QPainter mode.
-# This keeps CI GPU-independent without granting physical DRM access.
 export LIBGL_ALWAYS_SOFTWARE=1
 export GALLIUM_DRIVER=llvmpipe
 export KWIN_COMPOSE=O2
-unset QT_QUICK_BACKEND
-printf 'KWIN_OUTPUT=NESTED_XVFB KWIN_RENDERER=O2 GALLIUM_DRIVER=llvmpipe\n' > "$EVIDENCE_DIR/render-mode.log"
+# The device passed by CI is vgem: a DRM render node for Mesa software EGL.
+# Never request /dev/dri wholesale or a physical GPU.
+render_node_found=false
+for render_node in /dev/dri/renderD*; do
+  if [[ -c "$render_node" && -r "$render_node" && -w "$render_node" ]]; then
+    render_node_found=true
+    stat -c 'available DRM render node: %n permissions=%a uid=%u gid=%g' "$render_node" \
+      | tee "$EVIDENCE_DIR/render-node.log"
+    break
+  fi
+done
+if [[ "$render_node_found" != true ]]; then
+  echo 'KWin requires an accessible DRM rendering device; CI did not map vgem' >&2
+  exit 9
+fi
 
 {
   kwin_wayland --version
@@ -66,30 +59,6 @@ printf 'KWIN_OUTPUT=NESTED_XVFB KWIN_RENDERER=O2 GALLIUM_DRIVER=llvmpipe\n' > "$
 
 kpackagetool6 --type=KWin/Script -i /workspace/bridges/kwin   2>&1 | tee "$EVIDENCE_DIR/kwin-package-install.log"
 kwriteconfig6 --file kwinrc --group Plugins --key semwrightEnabled true
-
-# The previous --version probe never opened X11, so it could pass without
-# a usable display. An actual modal XCB window must stay alive until timeout;
-# the disposable preflight window is then terminated and never used as a
-# substitute for the Wayland lifecycle test.
-set +e
-env -u WAYLAND_DISPLAY QT_QPA_PLATFORM=xcb \
-  timeout --signal=TERM 3s /usr/bin/kdialog \
-  --title "Semwright Xvfb Preflight" --msgbox "Disposable XCB authentication probe" \
-  >"$EVIDENCE_DIR/xvfb-xcb-probe.log" 2>&1
-XCB_RC=$?
-set -e
-if [[ "$XCB_RC" -ne 124 ]]; then
-  printf 'private Xvfb Qt/XCB preflight failed: rc=%s\n' "$XCB_RC" >&2
-  cat "$EVIDENCE_DIR/xvfb-xcb-probe.log" >&2
-  exit 9
-fi
-
-# Reject X11 nesting on an image built without KWin's X11-windowed backend.
-kwin_wayland --help >"$EVIDENCE_DIR/kwin-options.log" 2>&1
-if ! grep -Fq -- '--x11-display' "$EVIDENCE_DIR/kwin-options.log"; then
-  echo "KWin image lacks the X11-windowed Wayland output backend" >&2
-  exit 9
-fi
 
 cleanup() {
   local status=$?
@@ -129,31 +98,10 @@ done
 
 gdbus call --session   --dest org.freedesktop.DBus   --object-path /org/freedesktop/DBus   --method org.freedesktop.DBus.NameHasOwner org.semwright.Broker   | tee "$EVIDENCE_DIR/broker-bus-owner.log" | grep -q true
 
-# KWin is the Wayland server nested on the private Xvfb output, NOT a
-# client of its own Wayland socket. Only the fixture/test use that socket.
-# Permission relaxation applies only to this private, network-isolated CI compositor.
-env -u WAYLAND_DISPLAY -u QT_QPA_PLATFORM -u KDE_FULL_SESSION -u KDE_SESSION_VERSION \
-  -u QT_NO_XDG_DESKTOP_PORTAL \
-  KWIN_WAYLAND_NO_PERMISSION_CHECKS=1 \
-  QT_LOGGING_RULES='kwin_core.debug=true;kwin_wayland.debug=true;kwin_scripting.debug=true' \
-  kwin_wayland   --x11-display "$DISPLAY"   --width 1280   --height 720   --no-lockscreen   --socket "$WAYLAND_SOCKET"   >"$EVIDENCE_DIR/kwin.log" 2>&1 &
+env -u WAYLAND_DISPLAY -u QT_QPA_PLATFORM \
+  kwin_wayland --virtual --width 1280 --height 720 --no-lockscreen \
+  --socket "$WAYLAND_SOCKET" >"$EVIDENCE_DIR/kwin.log" 2>&1 &
 KWIN_PID=$!
-
-# Surface an early compositor exit instead of waiting for a misleading D-Bus
-# timeout in the client test. Only this disposable KWin process is observed.
-while kill -0 "$TEST_PID" 2>/dev/null; do
-  if ! kill -0 "$KWIN_PID" 2>/dev/null; then
-    set +e
-    wait "$KWIN_PID"
-    KWIN_RC=$?
-    set -e
-    printf 'KWin exited before window acceptance: rc=%s\n' "$KWIN_RC" \
-      | tee "$EVIDENCE_DIR/kwin-exit.log" >&2
-    cat "$EVIDENCE_DIR/kwin.log" >&2
-    exit 1
-  fi
-  sleep 0.1
-done
 
 set +e
 wait "$TEST_PID"
@@ -165,4 +113,4 @@ test "$TEST_RC" -eq 0
 
 gdbus call --session   --dest org.freedesktop.DBus   --object-path /org/freedesktop/DBus   --method org.freedesktop.DBus.NameHasOwner org.kde.KWin   | tee "$EVIDENCE_DIR/kwin-bus-owner.log" | grep -q true
 
-printf '%s\n' "Plasma/KWin nested Wayland integration: PASS"   | tee "$EVIDENCE_DIR/result.log"
+printf '%s\n' "Plasma/KWin virtual Wayland integration: PASS"   | tee "$EVIDENCE_DIR/result.log"

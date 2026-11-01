@@ -29,14 +29,12 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_TEST_DEBUG: 0
-  # KDE neon User, immutable amd64 image verified in the upstream registry.
+  # Immutable KDE neon User amd64 manifest, verified in the upstream registry.
   KDE_NEON_IMAGE: invent-registry.kde.org/neon/docker-images/plasma@sha256:ab8faaef342303c21c40d44e9a94d03efa7cfb25cccf251c896a0cd0a9a65808
 
 jobs:
   plasma-wayland:
     if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    # Pin a supported runner label; udmabuf availability is checked explicitly.
-    # This also keeps strict actionlint 1.7.12 validation without an exemption.
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -50,22 +48,40 @@ jobs:
         with:
           key: plasma-wayland-live
 
-      - name: Verify the virtual KWin software-buffer device
+      - name: Verify a virtual DRM render node for software Mesa
         run: |
-          # Fail early, before downloading the multi-GB KDE image. This is a
-          # software DMA-BUF device, not a physical GPU or unrestricted /dev.
+          set -euo pipefail
           mkdir -p verification/live-plasma-ci
-          if ! test -c /dev/udmabuf; then
-            sudo modprobe udmabuf
+          # KWin 6.8 virtual output requires EGL/OpenGL, not QPainter.
+          # vgem provides render nodes for Mesa kms_swrast without a real GPU.
+          if ! sudo modprobe vgem; then
+            echo "::error::Runner kernel cannot load vgem; genuine KWin 6.8 acceptance needs a DRM software render node"
+            exit 1
           fi
-          test -c /dev/udmabuf
-          stat -c 'device=%n mode=%a uid=%u gid=%g' /dev/udmabuf \
-            | tee verification/live-plasma-ci/udmabuf-device.log
+          shopt -s nullglob
+          vgem_node=""
+          for node in /dev/dri/renderD*; do
+            test -c "$node" || continue
+            drm_name="$(basename "$node")"
+            driver="$(readlink -f "/sys/class/drm/$drm_name/device/driver" || true)"
+            if [[ "$driver" == */vgem ]]; then
+              vgem_node="$node"
+              break
+            fi
+          done
+          if [[ -z "$vgem_node" ]]; then
+            echo "::error::vgem loaded but no vgem render node was exposed; physical Wayland acceptance cannot run on this runner"
+            ls -l /dev/dri /sys/class/drm 2>&1 || true
+            exit 1
+          fi
+          stat -c 'vgem=%n owner=%u group=%g mode=%a' "$vgem_node" \
+            | tee verification/live-plasma-ci/vgem-render-node.log
+          echo "KWIN_VGEM_RENDER_NODE=$vgem_node" >> "$GITHUB_ENV"
 
       - name: Build the production KWin backend integration test
         run: |
           sudo apt-get update
-          sudo apt-get install -y libpipewire-0.3-dev xvfb xauth
+          sudo apt-get install -y libpipewire-0.3-dev
           mkdir -p verification/live-plasma-ci
           cargo test --locked -p semwright-platform-linux --test kwin_live             --no-run --message-format=json             > verification/live-plasma-ci/rust-build.jsonl
           test_bin=$(python3 - <<'PY'
@@ -101,41 +117,18 @@ jobs:
           docker image inspect "$KDE_NEON_IMAGE"             --format '{{json .RepoDigests}}'             | tee verification/live-plasma-ci/container-image.log
           grep -q 'sha256:ab8faaef342303c21c40d44e9a94d03efa7cfb25cccf251c896a0cd0a9a65808'             verification/live-plasma-ci/container-image.log
 
-      - name: Real KWin 6 nested Wayland bridge lifecycle
+      - name: Real KWin 6 virtual Wayland bridge lifecycle
         run: |
           set -euo pipefail
-          # KWin's nested X11 output uses a private software-only framebuffer.
-          # The actual tested windows are Wayland clients of KWin, not Xvfb.
-          test ! -e /tmp/.X11-unix/X99
-          umask 077
-          auth_file="$RUNNER_TEMP/semwright-kwin-xvfb.auth"
-          touch "$auth_file"
-          cookie=$(od -v -N16 -An -tx1 /dev/urandom | tr -d ' \n')
-          xauth -f "$auth_file" add :99 . "$cookie"
-          # Xauthority's local hostname differs inside Docker. Share the same
-          # private cookie using the X11 wild family, not an unauthenticated -ac.
-          xauth -f "$auth_file" nlist :99 | sed 's/^..../ffff/' | xauth -f "$auth_file" nmerge -
-          Xvfb :99 -screen 0 1280x720x24 -nolisten tcp -auth "$auth_file" \
-            > verification/live-plasma-ci/xvfb.log 2>&1 &
-          xvfb_pid=$!
-          trap 'kill "$xvfb_pid" 2>/dev/null || true; wait "$xvfb_pid" 2>/dev/null || true' EXIT
-          for _ in $(seq 1 50); do
-            test -S /tmp/.X11-unix/X99 && break
-            kill -0 "$xvfb_pid" || { cat verification/live-plasma-ci/xvfb.log; exit 1; }
-            sleep 0.1
-          done
-          test -S /tmp/.X11-unix/X99
+          test -c "$KWIN_VGEM_RENDER_NODE"
           docker run --rm --init --network none \
             --security-opt seccomp=unconfined --cap-add SYS_NICE \
-            --device /dev/udmabuf:/dev/udmabuf \
-            --group-add "$(stat -c '%g' /dev/udmabuf)" \
+            --device "$KWIN_VGEM_RENDER_NODE:$KWIN_VGEM_RENDER_NODE" \
+            --group-add "$(stat -c '%g' "$KWIN_VGEM_RENDER_NODE")" \
             --user "$(id -u):$(id -g)" \
             --entrypoint /usr/bin/dbus-run-session \
-            -e DISPLAY=:99 -e XAUTHORITY=/tmp/semwright-kwin-xvfb.auth \
             -e SEMWRIGHT_KWIN_TEST_BIN=/test/kwin-live \
             -e SEMWRIGHT_KWIN_EVIDENCE_DIR=/evidence \
-            -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
-            -v "$auth_file:/tmp/semwright-kwin-xvfb.auth:ro" \
             -v "$GITHUB_WORKSPACE:/workspace:ro" \
             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci:/evidence" \
             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci/kwin-live-test:/test/kwin-live:ro" \
