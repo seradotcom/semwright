@@ -35,8 +35,9 @@ env:
 jobs:
   plasma-wayland:
     if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    # KWin 6.8+ virtual sessions on hosted runners require software DMA buffers.
-    runs-on: ubuntu-26.04
+    # Pin a supported runner label; udmabuf availability is checked explicitly.
+    # This also keeps strict actionlint 1.7.12 validation without an exemption.
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

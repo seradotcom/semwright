@@ -90,7 +90,8 @@ done
 
 gdbus call --session   --dest org.freedesktop.DBus   --object-path /org/freedesktop/DBus   --method org.freedesktop.DBus.NameHasOwner org.semwright.Broker   | tee "$EVIDENCE_DIR/broker-bus-owner.log" | grep -q true
 
-kwin_wayland   --virtual   --width 1280   --height 720   --no-lockscreen   --socket "$WAYLAND_SOCKET"   >"$EVIDENCE_DIR/kwin.log" 2>&1 &
+QT_LOGGING_RULES='kwin_core.debug=true;kwin_wayland.debug=true;kwin_scripting.debug=true' \
+  kwin_wayland   --virtual   --width 1280   --height 720   --no-lockscreen   --socket "$WAYLAND_SOCKET"   >"$EVIDENCE_DIR/kwin.log" 2>&1 &
 KWIN_PID=$!
 
 set +e

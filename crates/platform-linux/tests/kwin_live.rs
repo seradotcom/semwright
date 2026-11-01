@@ -59,11 +59,18 @@ async fn wait_for_bridge(backend: &Kwin) {
     .expect("enabled KWin script must publish and poll the mailbox");
 }
 
-async fn wait_for_fixture(backend: &Kwin, ctx: &Context) -> (Value, NativeTarget) {
+async fn wait_for_fixture(
+    backend: &Kwin,
+    ctx: &Context,
+    child: &mut tokio::process::Child,
+) -> (Value, NativeTarget) {
     tokio::time::timeout(Duration::from_secs(15), async {
         let mut polls = 0_u32;
         loop {
             polls += 1;
+            if let Some(status) = child.try_wait().expect("fixture child wait status") {
+                panic!("KDE fixture exited before publishing a Wayland window: {status}");
+            }
             match backend.execute(ctx, "window.list", &json!({})).await {
                 Ok(listed) => {
                     if let Some(row) = listed["windows"].as_array().and_then(|rows| {
@@ -195,7 +202,7 @@ async fn real_kwin6_mailbox_controls_window_and_rejects_stale_ref() {
         .expect("KDE fixture must start");
 
     let ctx = context();
-    let (row, target) = wait_for_fixture(&backend, &ctx).await;
+    let (row, target) = wait_for_fixture(&backend, &ctx, &mut child).await;
     assert_eq!(row["coordinate_space"], "compositor_logical");
     backend.validate(&target).await.expect("fresh KWin target");
 
