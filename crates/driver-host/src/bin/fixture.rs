@@ -144,7 +144,7 @@ fn tool_job_capability() -> Capability {
                     "action":{"enum":["start","start_stdin_custody","status","cancel"]},
                     "job":{"type":"string","minLength":1,"maxLength":128},
                     "sleep_ms":{"type":"integer","minimum":1,"maximum":5000},
-                    "stderr_case":{"enum":["exit2","exact_limit","overflow","frame_overflow","hold","deadline"]},
+                    "stderr_case":{"enum":["exit2","exact_limit","overflow","stdout_overflow","frame_overflow","hold","deadline"]},
                     "cwd_mount":{"type":"string","minLength":1,"maxLength":64},
                     "lifecycle_marker":{"type":"boolean"}
                 },
@@ -927,6 +927,7 @@ impl Driver for Fixture {
                                 "exit2"
                                     | "exact_limit"
                                     | "overflow"
+                                    | "stdout_overflow"
                                     | "frame_overflow"
                                     | "hold"
                                     | "deadline"

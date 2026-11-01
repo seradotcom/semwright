@@ -1248,9 +1248,11 @@ impl HostToolExecutor for LinuxHostToolBroker {
             Some(stderr.clone()),
         )
         .await?;
-        let mut child_stdin = child.take_stdin()?;
-        let child_stdout = child.take_stdout()?;
         let execution = async {
+            // Every failure after a child has been returned crosses the same
+            // uncertain-outcome boundary, including missing pipe handles.
+            let mut child_stdin = child.take_stdin()?;
+            let child_stdout = child.take_stdout()?;
             stdin_custody::write_all_observed(&mut child_stdin, &stdin_bytes, stdin_custody)
                 .await?;
             child_stdin.shutdown().await?;
@@ -1297,7 +1299,9 @@ impl HostToolExecutor for LinuxHostToolBroker {
             ToolCompletion::Finished(Ok(output)) => Ok(output),
             ToolCompletion::Finished(Err(error)) => {
                 let _ = child.kill().await;
-                Err(error)
+                // Output/read/wait failure cannot roll back effects of a tool
+                // that has already started. Keep its code and uncertainty.
+                Err(error.uncertain())
             }
             ToolCompletion::Cancelled => {
                 let _ = child.kill().await;

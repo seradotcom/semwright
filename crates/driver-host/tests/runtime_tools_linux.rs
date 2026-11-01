@@ -1075,7 +1075,30 @@ async fn linux_runtime_tool_stderr_limit_is_exact_and_overflow_is_uncertain() {
     assert_eq!(terminal["outcome_known"], false);
     assert!(terminal.get("stdout").is_none());
     assert!(terminal.get("stderr").is_none());
-    assert!(!fixture.workspace.path().join("stderr.complete").exists());
+    // The terminal reply and lack of published bytes do not attest reaping.
+    // An immediate absence of the fixture's delayed marker is not an oracle.
+
+    // One real launch mutates its granted workspace before overflowing stdout.
+    // The original effect prevents a known-failure classification from hiding it.
+    let effect = fixture.workspace.path().join("stdout.effect");
+    assert!(!effect.exists());
+    let stdout_overflow = fixture.start("stdout_overflow", true).await;
+    let terminal = fixture.terminal(&stdout_overflow).await;
+    assert_eq!(
+        std::fs::read(&effect).unwrap(),
+        b"effect before stdout overflow\n"
+    );
+    assert_eq!(terminal["state"], "failed");
+    assert_eq!(terminal["error_code"], "ResourceExhausted");
+    assert_eq!(terminal["outcome_known"], false);
+    assert!(terminal.get("stdout").is_none());
+    assert!(terminal.get("stderr").is_none());
+    assert!(terminal.get("stderr_bytes").is_none());
+    let collected = fixture
+        .run(serde_json::json!({"action":"status","job":stdout_overflow}))
+        .await
+        .unwrap_err();
+    assert_eq!(collected.code, ErrorCode::NotFound);
 
     // ASCII 101 stays within the stderr channel limit but its exact JSON
     // representation exceeds MAX_FRAME. The Host must reject that reply,
@@ -1120,7 +1143,8 @@ async fn linux_runtime_tool_stderr_cancel_and_deadline_do_not_publish_partial_ou
     assert_eq!(terminal["state"], "cancelled");
     assert!(terminal.get("stdout").is_none());
     assert!(terminal.get("stderr").is_none());
-    assert!(!fixture.workspace.path().join("stderr.complete").exists());
+    // The terminal reply and lack of published bytes do not attest reaping.
+    // An immediate absence of the fixture's delayed marker is not an oracle.
     std::fs::remove_file(fixture.workspace.path().join("stderr.ready")).unwrap();
 
     let deadline_job = fixture.start("deadline", true).await;
@@ -1131,6 +1155,7 @@ async fn linux_runtime_tool_stderr_cancel_and_deadline_do_not_publish_partial_ou
     assert_eq!(terminal["outcome_known"], false);
     assert!(terminal.get("stdout").is_none());
     assert!(terminal.get("stderr").is_none());
-    assert!(!fixture.workspace.path().join("stderr.complete").exists());
+    // The terminal reply and lack of published bytes do not attest reaping.
+    // An immediate absence of the fixture's delayed marker is not an oracle.
     fixture.shutdown().await;
 }

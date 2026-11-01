@@ -59,6 +59,12 @@ on:
       - 'scripts/dev/ci-driver-bwrap-profile.sh'
   workflow_dispatch:
     inputs:
+      verification_scope:
+        description: Existing Native acceptance or the closed Linux runtime stderr G1
+        type: choice
+        required: false
+        default: native-host
+        options: [native-host, runtime-stderr-g1]
       expected_sha:
         description: Exact immutable source HEAD
         type: string
@@ -76,6 +82,7 @@ env:
   CARGO_PROFILE_DEV_DEBUG: '0'
   CARGO_PROFILE_TEST_DEBUG: '0'
   EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+  SEMWRIGHT_NATIVE_SDK_VERIFICATION_SCOPE: ${{ inputs.verification_scope || 'native-host' }}
   SEMWRIGHT_TEST_DRIVER_SANDBOX: '1'
   SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
 jobs:
@@ -86,6 +93,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - name: Validate closed verification scope
+        run: |
+          case "$SEMWRIGHT_NATIVE_SDK_VERIFICATION_SCOPE" in
+            native-host) ;;
+            runtime-stderr-g1)
+              test "$GITHUB_EVENT_NAME" = workflow_dispatch
+              [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+              test "$EXPECTED_SHA" = "$GITHUB_SHA"
+              test "$GITHUB_WORKFLOW_SHA" = "$GITHUB_SHA"
+              ;;
+            *) echo "Unsupported verification scope" >&2; exit 2 ;;
+          esac
       - name: Exact checkout and non-relaxed kernel policy
         run: |
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
@@ -101,11 +120,243 @@ jobs:
           cache-on-failure: true
       - name: Configure existing scoped disposable-runner sandbox profile
         run: bash scripts/dev/ci-driver-bwrap-profile.sh verification/native-sdk/host-sandbox-profile.txt
+      - name: Bounded Linux runtime stderr G1
+        if: ${{ inputs.verification_scope == 'runtime-stderr-g1' }}
+        env:
+          CARGO_BUILD_JOBS: '1'
+          RUST_TEST_THREADS: '1'
+        run: |
+          python3 - <<'PY'
+          import contextlib, hashlib, json, os, pathlib, re, selectors, signal, stat, subprocess, time
+
+          os.umask(0o077)
+          root = pathlib.Path("verification/native-sdk/runtime-stderr-g1")
+          root.mkdir(mode=0o700, exist_ok=False)
+          stream_limit = 8 * 1024 * 1024
+          deadline = time.monotonic() + 25 * 60
+          cancelled = False
+          def on_signal(_signum, _frame):
+              global cancelled
+              cancelled = True
+          signal.signal(signal.SIGTERM, on_signal)
+          signal.signal(signal.SIGINT, on_signal)
+
+          def retain_json(path, value):
+              raw = (json.dumps(value, sort_keys=True, indent=2) + "\n").encode()
+              if len(raw) > 65536:
+                  raise RuntimeError("g1_receipt_limit")
+              with path.open("xb") as output:
+                  output.write(raw)
+                  output.flush()
+                  os.fsync(output.fileno())
+
+          def source_binding():
+              result = {}
+              for name in SOURCE_FILES:
+                  path = pathlib.Path(name)
+                  value = path.lstat()
+                  if not stat.S_ISREG(value.st_mode) or value.st_size > stream_limit:
+                      raise RuntimeError("g1_source_file")
+                  with path.open("rb") as stream:
+                      digest = hashlib.file_digest(stream, "sha256").hexdigest()
+                  result[name] = {"bytes": value.st_size, "sha256": digest}
+              return result
+
+          def accepts_roster(raw, expected):
+              text = raw.decode("utf-8")
+              running = re.findall(r"^running (\d+) tests$", text, re.M)
+              rows = re.findall(r"^test ([A-Za-z0-9_:]+) \.\.\. (ok|FAILED|ignored[^\n]*)$", text, re.M)
+              summaries = re.findall(
+                  r"^test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored; "
+                  r"(\d+) measured; (\d+) filtered out; finished in [^\n]+$", text, re.M)
+              return (
+                  running == [str(len(expected))]
+                  and len(rows) == len(expected)
+                  and {name for name, _ in rows} == set(expected)
+                  and all(status == "ok" for _, status in rows)
+                  and len(summaries) == 1
+                  and summaries[0][:4] == (str(len(expected)), "0", "0", "0")
+              )
+
+          def capture(label, argv, expected):
+              folder = root / label
+              folder.mkdir(mode=0o700)
+              retain_json(folder / "command.original.json", {
+                  "argv": argv, "cwd": str(pathlib.Path.cwd()), "expected_test_names": expected,
+                  "source_sha": os.environ["GITHUB_SHA"], "scope": "runtime-stderr-g1",
+                  "cargo_build_jobs": 1, "test_threads": 1, "stream_limit_bytes": stream_limit,
+                  "shared_deadline_seconds": 1500, "command_retried": False,
+              })
+              streams = ("stdout", "stderr")
+              retained = {name: 0 for name in streams}
+              observed = {name: 0 for name in streams}
+              digests = {name: hashlib.sha256() for name in streams}
+              eof = {name: False for name in streams}
+              process, code, failure = None, None, None
+              selector = selectors.DefaultSelector()
+              with contextlib.ExitStack() as stack:
+                  files = {}
+                  try:
+                      for name in streams:
+                          files[name] = stack.enter_context((folder / (name + ".original.log")).open("xb"))
+                      if cancelled or time.monotonic() >= deadline:
+                          raise TimeoutError()
+                      process = subprocess.Popen(
+                          argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, start_new_session=True)
+                      for name in streams:
+                          pipe = getattr(process, name)
+                          os.set_blocking(pipe.fileno(), False)
+                          selector.register(pipe, selectors.EVENT_READ, name)
+                      while selector.get_map() and failure is None:
+                          remaining = deadline - time.monotonic()
+                          if cancelled or remaining <= 0:
+                              failure = "cancelled" if cancelled else "deadline"
+                              break
+                          for key, _ in selector.select(min(0.2, remaining)):
+                              name = key.data
+                              try:
+                                  data = os.read(key.fileobj.fileno(), 65536)
+                              except (BlockingIOError, InterruptedError):
+                                  continue
+                              if not data:
+                                  eof[name] = True
+                                  selector.unregister(key.fileobj)
+                                  key.fileobj.close()
+                                  continue
+                              observed[name] += len(data)
+                              kept = data[:max(0, stream_limit - retained[name])]
+                              if files[name].write(kept) != len(kept):
+                                  raise OSError("g1_short_write")
+                              digests[name].update(kept)
+                              retained[name] += len(kept)
+                              if len(kept) != len(data):
+                                  failure = "output_limit"
+                                  break
+                      if failure is None:
+                          code = process.wait(timeout=max(0, deadline - time.monotonic()))
+                  except (TimeoutError, subprocess.TimeoutExpired):
+                      failure = "cancelled" if cancelled else "deadline"
+                  except OSError:
+                      failure = "capture_io"
+                  finally:
+                      if process is not None and code is None:
+                          # Only this command's newly created process group is signalled.
+                          try:
+                              os.killpg(process.pid, signal.SIGTERM)
+                          except ProcessLookupError:
+                              pass
+                          try:
+                              code = process.wait(timeout=3)
+                          except subprocess.TimeoutExpired:
+                              try:
+                                  os.killpg(process.pid, signal.SIGKILL)
+                              except ProcessLookupError:
+                                  pass
+                              try:
+                                  code = process.wait(timeout=3)
+                              except subprocess.TimeoutExpired:
+                                  failure = "unobserved_exit"
+                      selector.close()
+                      if process is not None:
+                          for name in streams:
+                              pipe = getattr(process, name)
+                              if pipe is not None:
+                                  pipe.close()
+                      for output in files.values():
+                          try:
+                              output.flush()
+                              os.fsync(output.fileno())
+                          except OSError:
+                              failure = "capture_sync"
+              facts, stdout = {}, b""
+              for name in streams:
+                  path = folder / (name + ".original.log")
+                  if not path.is_file() or path.stat().st_size > stream_limit:
+                      failure = "capture_readback"
+                      facts[name] = {"original_complete": False}
+                      continue
+                  raw = path.read_bytes()
+                  digest = hashlib.sha256(raw).hexdigest()
+                  if len(raw) != retained[name] or digest != digests[name].hexdigest():
+                      failure = "capture_readback"
+                  facts[name] = {"retained_bytes": len(raw), "observed_bytes": observed[name],
+                                 "sha256": digest, "eof_observed": eof[name],
+                                 "original_complete": eof[name] and observed[name] == len(raw)}
+                  if name == "stdout":
+                      stdout = raw
+              complete = failure is None and all(eof.values())
+              accepted = code == 0 and complete
+              if expected is not None and accepted:
+                  try:
+                      accepted = accepts_roster(stdout, expected)
+                  except UnicodeDecodeError:
+                      accepted = False
+                  if not accepted:
+                      failure = "test_roster"
+              receipt = {
+                  "label": label, "exit_code": code, "exit_observed": code is not None,
+                  "capture_error": failure, "capture_complete": complete, "streams": facts,
+                  "selected_tests": len(expected) if expected is not None else None,
+                  "selection_accepted": accepted, "command_retried": False,
+                  "descendant_closure_attested": False, "formal_acceptance": False,
+              }
+              retain_json(folder / "exit.original.json", receipt)
+              print(json.dumps({"label": label, "exit_code": code, "accepted": accepted,
+                                "capture_error": failure, "selected_tests": receipt["selected_tests"]}))
+              return accepted
+
+          UNIT_NAMES = ['runtime_stderr::tests::stderr_bytes_require_eof_and_can_be_collected_only_once', 'runtime_stderr::tests::empty_stderr_is_valid_only_after_an_observed_start_and_eof', 'runtime_stderr::tests::stderr_overflow_is_bounded_and_never_returns_a_successful_prefix', 'runtime_stderr::tests::stderr_read_failure_and_interruption_are_uncertain_without_raw_messages', 'runtime_stderr::tests::stderr_missing_start_or_duplicate_terminal_never_becomes_complete', 'runtime_stderr::tests::host_tool_redaction_preserves_uncertainty_and_drops_private_payloads', 'runtime_stderr::tests::raw_and_job_replies_reject_real_oversized_json_as_uncertain_failures', 'runtime_stderr::tests::exact_channel_bound_is_preserved_when_the_real_frame_fits', 'runtime_stderr::tests::two_maximum_channels_still_obey_the_existing_frame_bound', 'runtime_stderr::tests::unencodable_failure_is_rejected_before_a_job_can_be_consumed', 'runtime_stderr::tests::terminal_failure_with_a_valid_incoming_frame_is_checked_before_consumption']
+          REAL_NAMES = ['linux_runtime_tool_stderr_exit2_is_real_separate_and_collected_once', 'linux_runtime_tool_stderr_limit_is_exact_and_overflow_is_uncertain', 'linux_runtime_tool_stderr_cancel_and_deadline_do_not_publish_partial_output']
+          SOURCE_FILES = ['crates/driver-host/src/lib.rs', 'crates/driver-host/src/runtime_stderr.rs', 'crates/driver-host/src/bin/fixture.rs', 'crates/driver-host/src/bin/tool_fixture.rs', 'crates/driver-host/tests/runtime_tools_linux.rs', 'Cargo.lock', 'rust-toolchain.toml', '.github/workflows/native-sdk-host.yml']
+          binding = source_binding()
+          retain_json(root / "source.original.json", {
+              "source_sha": os.environ["GITHUB_SHA"], "expected_sha": os.environ["EXPECTED_SHA"],
+              "workflow_sha": os.environ["GITHUB_WORKFLOW_SHA"], "ref": os.environ["GITHUB_REF"],
+              "run_id": os.environ["GITHUB_RUN_ID"], "attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "configured_toolchain": "1.98.1", "source_files": binding,
+              "scope": "runtime-stderr-g1", "native_application_execution": False,
+              "formal_acceptance": False, "G2": "NOT_GRANTED", "release": False,
+          })
+          commands = [
+              ("unit", ["cargo", "test", "--locked", "-p", "semwright-driver-host",
+                        "--lib", "runtime_stderr::tests", "--", "--test-threads=1",
+                        "--format", "pretty", "--color", "never"], UNIT_NAMES),
+              ("helper", ["cargo", "build", "--locked", "-p", "semwright-plugin-host",
+                          "--bin", "semwright-sandbox"], None),
+              ("linux", ["cargo", "test", "--locked", "-p", "semwright-driver-host",
+                         "--features", "test-tools", "--test", "runtime_tools_linux",
+                         "linux_runtime_tool_stderr_", "--", "--ignored",
+                         "--test-threads=1", "--format", "pretty", "--color", "never"], REAL_NAMES),
+          ]
+          completed = []
+          for label, argv, expected in commands:
+              if not capture(label, argv, expected):
+                  retain_json(root / "summary.json", {
+                      "scope": "runtime-stderr-g1", "g1_complete": False, "failed_stage": label,
+                      "completed_stages": completed, "native_application_execution": False,
+                      "formal_acceptance": False, "G2": "NOT_GRANTED", "release": False,
+                  })
+                  raise SystemExit("runtime_stderr_g1_failed")
+              completed.append(label)
+          unchanged = source_binding() == binding
+          retain_json(root / "summary.json", {
+              "scope": "runtime-stderr-g1", "g1_complete": unchanged,
+              "completed_stages": completed, "source_unchanged": unchanged,
+              "unit_tests_passed": 11, "real_host_tests_passed": 3,
+              "native_application_execution": False, "formal_acceptance": False,
+              "G2": "NOT_GRANTED", "release": False,
+          })
+          if not unchanged:
+              raise SystemExit("runtime_stderr_g1_source_changed")
+          PY
       - name: Install canonical daemon build dependencies on disposable runner
+        if: ${{ inputs.verification_scope != 'runtime-stderr-g1' }}
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y libpipewire-0.3-dev pkg-config clang
       - name: Private startup stderr and shared custody regression tests
+        if: ${{ inputs.verification_scope != 'runtime-stderr-g1' }}
         run: |
           set -euo pipefail
           mkdir -p verification/native-sdk
@@ -117,17 +368,20 @@ jobs:
           cargo test --locked -p semwright-daemon --bin semwrightd --features private-driver-startup-stderr,private-host-stdin-custody host_stdin_custody::tests 2>&1 | tee verification/native-sdk/shared-private-custody.log
           cargo clippy --locked -p semwright-platform-api -p semwright-platform-linux-sys -p semwright-platform-services -p semwright-driver-host -p semwright-daemon --all-targets --features semwright-daemon/private-driver-startup-stderr,semwright-daemon/private-host-stdin-custody -- -D warnings 2>&1 | tee verification/native-sdk/startup-stderr-clippy.log
       - name: Native read resource selector unit tests and strict Core Clippy
+        if: ${{ inputs.verification_scope != 'runtime-stderr-g1' }}
         run: |
           set -euo pipefail
           mkdir -p verification/native-sdk
           cargo test --locked -p semwright-core --lib native_reads::resource_selector_tests 2>&1 | tee verification/native-sdk/core-resource-selector-tests.log
           cargo clippy --locked -p semwright-core --all-targets -- -D warnings 2>&1 | tee verification/native-sdk/core-clippy.log
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        if: ${{ inputs.verification_scope != 'runtime-stderr-g1' }}
         with:
           node-version: '24.21.0'
           cache: npm
           cache-dependency-path: sdk/native-typescript/package-lock.json
       - name: Build and test the pinned TypeScript application binding
+        if: ${{ inputs.verification_scope != 'runtime-stderr-g1' }}
         run: |
           cd sdk/native-typescript
           npm ci --ignore-scripts --no-audit --no-fund
@@ -137,17 +391,19 @@ jobs:
           test "$(printf %s "$bundle_sha" | wc -c)" = 64
           echo "SEMWRIGHT_NATIVE_INVENTORY_BUNDLE_SHA256=$bundle_sha" >> "$GITHUB_ENV"
       - name: Build exact-SHA daemon, CLI, MCP, sandbox and native applications
+        if: ${{ inputs.verification_scope != 'runtime-stderr-g1' }}
         run: |
           cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp --bins
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
           cargo build --locked -p semwright-native-sdk --features file-backed,effects,package --examples --bins
           cargo build --locked -p semwright-native-sdk --features process-bridge --example native-inventory
       - name: Real CLI and protocol MCP acceptance without mock Provider
+        if: ${{ inputs.verification_scope != 'runtime-stderr-g1' }}
         run: python3 scripts/native-sdk/run-suite.py native-host
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: native-sdk-real-host-${{ github.sha }}
+          name: ${{ inputs.verification_scope == 'runtime-stderr-g1' && 'runtime-stderr-g1' || 'native-sdk-real-host' }}-${{ github.sha }}
           path: verification/native-sdk
           if-no-files-found: error
           retention-days: 14

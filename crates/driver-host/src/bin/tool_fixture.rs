@@ -87,6 +87,21 @@ fn stderr_fixture(case: &str) -> std::io::Result<i32> {
         "exit2" => {
             stderr.write_all(b"fixture diagnostic\0stderr\n")?;
         }
+        "stdout_overflow" => {
+            // This original effect is durable before stdout exceeds its limit.
+            // Exclusive creation also refuses reuse of this fixture attempt.
+            let mut effect = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open("stdout.effect")?;
+            effect.write_all(b"effect before stdout overflow\n")?;
+            effect.sync_all()?;
+            let chunk = [1u8; 8192];
+            for _ in 0..32 {
+                stdout.write_all(&chunk)?;
+            }
+            stdout.flush()?;
+        }
         "exact_limit" | "overflow" | "frame_overflow" => {
             let byte = if case == "frame_overflow" { b'e' } else { 1 };
             let chunk = [byte; 8192];
