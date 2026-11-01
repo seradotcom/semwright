@@ -38,13 +38,13 @@ fn validate_existing_root(root: &Path) -> Result<()> {
     }
     for ancestor in root.ancestors() {
         let metadata = std::fs::symlink_metadata(ancestor)?;
-        let mut unsafe_path = !metadata.is_dir() || metadata.file_type().is_symlink();
+        let unsafe_path = !metadata.is_dir() || metadata.file_type().is_symlink();
         #[cfg(windows)]
-        {
+        let unsafe_path = {
             use std::os::windows::fs::MetadataExt;
             const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
-            unsafe_path |= metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0;
-        }
+            unsafe_path || metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+        };
         if unsafe_path {
             return Err(Error::new(
                 ErrorCode::PermissionDenied,
@@ -93,6 +93,18 @@ mod tests {
     #[test]
     fn instance_directories_are_separate_and_private() {
         let root = tempfile::tempdir().unwrap();
+        #[cfg(windows)]
+        let canonical_root = {
+            // A Windows runner's %TEMP% may use a short (8.3) DOS alias;
+            // production correctly rejects that alias. Resolve it only for
+            // this positive fixture; do not weaken the owner-path policy.
+            let canonical = root.path().canonicalize().unwrap();
+            let text = canonical.to_str().unwrap();
+            PathBuf::from(text.strip_prefix(r"\\?\").unwrap_or(text))
+        };
+        #[cfg(windows)]
+        let path = canonical_root.as_path();
+        #[cfg(not(windows))]
         let path = root.path();
         let (runtime, state) = private_paths(path, false).unwrap();
         assert_eq!(runtime, path.join("runtime"));

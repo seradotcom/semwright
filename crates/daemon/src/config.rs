@@ -410,14 +410,27 @@ mod windows_grant_tests {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("fixture.bin");
         std::fs::write(&file, b"fixture").unwrap();
+        // GitHub Windows runners can hand us a temporary root through an 8.3
+        // DOS alias. Production intentionally rejects such ambiguous paths.
+        // Test positive grants with the actual resolved long-form drive path.
+        let normalized = |path: &Path| {
+            let canonical = std::fs::canonicalize(path).unwrap();
+            let text = canonical.to_str().unwrap();
+            PathBuf::from(text.strip_prefix(r"\\?\").unwrap_or(text))
+        };
+        let canonical_dir = normalized(dir.path());
+        let canonical_file = normalized(&file);
         assert_eq!(
-            canonical_grant_root(dir.path()).unwrap(),
-            std::fs::canonicalize(dir.path()).unwrap()
+            canonical_grant_root(&canonical_dir).unwrap(),
+            std::fs::canonicalize(&canonical_dir).unwrap()
         );
         assert_eq!(
-            canonical_grant_root(&file).unwrap(),
-            std::fs::canonicalize(&file).unwrap()
+            canonical_grant_root(&canonical_file).unwrap(),
+            std::fs::canonicalize(&canonical_file).unwrap()
         );
+        if canonical_dir != dir.path() {
+            assert!(canonical_grant_root(dir.path()).is_err());
+        }
     }
     #[test]
     fn windows_grant_rejects_namespace_and_lexical_aliases() {

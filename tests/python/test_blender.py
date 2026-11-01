@@ -136,8 +136,14 @@ class ValidationTests(unittest.TestCase):
 
     def test_every_host_schema_is_same_as_registry(self):
         registry = json.loads((ROOT / "schemas/commands.json").read_text())
-        expected = {c["name"]: c["input_schema"] for c in registry if c["name"].startswith("blender.")}
-        self.assertEqual(SCHEMAS, expected)
+        builtin = {c["name"]: c["input_schema"] for c in registry if c["name"].startswith("blender.")}
+        native = json.loads(
+            (ROOT / "crates/driver-host/src/windows_blender52_runtime/commands.json").read_text()
+        )
+        # Native first-party commands extend the builtin registry, but no
+        # overlapping schema may drift and no declared command may disappear.
+        self.assertEqual({name: native[name] for name in builtin}, builtin)
+        self.assertEqual(SCHEMAS, native)
 
 
 class WorkspaceTests(unittest.TestCase):
