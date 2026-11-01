@@ -47,12 +47,14 @@ dbus-update-activation-environment \
   WAYLAND_DISPLAY QT_QPA_PLATFORM XDG_SESSION_TYPE XDG_CURRENT_DESKTOP XDG_RUNTIME_DIR \
   QT_NO_XDG_DESKTOP_PORTAL GDK_BACKEND \
   >"$EVIDENCE_DIR/dbus-activation.log" 2>&1
+# The X11-windowed output requires a real compositor. Force Mesa's CPU
+# llvmpipe OpenGL path instead of the virtual backend's QPainter mode.
+# This keeps CI GPU-independent without granting physical DRM access.
 export LIBGL_ALWAYS_SOFTWARE=1
-# Hosted CI has no DRM render device. Keep a real KWin compositor running
-# with its QPainter compositor and Qt Quick software scene graph.
-export KWIN_COMPOSE=Q
-export QT_QUICK_BACKEND=software
-printf 'KWIN_OUTPUT=NESTED_XVFB KWIN_RENDERER=QPainter QT_QUICK_BACKEND=software\n' > "$EVIDENCE_DIR/render-mode.log"
+export GALLIUM_DRIVER=llvmpipe
+export KWIN_COMPOSE=O2
+unset QT_QUICK_BACKEND
+printf 'KWIN_OUTPUT=NESTED_XVFB KWIN_RENDERER=O2 GALLIUM_DRIVER=llvmpipe\n' > "$EVIDENCE_DIR/render-mode.log"
 
 {
   kwin_wayland --version
@@ -65,12 +67,27 @@ printf 'KWIN_OUTPUT=NESTED_XVFB KWIN_RENDERER=QPainter QT_QUICK_BACKEND=software
 kpackagetool6 --type=KWin/Script -i /workspace/bridges/kwin   2>&1 | tee "$EVIDENCE_DIR/kwin-package-install.log"
 kwriteconfig6 --file kwinrc --group Plugins --key semwrightEnabled true
 
-# Verify that a real Qt/XCB client can authenticate to the private Xvfb before
-# starting KWin. Never replace the actual Wayland window-lifecycle acceptance.
-if ! QT_QPA_PLATFORM=xcb WAYLAND_DISPLAY= /usr/bin/kdialog --version \
-    >"$EVIDENCE_DIR/xvfb-xcb-probe.log" 2>&1; then
-  echo "private Xvfb is not accessible to Qt/XCB client" >&2
+# The previous --version probe never opened X11, so it could pass without
+# a usable display. An actual modal XCB window must stay alive until timeout;
+# the disposable preflight window is then terminated and never used as a
+# substitute for the Wayland lifecycle test.
+set +e
+env -u WAYLAND_DISPLAY QT_QPA_PLATFORM=xcb \
+  timeout --signal=TERM 3s /usr/bin/kdialog \
+  --title "Semwright Xvfb Preflight" --msgbox "Disposable XCB authentication probe" \
+  >"$EVIDENCE_DIR/xvfb-xcb-probe.log" 2>&1
+XCB_RC=$?
+set -e
+if [[ "$XCB_RC" -ne 124 ]]; then
+  printf 'private Xvfb Qt/XCB preflight failed: rc=%s\n' "$XCB_RC" >&2
   cat "$EVIDENCE_DIR/xvfb-xcb-probe.log" >&2
+  exit 9
+fi
+
+# Reject X11 nesting on an image built without KWin's X11-windowed backend.
+kwin_wayland --help >"$EVIDENCE_DIR/kwin-options.log" 2>&1
+if ! grep -Fq -- '--x11-display' "$EVIDENCE_DIR/kwin-options.log"; then
+  echo "KWin image lacks the X11-windowed Wayland output backend" >&2
   exit 9
 fi
 
