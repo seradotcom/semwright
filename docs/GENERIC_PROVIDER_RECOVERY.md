@@ -36,4 +36,16 @@ Recovery is implemented at the shared broker/Driver Provider boundary, not in an
 - Windows ticket persistence: **2 PASS / 0 FAIL**; owner-only files use synchronous Win32 byte-range locking compatible with the declared Rust 1.88 MSRV.
 - `cargo check` for the daemon and MCP frontend: **PASS**. Strict Clippy on the affected packages: **PASS**, with a pre-existing unrelated lint exception.
 - The native MCP frontend retained its process across a deliberate restart of an isolated broker, with successful read-only calls both before and afterward: **PASS**. Only that temporary broker was stopped.
-- The executable has not been installed or rolled out globally. A physical crash/restart of a real sandboxed application driver, and longer-duration fault monitoring, still require release acceptance; these tests do not establish that every driver preserves its application state.
+- A real Windows sandboxed conformance driver was terminated deliberately through its protocol-v2 `driver.fixture.disconnect` capability. The still-running broker republished a live provider generation (160 → 162), and a new read-only `driver.fixture.ping` succeeded: **PASS**. The failing request returned `Unavailable`; the broker was never restarted. No unrelated process was terminated.
+- The executable has not been installed or rolled out globally. Longer-duration fault monitoring and real application state restoration remain outside this conformance check; recovering a driver process does not reconstruct unsaved application state.
+
+### Reproduce the physical Windows check
+
+Build the binaries from the same revision, and supply a separate trusted directory for disposable test state:
+
+```powershell
+cargo build --locked -p semwright-daemon --bin semwrightd -p semwright-plugin-host --bin semwright-sandbox -p semwright-driver-host --bin semwright-driver-fixture -p semwright-cli --bin semwright
+python scripts/verify-driver-recovery-windows.py --bin-dir target/debug --cli target/debug/semwright.exe --work-root .local
+```
+
+The script only launches its own instance under an owner-only test directory. It verifies a pinned sandboxed driver, a controlled child exit, a new generation and a subsequent successful read. It never changes installed broker files or retries the failed command. Results and bounded diagnostic logs remain in the protected test directory.
