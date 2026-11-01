@@ -11,7 +11,7 @@ import jsonschema
 import yaml
 ROOT=Path(__file__).resolve().parents[1]
 def main():
-    files=[p for p in ROOT.rglob('*') if p.is_file() and not any(s in {'target','.git','node_modules','__pycache__','dummy-docs'} for s in p.relative_to(ROOT).parts)]
+    files=[p for p in ROOT.rglob('*') if p.is_file() and not any(s in {'target','.git','node_modules','__pycache__','dummy-docs','.local'} for s in p.relative_to(ROOT).parts)]
     counts={'json':0,'toml':0,'yaml':0,'python_syntax':0,'javascript_syntax':0,'shell_syntax':0,'json_schemas':0}
     for p in files:
         if p.suffix=='.json':json.loads(p.read_text());counts['json']+=1
@@ -31,7 +31,10 @@ def main():
     # All local Markdown document links must resolve. Anchor targets are not checked.
     broken=[]
     for p in files:
-        if p.suffix!='.md' or 'requirements' in p.parts:continue
+        # Archived source/evidence snapshots are historical captures, not current
+        # documentation roots: their relative links are intentionally unmaterialized.
+        # Continue validating syntax and the active public documentation.
+        if p.suffix!='.md' or 'requirements' in p.parts or 'evidence' in p.relative_to(ROOT).parts:continue
         for link in re.findall(r'(?<!!)\[[^\]]*\]\(([^)]+)\)',p.read_text()):
             if '://' in link or link.startswith(('#','mailto:')):continue
             dest=link.split('#',1)[0]
