@@ -128,6 +128,97 @@ pub fn ensure_owner_only_directory(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Protect a single broker-owned ticket or lock file before any secret bytes
+/// are read or written. Directory inheritance alone does not protect a file
+/// that was already present before the directory was hardened.
+pub fn ensure_owner_only_file(path: &Path) -> Result<()> {
+    let check = || -> Result<()> {
+        let metadata = std::fs::symlink_metadata(path)?;
+        if !metadata.is_file()
+            || metadata.file_type().is_symlink()
+            || metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+        {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Windows private file must be a regular non-reparse file",
+            ));
+        }
+        Ok(())
+    };
+    check()?;
+    let sid = crate::identity::current_user_sid()?;
+    let sddl = HSTRING::from(format!("D:P(A;;GA;;;SY)(A;;GA;;;{sid})"));
+    let mut descriptor = PSECURITY_DESCRIPTOR::default();
+    // SAFETY: the SDDL input is live and the returned descriptor is LocalAlloc-owned.
+    unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            &sddl,
+            SDDL_REVISION_1,
+            &mut descriptor,
+            None,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::PermissionDenied,
+            "Private-file ACL creation failed",
+        )
+    })?;
+    let descriptor = OwnedSecurityDescriptor(descriptor);
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain([0]).collect();
+    // SAFETY: the path is terminated, the descriptor is live, and only the
+    // current user and LocalSystem retain access (protected DACL).
+    unsafe {
+        windows::Win32::Security::SetFileSecurityW(
+            windows::core::PCWSTR(wide.as_ptr()),
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            descriptor.0,
+        )
+    }
+    .ok()
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::PermissionDenied,
+            "Private-file ACL hardening failed",
+        )
+    })?;
+    check()
+}
+
+/// Hold a synchronous Windows byte-range lock for the lifetime of the file
+/// handle. Unlike std::fs::File::try_lock, this works with Rust 1.88 (MSRV).
+/// Only use with a regular owner-protected synchronous file handle.
+pub fn try_lock_session_file(file: &std::fs::File) -> Result<bool> {
+    use std::os::windows::io::AsRawHandle;
+    use windows::Win32::{
+        Foundation::{ERROR_LOCK_VIOLATION, HANDLE},
+        Storage::FileSystem::{LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY, LockFileEx},
+        System::IO::OVERLAPPED,
+    };
+    let mut overlapped = OVERLAPPED::default();
+    // SAFETY: the OS handle stays live while the caller owns the file; the
+    // synchronous call uses FAIL_IMMEDIATELY, so no pending I/O may retain
+    // the stack OVERLAPPED pointer. Closing the handle releases the lock.
+    let locked = unsafe {
+        LockFileEx(
+            HANDLE(file.as_raw_handle()),
+            LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
+            None,
+            1,
+            0,
+            &mut overlapped,
+        )
+    };
+    match locked {
+        Ok(()) => Ok(true),
+        Err(error) if error.code() == ERROR_LOCK_VIOLATION.to_hresult() => Ok(false),
+        Err(_) => Err(Error::new(
+            ErrorCode::BackendFailed,
+            "Windows session ticket lock failed",
+        )),
+    }
+}
+
 pub fn paths() -> Result<PlatformPaths> {
     let local = known_folder(&FOLDERID_LocalAppData)?.join("Semwright");
     let roaming = known_folder(&FOLDERID_RoamingAppData)?.join("Semwright");

@@ -31,6 +31,23 @@ export KDE_FULL_SESSION=true
 export QT_QPA_PLATFORM=wayland
 export WAYLAND_DISPLAY="$WAYLAND_SOCKET"
 export LIBGL_ALWAYS_SOFTWARE=1
+export GALLIUM_DRIVER=llvmpipe
+export KWIN_COMPOSE=O2
+# The device passed by CI is vgem: a DRM render node for Mesa software EGL.
+# Never request /dev/dri wholesale or a physical GPU.
+render_node_found=false
+for render_node in /dev/dri/renderD*; do
+  if [[ -c "$render_node" && -r "$render_node" && -w "$render_node" ]]; then
+    render_node_found=true
+    stat -c 'available DRM render node: %n permissions=%a uid=%u gid=%g' "$render_node" \
+      | tee "$EVIDENCE_DIR/render-node.log"
+    break
+  fi
+done
+if [[ "$render_node_found" != true ]]; then
+  echo 'KWin requires an accessible DRM rendering device; CI did not map vgem' >&2
+  exit 9
+fi
 
 {
   kwin_wayland --version
@@ -81,7 +98,9 @@ done
 
 gdbus call --session   --dest org.freedesktop.DBus   --object-path /org/freedesktop/DBus   --method org.freedesktop.DBus.NameHasOwner org.semwright.Broker   | tee "$EVIDENCE_DIR/broker-bus-owner.log" | grep -q true
 
-kwin_wayland   --virtual   --width 1280   --height 720   --no-lockscreen   --socket "$WAYLAND_SOCKET"   >"$EVIDENCE_DIR/kwin.log" 2>&1 &
+env -u WAYLAND_DISPLAY -u QT_QPA_PLATFORM \
+  kwin_wayland --virtual --width 1280 --height 720 --no-lockscreen \
+  --socket "$WAYLAND_SOCKET" >"$EVIDENCE_DIR/kwin.log" 2>&1 &
 KWIN_PID=$!
 
 set +e

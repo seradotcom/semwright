@@ -1,3 +1,5 @@
+mod recovery;
+
 use clap::Parser;
 use semwright_core::{Approver, Broker, NoApprover, audit::Audit};
 use semwright_daemon::console::Console;
@@ -221,8 +223,11 @@ async fn run(args: Args) -> Result<()> {
             "Fake mode cannot launch application drivers",
         ));
     }
+    let stop = CancellationToken::new();
+    let mut recovery_tasks = Vec::new();
     for path in &config.drivers {
         let manifest = config::driver_manifest(path)?;
+        let recovery_manifest = config.driver_recovery.then(|| manifest.clone());
         let provider = DriverProvider::connect_with_gpu(
             manifest,
             &state.join("drivers"),
@@ -232,7 +237,24 @@ async fn run(args: Args) -> Result<()> {
             config.driver_nvidia_gpu,
         )
         .await?;
-        broker.mount_provider(provider).await?;
+        let provider: Arc<dyn semwright_backend_api::Provider> = provider;
+        broker.mount_provider(provider.clone()).await?;
+        if let Some(manifest) = recovery_manifest {
+            let options = recovery::DriverRecovery {
+                manifest,
+                state: state.join("drivers"),
+                helper: sandbox_helper.clone(),
+                roots: config.policy.filesystem.clone(),
+                allow_network: config.driver_network,
+                allow_nvidia_gpu: config.driver_nvidia_gpu,
+            };
+            recovery_tasks.push(tokio::spawn(recovery::supervise(
+                broker.clone(),
+                provider,
+                options,
+                stop.child_token(),
+            )));
+        }
     }
     if args.fake && !upstreams.is_empty() {
         return Err(Error::new(
@@ -257,7 +279,6 @@ async fn run(args: Args) -> Result<()> {
         workflow_restore = %workflow_restore,
         "workflow store loaded"
     );
-    let stop = CancellationToken::new();
     let signal = stop.clone();
     tokio::spawn(async move {
         #[cfg(unix)]
@@ -282,7 +303,11 @@ async fn run(args: Args) -> Result<()> {
         fake = args.fake,
         "broker ready; authorization defaults deny side effects"
     );
-    let result = server::serve(&socket, broker, stop).await;
+    let result = server::serve(&socket, broker, stop.clone()).await;
+    stop.cancel();
+    for task in recovery_tasks {
+        task.abort();
+    }
     drop(platform_keepalive);
     result
 }

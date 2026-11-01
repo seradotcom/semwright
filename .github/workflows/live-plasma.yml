@@ -29,7 +29,8 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_TEST_DEBUG: 0
-  KDE_NEON_IMAGE: invent-registry.kde.org/neon/docker-images/plasma@sha256:1bb5ec13cb413065e39426abeac2d969cd511109f4116e9eea8d1a746b61cf87
+  # Immutable KDE neon User amd64 manifest, verified in the upstream registry.
+  KDE_NEON_IMAGE: invent-registry.kde.org/neon/docker-images/plasma@sha256:ab8faaef342303c21c40d44e9a94d03efa7cfb25cccf251c896a0cd0a9a65808
 
 jobs:
   plasma-wayland:
@@ -46,6 +47,40 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: plasma-wayland-live
+
+      - name: Verify a virtual DRM render node for software Mesa
+        run: |
+          set -euo pipefail
+          mkdir -p verification/live-plasma-ci
+          # KWin 6.8 virtual output requires EGL/OpenGL, not QPainter.
+          # vgem provides render nodes for Mesa kms_swrast without a real GPU.
+          if ! sudo modprobe vgem; then
+            echo "::error::Runner kernel cannot load vgem; genuine KWin 6.8 acceptance needs a DRM software render node"
+            exit 1
+          fi
+          shopt -s nullglob
+          vgem_node=""
+          for node in /dev/dri/renderD*; do
+            test -c "$node" || continue
+            drm_name="$(basename "$node")"
+            sysfs_node="$(readlink -f "/sys/class/drm/$drm_name" || true)"
+            driver="$(readlink -f "/sys/class/drm/$drm_name/device/driver" || true)"
+            # Current Azure kernels register vgem under /devices/faux/vgem,
+            # without a per-node device/driver symlink. Verify either trusted
+            # sysfs form, never merely infer from renderD128 numbering.
+            if [[ "$driver" == */vgem || "$sysfs_node" == */vgem/drm/"$drm_name" ]]; then
+              vgem_node="$node"
+              break
+            fi
+          done
+          if [[ -z "$vgem_node" ]]; then
+            echo "::error::vgem loaded but no vgem render node was exposed; physical Wayland acceptance cannot run on this runner"
+            ls -l /dev/dri /sys/class/drm 2>&1 || true
+            exit 1
+          fi
+          stat -c 'vgem=%n owner=%u group=%g mode=%a' "$vgem_node" \
+            | tee verification/live-plasma-ci/vgem-render-node.log
+          echo "KWIN_VGEM_RENDER_NODE=$vgem_node" >> "$GITHUB_ENV"
 
       - name: Build the production KWin backend integration test
         run: |
@@ -84,11 +119,24 @@ jobs:
         run: |
           docker pull "$KDE_NEON_IMAGE"
           docker image inspect "$KDE_NEON_IMAGE"             --format '{{json .RepoDigests}}'             | tee verification/live-plasma-ci/container-image.log
-          grep -q 'sha256:1bb5ec13cb413065e39426abeac2d969cd511109f4116e9eea8d1a746b61cf87'             verification/live-plasma-ci/container-image.log
+          grep -q 'sha256:ab8faaef342303c21c40d44e9a94d03efa7cfb25cccf251c896a0cd0a9a65808'             verification/live-plasma-ci/container-image.log
 
       - name: Real KWin 6 virtual Wayland bridge lifecycle
         run: |
-          docker run --rm --init --network none             --security-opt seccomp=unconfined             --cap-add SYS_NICE             --user "$(id -u):$(id -g)"             --entrypoint /usr/bin/dbus-run-session             -e SEMWRIGHT_KWIN_TEST_BIN=/test/kwin-live             -e SEMWRIGHT_KWIN_EVIDENCE_DIR=/evidence             -v "$GITHUB_WORKSPACE:/workspace:ro"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci:/evidence"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci/kwin-live-test:/test/kwin-live:ro"             "$KDE_NEON_IMAGE"             -- /usr/bin/bash /workspace/scripts/dev/kwin-live-ci.sh
+          set -euo pipefail
+          test -c "$KWIN_VGEM_RENDER_NODE"
+          docker run --rm --init --network none \
+            --security-opt seccomp=unconfined --cap-add SYS_NICE \
+            --device "$KWIN_VGEM_RENDER_NODE:$KWIN_VGEM_RENDER_NODE" \
+            --group-add "$(stat -c '%g' "$KWIN_VGEM_RENDER_NODE")" \
+            --user "$(id -u):$(id -g)" \
+            --entrypoint /usr/bin/dbus-run-session \
+            -e SEMWRIGHT_KWIN_TEST_BIN=/test/kwin-live \
+            -e SEMWRIGHT_KWIN_EVIDENCE_DIR=/evidence \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -v "$GITHUB_WORKSPACE/verification/live-plasma-ci:/evidence" \
+            -v "$GITHUB_WORKSPACE/verification/live-plasma-ci/kwin-live-test:/test/kwin-live:ro" \
+            "$KDE_NEON_IMAGE" -- /usr/bin/bash /workspace/scripts/dev/kwin-live-ci.sh
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()

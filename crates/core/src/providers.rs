@@ -292,6 +292,123 @@ impl Broker {
         self.watch_provider(identity.id.clone(), lease, signals, closed);
         Ok(revision)
     }
+
+    /// Check the current broker slot before spending resources to restart a
+    /// driver. Publication checks ownership again to close the race with removal.
+    pub fn provider_recovery_eligible(&self, previous: &Arc<dyn Provider>) -> bool {
+        !self.fake
+            && !self.runtime_stop.is_cancelled()
+            && previous.identity().kind == SourceKind::Driver
+            && previous
+                .closed()
+                .is_some_and(|closed| closed.is_cancelled())
+            && self.registry.read().ok().is_some_and(|catalog| {
+                catalog
+                    .providers
+                    .get(&previous.identity().id)
+                    .is_some_and(|lease| Arc::ptr_eq(&lease.provider, previous) && !lease.active())
+            })
+    }
+
+    /// Atomically replace a *closed* externally configured driver with the same
+    /// attested identity. An ordinary mount cannot overwrite this slot; removing
+    /// the provider while recovery is in progress also prevents re-registration.
+    /// No pending operation, native reference or prior authorization is replayed.
+    pub async fn replace_disconnected_provider(
+        self: &Arc<Self>,
+        previous: &Arc<dyn Provider>,
+        replacement: Arc<dyn Provider>,
+    ) -> Result<u64> {
+        if self.fake || self.runtime_stop.is_cancelled() {
+            return Err(Error::unavailable("Provider recovery is unavailable"));
+        }
+        let identity = previous.identity().clone();
+        identity.validate_external()?;
+        if identity.kind != SourceKind::Driver || replacement.identity() != &identity {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Recovery requires the same owner-pinned driver identity",
+            ));
+        }
+        if !previous
+            .closed()
+            .is_some_and(|closed| closed.is_cancelled())
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Cannot replace a driver whose process is still live",
+            ));
+        }
+        let signals = replacement.events();
+        let closed = replacement.closed();
+        if closed.as_ref().is_some_and(CancellationToken::is_cancelled) {
+            return Err(Error::unavailable("Replacement driver already exited"));
+        }
+        let rows = Self::provider_catalog(&replacement, &identity).await?;
+        let mut candidate = self
+            .registry
+            .read()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?
+            .clone();
+        let old = candidate
+            .providers
+            .get(&identity.id)
+            .cloned()
+            .filter(|lease| Arc::ptr_eq(&lease.provider, previous) && !lease.active())
+            .ok_or_else(|| Error::new(ErrorCode::Conflict, "Recovery ownership changed"))?;
+        let expected = candidate.revision();
+        candidate.replace_provider_catalog(&identity, rows, expected, true)?;
+        let lifetime = self.runtime_stop.child_token();
+        let lease = Arc::new(ProviderLease {
+            provider: replacement,
+            identity: identity.clone(),
+            generation: candidate.revision(),
+            connection: unique_id(),
+            epoch: lifetime.child_token(),
+            lifetime,
+        });
+        if !lease.active() {
+            return Err(Error::unavailable(
+                "Replacement driver disconnected during validation",
+            ));
+        }
+        candidate
+            .providers
+            .insert(identity.id.clone(), lease.clone());
+        let revision = candidate.revision();
+        {
+            // Block reference lookups while installing the recovered generation.
+            let mut references = self
+                .references
+                .lock()
+                .map_err(|_| Error::new(ErrorCode::Internal, "Reference store lock poisoned"))?;
+            let mut catalog = self
+                .registry
+                .write()
+                .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
+            if self.runtime_stop.is_cancelled()
+                || catalog.revision() != expected
+                || !catalog
+                    .providers
+                    .get(&identity.id)
+                    .is_some_and(|existing| Arc::ptr_eq(existing, &old) && !existing.active())
+                || !lease.active()
+            {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Provider was changed or removed during recovery",
+                ));
+            }
+            references.invalidate_backend(&identity.id);
+            *catalog = candidate;
+        }
+        old.epoch.cancel();
+        old.lifetime.cancel();
+        self.provider_lifecycle("provider.reconnected", &lease, revision);
+        self.watch_provider(identity.id.clone(), lease, signals, closed);
+        Ok(revision)
+    }
+
     fn provider_lifecycle(&self, kind: &str, lease: &ProviderLease, revision: u64) {
         self.event(
             EventEnvelope::new(kind, "semwright-core", event_time()).with_provider(

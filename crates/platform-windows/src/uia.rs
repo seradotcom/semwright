@@ -1,7 +1,4 @@
-use crate::{
-    events::{semantic_event, semantic_property_event},
-    roles::semantic_role,
-};
+use crate::{events::semantic_event, roles::semantic_role};
 use semwright_backend_api::ProviderSignal;
 use semwright_platform_windows_sys::window::process_creation_time;
 use semwright_types::{
@@ -23,9 +20,8 @@ use std::{
 };
 use tokio::sync::broadcast;
 use uiautomation::events::{
-    CustomEventHandlerFn, CustomFocusChangedEventHandlerFn, CustomPropertyChangedEventHandlerFn,
-    CustomStructureChangedEventHandlerFn, UIEventHandler, UIEventType, UIFocusChangedEventHandler,
-    UIPropertyChangedEventHandler, UIStructureChangeEventHandler,
+    CustomEventHandlerFn, CustomFocusChangedEventHandlerFn, CustomStructureChangedEventHandlerFn,
+    UIEventHandler, UIEventType, UIFocusChangedEventHandler, UIStructureChangeEventHandler,
 };
 use uiautomation::patterns::{
     UIExpandCollapsePattern, UIGridItemPattern, UIGridPattern, UIInvokePattern,
@@ -35,7 +31,7 @@ use uiautomation::patterns::{
 };
 use uiautomation::{
     UIAutomation, UIElement, UITreeWalker,
-    types::{Handle, Point, TreeScope, UIProperty, WindowVisualState},
+    types::{Handle, Point, TreeScope, WindowVisualState},
 };
 use windows::Win32::System::Com::{COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize};
 
@@ -57,24 +53,15 @@ const OBSERVED_EVENTS: &[UIEventType] = &[
     UIEventType::Window_WindowClosed,
 ];
 
-// windows-rs 0.62.2 clears borrowed VARIANT values received by property-change
-// callbacks. Array-valued properties such as BoundingRectangle/RuntimeId can
-// therefore double-free UIA-owned memory (microsoft/windows-rs#3818). Keep the
-// subscription set scalar-only until the fixed windows-rs ABI is in this tree.
-// LayoutInvalidated plus a fresh bounded snapshot covers geometry invalidation.
-const OBSERVED_PROPERTIES: &[UIProperty] = &[
-    UIProperty::Name,
-    UIProperty::HasKeyboardFocus,
-    UIProperty::IsEnabled,
-    UIProperty::HelpText,
-    UIProperty::IsOffscreen,
-    UIProperty::ItemStatus,
-    UIProperty::ValueValue,
-    UIProperty::RangeValueValue,
-    UIProperty::ExpandCollapseExpandCollapseState,
-    UIProperty::SelectionItemIsSelected,
-    UIProperty::ToggleToggleState,
-];
+// WINDOWS MEMORY SAFETY: Do not register UIA property-change handlers with the
+// published windows-rs 0.62.2 / uiautomation bindings. Their COM wrapper can
+// implicitly clear a borrowed VARIANT, corrupting the process heap when UIA
+// still owns the value (microsoft/windows-rs#3818, fixed upstream by #3886 but
+// not shipped in our pinned crates). Filtering only SAFEARRAY properties is
+// insufficient: Name, HelpText, ItemStatus and ValueValue can contain BSTRs.
+// Existing generic Text_TextChanged, LayoutInvalidated, focus and structure
+// events remain enabled; individual operations revalidate UIA nodes on access.
+// Restore this subscription only after binding ownership is fixed and tested.
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Stamp {
@@ -96,7 +83,6 @@ struct Entry {
 struct InstalledEvents {
     _event_handler: UIEventHandler,
     _focus_handler: UIFocusChangedEventHandler,
-    _property_handler: UIPropertyChangedEventHandler,
     _structure_handler: UIStructureChangeEventHandler,
 }
 
@@ -378,21 +364,6 @@ fn install_events(
     });
     let focus_handler = UIFocusChangedEventHandler::from(focus);
 
-    let property_signals = signals.clone();
-    let property: Box<CustomPropertyChangedEventHandlerFn> =
-        Box::new(move |sender, property, _new_value| {
-            let _ = property_signals.send(ProviderSignal::Event {
-                kind: semantic_property_event(property).into(),
-                payload: json!({
-                    "native_event": "AutomationPropertyChanged",
-                    "native_property": format!("{property:?}"),
-                    "process_id": sender.get_process_id().ok(),
-                }),
-            });
-            Ok(())
-        });
-    let property_handler = UIPropertyChangedEventHandler::from(property);
-
     let structure_signals = signals;
     let structure_generation = event_generation;
     let structure: Box<CustomStructureChangedEventHandlerFn> =
@@ -429,13 +400,6 @@ fn install_events(
             None,
             &structure_handler,
         )?;
-        automation.add_property_changed_event_handler(
-            &root,
-            TreeScope::Subtree,
-            None,
-            &property_handler,
-            OBSERVED_PROPERTIES,
-        )?;
         automation.add_focus_changed_event_handler(None, &focus_handler)?;
         Ok(())
     };
@@ -447,7 +411,6 @@ fn install_events(
     Ok(InstalledEvents {
         _event_handler: event_handler,
         _focus_handler: focus_handler,
-        _property_handler: property_handler,
         _structure_handler: structure_handler,
     })
 }
@@ -1479,17 +1442,40 @@ mod tests {
     }
 
     #[test]
-    fn property_event_subscriptions_exclude_array_valued_variants() {
+    fn native_callbacks_keep_invalidation_without_borrowed_variant_ownership() {
+        // windows-rs 0.62.2 incorrectly owns the incoming [in] VARIANT
+        // in IUIAutomationPropertyChangedEventHandler (#3818/#3886).
+        // This must remain unregistered even for BSTR/scalar properties.
+        let forbidden = ["add_property_", "changed_event_handler("].concat();
+        assert!(!include_str!("uia.rs").contains(&forbidden));
         assert!(
-            !OBSERVED_PROPERTIES
+            OBSERVED_EVENTS
                 .iter()
-                .any(|property| matches!(property, UIProperty::BoundingRectangle))
+                .any(|event| matches!(event, UIEventType::LayoutInvalidated))
         );
         assert!(
-            !OBSERVED_PROPERTIES
+            OBSERVED_EVENTS
                 .iter()
-                .any(|property| matches!(property, UIProperty::RuntimeId))
+                .any(|event| matches!(event, UIEventType::Text_TextChanged))
         );
+        assert!(
+            OBSERVED_EVENTS
+                .iter()
+                .any(|event| matches!(event, UIEventType::Window_WindowClosed))
+        );
+    }
+
+    #[test]
+    fn uia_actor_lifecycle_preserves_safe_event_subscriptions() {
+        // A real COM actor, not a mocked handler. It must register the remaining
+        // safe callbacks, then remove them before its COM apartment closes.
+        let (signals, _receiver) = broadcast::channel(16);
+        let actor = UiaActor::start(signals).expect("UIA actor initialization");
+        assert!(
+            actor.events_active(),
+            "focus, text, structure and generic UIA subscriptions must remain available"
+        );
+        actor.shutdown().expect("UIA actor shutdown");
     }
 
     #[test]

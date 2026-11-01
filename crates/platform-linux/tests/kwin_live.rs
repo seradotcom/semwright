@@ -4,7 +4,7 @@ use semwright_backend_api::{Backend, Context};
 use semwright_platform_linux::bridge::Kwin;
 use semwright_types::{CapabilityStatus, ErrorCode, NativeTarget};
 use serde_json::{Value, json};
-use std::{path::Path, time::Duration};
+use std::{os::unix::fs::FileTypeExt, path::Path, time::Duration};
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 use zbus::{Connection, Proxy};
@@ -59,18 +59,51 @@ async fn wait_for_bridge(backend: &Kwin) {
     .expect("enabled KWin script must publish and poll the mailbox");
 }
 
-async fn wait_for_fixture(backend: &Kwin, ctx: &Context) -> (Value, NativeTarget) {
+async fn wait_for_fixture(
+    backend: &Kwin,
+    ctx: &Context,
+    child: &mut tokio::process::Child,
+) -> (Value, NativeTarget) {
     tokio::time::timeout(Duration::from_secs(15), async {
+        let mut polls = 0_u32;
         loop {
-            if let Ok(listed) = backend.execute(ctx, "window.list", &json!({})).await
-                && let Some(row) = listed["windows"].as_array().and_then(|rows| {
-                    rows.iter()
-                        .find(|row| row["title"].as_str() == Some("Semwright Plasma Fixture"))
-                })
-            {
-                let target = serde_json::from_value::<NativeTarget>(row["ref"]["$ref"].clone())
-                    .expect("fixture target");
-                return (row.clone(), target);
+            polls += 1;
+            if let Some(status) = child.try_wait().expect("fixture child wait status") {
+                panic!("KDE fixture exited before publishing a Wayland window: {status}");
+            }
+            match backend.execute(ctx, "window.list", &json!({})).await {
+                Ok(listed) => {
+                    if let Some(row) = listed["windows"].as_array().and_then(|rows| {
+                        // KDE may append a translated application suffix to the
+                        // title. The unique fixture prefix remains required.
+                        rows.iter().find(|row| {
+                            row["title"]
+                                .as_str()
+                                .is_some_and(|title| title.starts_with("Semwright Plasma Fixture"))
+                        })
+                    }) {
+                        let target =
+                            serde_json::from_value::<NativeTarget>(row["ref"]["$ref"].clone())
+                                .expect("fixture target");
+                        return (row.clone(), target);
+                    }
+                    if polls.is_multiple_of(25) {
+                        let titles = listed["windows"]
+                            .as_array()
+                            .map(|rows| {
+                                rows.iter()
+                                    .take(12)
+                                    .filter_map(|row| row["title"].as_str())
+                                    .collect::<Vec<_>>()
+                            })
+                            .unwrap_or_default();
+                        eprintln!("KWin mailbox fixture absent (poll {polls}): {titles:?}");
+                    }
+                }
+                Err(error) if polls.is_multiple_of(25) => {
+                    eprintln!("KWin mailbox list error (poll {polls}): {:?}", error.code);
+                }
+                Err(_) => {}
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
@@ -107,7 +140,7 @@ async fn wait_for_bounds(
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "requires a private D-Bus bus and live KWin 6 Wayland virtual compositor"]
+#[ignore = "requires a private D-Bus bus and live KWin 6 Wayland compositor"]
 async fn real_kwin6_mailbox_controls_window_and_rejects_stale_ref() {
     if std::env::var_os("SEMWRIGHT_TEST_KWIN").is_none() {
         return;
@@ -152,24 +185,45 @@ async fn real_kwin6_mailbox_controls_window_and_rejects_stale_ref() {
     wait_for_name(&connection, "org.kde.KWin").await;
     wait_for_bridge(&backend).await;
 
+    // The KWin D-Bus bridge may start before the Wayland listener is ready.
+    // A client must not race compositor socket creation in this live test.
+    let runtime = std::env::var_os("XDG_RUNTIME_DIR").expect("private runtime directory");
+    let display = std::env::var_os("WAYLAND_DISPLAY").expect("private Wayland socket name");
+    let wayland_socket = Path::new(&runtime).join(display);
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if std::fs::metadata(&wayland_socket)
+                .is_ok_and(|metadata| metadata.file_type().is_socket())
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(75)).await;
+        }
+    })
+    .await
+    .expect("virtual KWin must create its Wayland socket");
+
     let fixture =
         std::env::var("SEMWRIGHT_TEST_KWIN_FIXTURE").unwrap_or_else(|_| "/usr/bin/kdialog".into());
     assert!(
         Path::new(&fixture).is_file(),
         "KDE fixture executable missing"
     );
-    let mut child = Command::new(&fixture)
-        .args([
-            "--title",
-            "Semwright Plasma Fixture",
-            "--msgbox",
-            "Disposable KWin 6 integration fixture",
-        ])
-        .spawn()
-        .expect("KDE fixture must start");
+    let mut command = Command::new(&fixture);
+    command.args([
+        "--title",
+        "Semwright Plasma Fixture",
+        "--msgbox",
+        "Disposable KWin 6 integration fixture",
+    ]);
+    if let Ok(directory) = std::env::var("SEMWRIGHT_KWIN_EVIDENCE_DIR") {
+        let log = Path::new(&directory).join("kdialog.stderr.log");
+        command.stderr(std::fs::File::create(log).expect("fixture stderr evidence"));
+    }
+    let mut child = command.spawn().expect("KDE fixture must start");
 
     let ctx = context();
-    let (row, target) = wait_for_fixture(&backend, &ctx).await;
+    let (row, target) = wait_for_fixture(&backend, &ctx, &mut child).await;
     assert_eq!(row["coordinate_space"], "compositor_logical");
     backend.validate(&target).await.expect("fresh KWin target");
 

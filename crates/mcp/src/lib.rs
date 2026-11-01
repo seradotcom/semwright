@@ -52,14 +52,24 @@ impl Server {
     async fn connect(&self) -> Result<Client> {
         // Lock only the handshake, not a command or an approval wait.
         let mut ticket = self.session.lock().await;
-        let client = if ticket.is_none() {
-            if let Some(path) = &self.ticket {
-                connect_persistent(&self.socket, path).await?
-            } else {
-                Client::connect(&self.socket, None).await?
+        let client = if let Some(session) = ticket.clone() {
+            match Client::connect(&self.socket, Some(session)).await {
+                Ok(client) => client,
+                // A daemon restart invalidates the in-memory ticket. Recover
+                // the handshake only, never the previous command or its effects.
+                Err(error) if error.code == ErrorCode::StaleReference => {
+                    if let Some(path) = &self.ticket {
+                        connect_persistent(&self.socket, path).await?
+                    } else {
+                        Client::connect(&self.socket, None).await?
+                    }
+                }
+                Err(error) => return Err(error),
             }
+        } else if let Some(path) = &self.ticket {
+            connect_persistent(&self.socket, path).await?
         } else {
-            Client::connect(&self.socket, ticket.clone()).await?
+            Client::connect(&self.socket, None).await?
         };
         *ticket = Some(client.session.clone());
         Ok(client)
