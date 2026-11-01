@@ -128,7 +128,7 @@ outputs={paths[0]:cargo,paths[1]:job,paths[2]:launch,
 for p,content in outputs.items():
     (R/p).write_text(content,encoding="utf-8",newline="\n")
 shutil.copyfile(R/paths[3],D/"initial_lpac.rs")
-cmd=[r"C:\Users\sergi\.cargo\bin\rustup.exe","run",
+cmd=[r"C:\Users\owner\.cargo\bin\rustup.exe","run",
     "1.98.1-x86_64-pc-windows-gnu","rustfmt","--edition","2024",
     "--config","skip_children=true",str(D/"initial_attestation.rs")]
 result=subprocess.run(cmd,cwd=R,capture_output=True,text=True)

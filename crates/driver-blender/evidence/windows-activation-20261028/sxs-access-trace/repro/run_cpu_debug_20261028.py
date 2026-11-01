@@ -4,7 +4,7 @@ R=Path(r"E:\Projects\semwright-blender52")
 D=R/".local/logs/cpu-debug-20261028-attempt01"
 D.mkdir(exist_ok=False)
 env=os.environ.copy()
-env.update({"PATH":r"C:\msys64\mingw64\bin;C:\Users\sergi\.cargo\bin;"+env["PATH"],
+env.update({"PATH":r"C:\msys64\mingw64\bin;C:\Users\owner\.cargo\bin;"+env["PATH"],
 "CARGO_TARGET_DIR":str(R/".local/target"),"CARGO_BUILD_JOBS":"2",
 "CARGO_PROFILE_DEV_DEBUG":"0","CARGO_PROFILE_TEST_DEBUG":"0","CARGO_INCREMENTAL":"0",
 "TMP":str(R/".local/tmp"),"TEMP":str(R/".local/tmp"),
@@ -19,7 +19,7 @@ files=["crates/driver-blender/tests/windows_native_launch.rs",
 "crates/platform-windows-sys/src/launch/initial_attestation.rs",
 ".local/trace_lpac_api_20261028.py"]
 before={n:hashlib.sha256((R/n).read_bytes()).hexdigest() for n in files}
-cmd=[r"C:\Users\sergi\.cargo\bin\cargo.exe","+1.98.1-x86_64-pc-windows-gnu","test",
+cmd=[r"C:\Users\owner\.cargo\bin\cargo.exe","+1.98.1-x86_64-pc-windows-gnu","test",
 "-p","semwright-driver-blender","--features","windows-launch-test-fixture",
 "--test","windows_native_launch","--target","x86_64-pc-windows-gnu","--locked","--offline",
 "initial_host_cpu_resource_debug_probe","--","--ignored","--exact","--nocapture","--test-threads=1"]

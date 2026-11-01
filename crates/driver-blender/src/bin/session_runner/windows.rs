@@ -15,21 +15,21 @@ use std::{
 use windows_sys::Win32::{
     Foundation::{CloseHandle, HANDLE},
     Security::{
-        GetTokenInformation, TOKEN_QUERY, TokenAppContainerSid, TokenCapabilities,
-        TokenIsAppContainer, TokenUser, TOKEN_INFORMATION_CLASS,
+        GetTokenInformation, TOKEN_INFORMATION_CLASS, TOKEN_QUERY, TokenAppContainerSid,
+        TokenCapabilities, TokenIsAppContainer, TokenUser,
     },
     System::{
         JobObjects::IsProcessInJob,
         Threading::{GetCurrentProcess, OpenProcessToken},
     },
 };
+#[cfg(feature = "windows-launch-test-fixture")]
+#[path = "windows_fixture.rs"]
+pub mod fixture;
 #[path = "windows_lpac.rs"]
 mod lpac;
 #[path = "windows_child.rs"]
 mod native_child;
-#[cfg(feature = "windows-launch-test-fixture")]
-#[path = "windows_fixture.rs"]
-pub mod fixture;
 const MAX_FRAME: usize = 1_048_576;
 const MAX_STARTUP: usize = 65_536;
 const BRIDGE: &str = include_str!("../../bridge.py");
@@ -59,28 +59,15 @@ fn token_sid(token: HANDLE, class: TOKEN_INFORMATION_CLASS) -> io::Result<Vec<u8
     let mut needed = 0;
     // SAFETY: a live query-only token and null buffer request the required size.
     unsafe {
-        GetTokenInformation(
-            token,
-            class,
-            std::ptr::null_mut(),
-            0,
-            &mut needed,
-        );
+        GetTokenInformation(token, class, std::ptr::null_mut(), 0, &mut needed);
     }
     if !(8..=4096).contains(&needed) {
         return Err(denied("Invalid container identity size"));
     }
     let mut data = vec![0u64; (needed as usize).div_ceil(8)];
     // SAFETY: aligned allocation contains at least the API byte requirement.
-    if unsafe {
-        GetTokenInformation(
-            token,
-            class,
-            data.as_mut_ptr().cast(),
-            needed,
-            &mut needed,
-        )
-    } == 0
+    if unsafe { GetTokenInformation(token, class, data.as_mut_ptr().cast(), needed, &mut needed) }
+        == 0
     {
         return Err(io::Error::last_os_error());
     }
@@ -102,7 +89,10 @@ fn token_sid(token: HANDLE, class: TOKEN_INFORMATION_CLASS) -> io::Result<Vec<u8
     Ok(unsafe { std::slice::from_raw_parts(sid, length) }.to_vec())
 }
 #[derive(Debug, PartialEq, Eq)]
-struct Identity { container: Vec<u8>, user: Vec<u8> }
+struct Identity {
+    container: Vec<u8>,
+    user: Vec<u8>,
+}
 fn verify_process(process: HANDLE) -> io::Result<Identity> {
     let mut handle = std::ptr::null_mut();
     // SAFETY: supplied live process handle and writable token out-parameter.
@@ -166,7 +156,10 @@ fn verify_process(process: HANDLE) -> io::Result<Identity> {
     if unsafe { IsProcessInJob(process, std::ptr::null_mut(), &mut in_job) } == 0 || in_job == 0 {
         return Err(denied("Blender runner requires a Host Job"));
     }
-    Ok(Identity { container: token_sid(token.0, TokenAppContainerSid)?, user: token_sid(token.0, TokenUser)? })
+    Ok(Identity {
+        container: token_sid(token.0, TokenAppContainerSid)?,
+        user: token_sid(token.0, TokenUser)?,
+    })
 }
 fn local_path(path: &Path) -> io::Result<()> {
     let mut parts = path.components();
@@ -433,7 +426,9 @@ fn retain_start_failure(workspace: &Path, phase: &str, error: &io::Error) -> io:
     }
     kind(&dir, true)?;
     if fs::read_dir(&dir)?.take(24).count() >= 24 {
-        return Err(io::Error::other("Native diagnostic retention capacity reached"));
+        return Err(io::Error::other(
+            "Native diagnostic retention capacity reached",
+        ));
     }
     // Fixed phase identifiers and numeric error codes only: no paths, OS text or environment.
     let receipt = serde_json::json!({
@@ -449,7 +444,13 @@ fn retain_start_failure(workspace: &Path, phase: &str, error: &io::Error) -> io:
         &serde_json::to_vec(&receipt).map_err(io::Error::other)?,
     )
 }
-fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_identity: &Identity, phase: &mut &'static str) -> io::Result<Native> {
+fn spawn(
+    args: &Args,
+    session: PathBuf,
+    bridge: PathBuf,
+    parent_identity: &Identity,
+    phase: &mut &'static str,
+) -> io::Result<Native> {
     *phase = "sealed_executable";
     kind(&args.blender, false)?;
     *phase = "mount_roots";
@@ -538,13 +539,14 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_identity: &Ident
         .env("PYTHONNOUSERSITE", "1")
         .env("PYTHONIOENCODING", "utf-8");
     // Fixed Host-attested dependency; inherit the restricted token and Job, never break away.
-    let (mut child, input, output) = match native_child::spawn(&command, &log, &parent_identity.container, phase) {
-        Ok(child) => child,
-        Err(error) => {
-            let _ = retain_failure(&log, &args.workspace, None, phase);
-            return Err(error);
-        }
-    };
+    let (mut child, input, output) =
+        match native_child::spawn(&command, &log, &parent_identity.container, phase) {
+            Ok(child) => child,
+            Err(error) => {
+                let _ = retain_failure(&log, &args.workspace, None, phase);
+                return Err(error);
+            }
+        };
     *phase = "verify_child";
     match verify_process(child.as_raw_handle()) {
         Ok(identity) if identity == *parent_identity => {}
@@ -559,8 +561,12 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_identity: &Ident
     }
     *phase = "verify_child_job";
     native_child::verify_same_job(&child)?;
-    writeln!(&log,"{}",serde_json::json!({"phase":"suspended_child_attested",
-        "same_user":true,"same_appcontainer":true,"lpac":true,"capability_count":0,"same_job":true}))?;
+    writeln!(
+        &log,
+        "{}",
+        serde_json::json!({"phase":"suspended_child_attested",
+        "same_user":true,"same_appcontainer":true,"lpac":true,"capability_count":0,"same_job":true})
+    )?;
     *phase = "resume_attested_child";
     child.resume()?;
     *phase = "reader_start";

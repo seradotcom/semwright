@@ -15,7 +15,7 @@ D=R/(".local/logs/registry-read-20261028-"+case+"-attempt"+attempt)
 assert not D.exists(),"Existing execution: inspect before retry"
 D.mkdir()
 env=os.environ.copy()
-env.update({"PATH":r"C:\msys64\mingw64\bin;C:\Users\sergi\.cargo\bin;"+env["PATH"],
+env.update({"PATH":r"C:\msys64\mingw64\bin;C:\Users\owner\.cargo\bin;"+env["PATH"],
  "CARGO_TARGET_DIR":str(R/".local/target"),"CARGO_BUILD_JOBS":"2",
  "CARGO_PROFILE_DEV_DEBUG":"0","CARGO_PROFILE_TEST_DEBUG":"0","CARGO_INCREMENTAL":"0",
  "TMP":str(R/".local/tmp"),"TEMP":str(R/".local/tmp"),
@@ -42,7 +42,7 @@ for rel in paths:
     target=D/"source"/rel;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(R/rel,target)
 runtime=Path(env["SEMWRIGHT_TEST_BLENDER_RUNTIME"])
 runtime_before={x:digest(runtime/x) for x in ["blender.exe","blender_cpu_check.dll"]}
-cmd=[r"C:\Users\sergi\.cargo\bin\cargo.exe","+1.98.1-x86_64-pc-windows-gnu",*cases[case],
+cmd=[r"C:\Users\owner\.cargo\bin\cargo.exe","+1.98.1-x86_64-pc-windows-gnu",*cases[case],
  "--target","x86_64-pc-windows-gnu","--locked","--offline"]
 if cases[case][0]=="test":
     cmd+=["--",*(["--ignored"] if case in ["default-zero","registry-aba-version","initial-bridge"] else []),

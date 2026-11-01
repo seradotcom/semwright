@@ -1,0 +1,3 @@
+# Historical Windows fixture captures preserve CRLF bytes for provenance.
+# Retain the files as-is while ignoring CR at end-of-line for diff hygiene.
+*.py whitespace=trailing-space,cr-at-eol

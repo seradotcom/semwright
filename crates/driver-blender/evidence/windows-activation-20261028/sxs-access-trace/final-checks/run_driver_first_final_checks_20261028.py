@@ -5,7 +5,7 @@ D=R/".local/logs/driver-first-final-checks-20261028"
 assert not D.exists(),"Existing run: inspect, never replay"
 D.mkdir()
 env=os.environ.copy()
-env.update({"PATH":r"C:\msys64\mingw64\bin;C:\Users\sergi\.cargo\bin;"+env["PATH"],
+env.update({"PATH":r"C:\msys64\mingw64\bin;C:\Users\owner\.cargo\bin;"+env["PATH"],
  "CARGO_TARGET_DIR":str(R/".local/target"),"CARGO_BUILD_JOBS":"2",
  "CARGO_PROFILE_DEV_DEBUG":"0","CARGO_PROFILE_TEST_DEBUG":"0","CARGO_INCREMENTAL":"0",
  "TMP":str(R/".local/tmp"),"TEMP":str(R/".local/tmp"),
@@ -25,7 +25,7 @@ sources=[
 sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
 hashes=lambda:{p:sha(R/p) for p in sources}
 before_fmt=hashes()
-fmt=[r"C:\Users\sergi\.cargo\bin\rustfmt.exe","+1.98.1-x86_64-pc-windows-gnu",
+fmt=[r"C:\Users\owner\.cargo\bin\rustfmt.exe","+1.98.1-x86_64-pc-windows-gnu",
  "--edition","2024","--config","skip_children=true",*[p for p in sources if p.endswith(".rs")]]
 fmt_result=subprocess.run(fmt,cwd=R,env=env,capture_output=True,timeout=60)
 (D/"rustfmt.log").write_bytes(fmt_result.stdout+fmt_result.stderr)
@@ -33,7 +33,7 @@ fmt_receipt={"argv":fmt,"exit_code":fmt_result.returncode,"before":before_fmt,"a
 (D/"rustfmt.json").write_text(json.dumps(fmt_receipt,indent=2)+"\n",encoding="utf-8")
 assert fmt_result.returncode==0
 subprocess.run(["git","diff","--check"],cwd=R,check=True,timeout=20)
-cargo=[r"C:\Users\sergi\.cargo\bin\cargo.exe","+1.98.1-x86_64-pc-windows-gnu"]
+cargo=[r"C:\Users\owner\.cargo\bin\cargo.exe","+1.98.1-x86_64-pc-windows-gnu"]
 common=["--target","x86_64-pc-windows-gnu","--locked","--offline"]
 cases=[
 ("attestation-unit",["test","-p","semwright-platform-windows-sys","--lib",*common,

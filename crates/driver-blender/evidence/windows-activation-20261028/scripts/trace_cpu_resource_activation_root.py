@@ -11,12 +11,12 @@ FILES=['crates/driver-blender/src/bin/session_runner/'+name for name in [
  'windows_fixture.rs','windows_activation_readback.rs','windows_cpu_payload.rs',
  'windows_cpu_fixture.rs','windows_cpu_images.rs','windows_cpu_resource_activation.rs']]
 FILES+=['crates/driver-blender/tests/windows_native_launch.rs','crates/driver-blender/tests/fixtures/windows_cpu_probe_payload.json']
-CMD=[r'C:\Users\sergi\.cargo\bin\cargo.exe','+1.98.1-x86_64-pc-windows-gnu',
+CMD=[r'C:\Users\owner\.cargo\bin\cargo.exe','+1.98.1-x86_64-pc-windows-gnu',
  'test','-p','semwright-driver-blender','--features','windows-launch-test-fixture',
  '--test','windows_native_launch','--target','x86_64-pc-windows-gnu','--locked','--offline',
  'initial_host_cpu_resource_activation_probe','--','--ignored','--nocapture','--test-threads=1']
 env=os.environ.copy()
-env.update({'PATH':r'C:\msys64\mingw64\bin;C:\Users\sergi\.cargo\bin;'+env['PATH'],
+env.update({'PATH':r'C:\msys64\mingw64\bin;C:\Users\owner\.cargo\bin;'+env['PATH'],
  'CARGO_TARGET_DIR':str(R/'.local/target'),'CARGO_BUILD_JOBS':'2',
  'CARGO_PROFILE_DEV_DEBUG':'0','CARGO_PROFILE_TEST_DEBUG':'0','CARGO_INCREMENTAL':'0',
  'TMP':str(R/'.local/tmp'),'TEMP':str(R/'.local/tmp'),

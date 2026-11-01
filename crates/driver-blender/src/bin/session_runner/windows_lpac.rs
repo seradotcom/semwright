@@ -8,7 +8,10 @@ use windows_sys::Win32::{
 };
 
 fn denied() -> io::Error {
-    io::Error::new(io::ErrorKind::PermissionDenied, "Host LPAC attestation is unavailable or false")
+    io::Error::new(
+        io::ErrorKind::PermissionDenied,
+        "Host LPAC attestation is unavailable or false",
+    )
 }
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -56,7 +59,10 @@ fn verify_attribute(storage: &[u64], used: usize) -> io::Result<()> {
     let wanted: Vec<u16> = "WIN://NOALLAPPPKG".encode_utf16().collect();
     let mut found = false;
     for i in 0..h.count as usize {
-        let address = h.attributes.checked_add(i * size_of::<Attribute>()).ok_or_else(denied)?;
+        let address = h
+            .attributes
+            .checked_add(i * size_of::<Attribute>())
+            .ok_or_else(denied)?;
         let a: Attribute = read_value(storage, used, address)?;
         if a.name.length == 0
             || a.name.length % 2 != 0
@@ -67,13 +73,19 @@ fn verify_attribute(storage: &[u64], used: usize) -> io::Result<()> {
         }
         let mut name = Vec::with_capacity(a.name.length as usize / 2);
         for j in 0..a.name.length as usize / 2 {
-            name.push(read_value::<u16>(storage, used,
-                a.name.buffer.checked_add(j * 2).ok_or_else(denied)?)?);
+            name.push(read_value::<u16>(
+                storage,
+                used,
+                a.name.buffer.checked_add(j * 2).ok_or_else(denied)?,
+            )?);
         }
         if name == wanted {
             // UINT64, one enabled/inheritable value, no ambiguous duplicates.
-            if found || a.value_type != 2 || a.reserved != 0
-                || a.flags != 0 || a.value_count != 1
+            if found
+                || a.value_type != 2
+                || a.reserved != 0
+                || a.flags != 0
+                || a.value_count != 1
                 || read_value::<u64>(storage, used, a.values)? != 1
             {
                 return Err(denied());
@@ -88,10 +100,20 @@ pub fn verify_lpac(token: HANDLE) -> io::Result<()> {
     let mut size = 0u32;
     // SAFETY: live query-only token, DWORD out-buffer and writable size.
     if unsafe {
-        GetTokenInformation(token, TokenIsLessPrivilegedAppContainer,
-            (&mut value as *mut u32).cast(), 4, &mut size)
-    } != 0 {
-        return if size == 4 && value == 1 { Ok(()) } else { Err(denied()) };
+        GetTokenInformation(
+            token,
+            TokenIsLessPrivilegedAppContainer,
+            (&mut value as *mut u32).cast(),
+            4,
+            &mut size,
+        )
+    } != 0
+    {
+        return if size == 4 && value == 1 {
+            Ok(())
+        } else {
+            Err(denied())
+        };
     }
     let error = io::Error::last_os_error();
     if error.raw_os_error() != Some(87) {
@@ -99,16 +121,30 @@ pub fn verify_lpac(token: HANDLE) -> io::Result<()> {
     }
     let mut needed = 0;
     // SAFETY: zero-size query asks only for the bounded allocation requirement.
-    unsafe { GetTokenInformation(token, TokenSecurityAttributes, std::ptr::null_mut(), 0, &mut needed); }
+    unsafe {
+        GetTokenInformation(
+            token,
+            TokenSecurityAttributes,
+            std::ptr::null_mut(),
+            0,
+            &mut needed,
+        );
+    }
     if !(size_of::<Header>() as u32..=65_536).contains(&needed) {
         return Err(denied());
     }
     let mut storage = vec![0u64; (needed as usize).div_ceil(8)];
     // SAFETY: aligned owned allocation has at least the API-requested byte capacity.
     if unsafe {
-        GetTokenInformation(token, TokenSecurityAttributes, storage.as_mut_ptr().cast(),
-            needed, &mut needed)
-    } == 0 {
+        GetTokenInformation(
+            token,
+            TokenSecurityAttributes,
+            storage.as_mut_ptr().cast(),
+            needed,
+            &mut needed,
+        )
+    } == 0
+    {
         return Err(io::Error::last_os_error());
     }
     verify_attribute(&storage, needed as usize)
@@ -120,18 +156,43 @@ mod tests {
     fn put<T: Copy>(storage: &mut [u64], offset: usize, value: T) {
         assert!(offset + size_of::<T>() <= std::mem::size_of_val(storage));
         // SAFETY: test fixture writes a bounded value inside its owned allocation.
-        unsafe { std::ptr::write_unaligned((storage.as_mut_ptr() as *mut u8).add(offset).cast(), value); }
+        unsafe {
+            std::ptr::write_unaligned((storage.as_mut_ptr() as *mut u8).add(offset).cast(), value);
+        }
     }
     fn fixture() -> Vec<u64> {
         let mut s = vec![0u64; 128];
         let base = s.as_ptr() as usize;
         let name: Vec<u16> = "WIN://NOALLAPPPKG".encode_utf16().collect();
-        put(&mut s, 0, Header {version:1, reserved:0, count:1, attributes:base+32});
-        put(&mut s, 32, Attribute {
-            name:UnicodeString {length:(name.len()*2) as u16, maximum_length:(name.len()*2) as u16, buffer:base+256},
-            value_type:2, reserved:0, flags:0, value_count:1, values:base+512
-        });
-        for (i, value) in name.into_iter().enumerate() { put(&mut s, 256+i*2, value); }
+        put(
+            &mut s,
+            0,
+            Header {
+                version: 1,
+                reserved: 0,
+                count: 1,
+                attributes: base + 32,
+            },
+        );
+        put(
+            &mut s,
+            32,
+            Attribute {
+                name: UnicodeString {
+                    length: (name.len() * 2) as u16,
+                    maximum_length: (name.len() * 2) as u16,
+                    buffer: base + 256,
+                },
+                value_type: 2,
+                reserved: 0,
+                flags: 0,
+                value_count: 1,
+                values: base + 512,
+            },
+        );
+        for (i, value) in name.into_iter().enumerate() {
+            put(&mut s, 256 + i * 2, value);
+        }
         put(&mut s, 512, 1u64);
         s
     }
@@ -141,7 +202,7 @@ mod tests {
         verify_attribute(&s, 1024).unwrap();
         for field in ["zero", "type", "flags", "count", "name"] {
             let mut s = fixture();
-            let mut a: Attribute = read_value(&s, 1024, s.as_ptr() as usize+32).unwrap();
+            let mut a: Attribute = read_value(&s, 1024, s.as_ptr() as usize + 32).unwrap();
             match field {
                 "zero" => put(&mut s, 512, 0u64),
                 "type" => a.value_type = 6,
@@ -156,35 +217,58 @@ mod tests {
     }
     #[test]
     fn malformed_or_duplicate_pointer_bearing_claims_fail_closed() {
-        for field in ["header", "table", "name", "value", "duplicate", "length", "used"] {
+        for field in [
+            "header",
+            "table",
+            "name",
+            "value",
+            "duplicate",
+            "length",
+            "used",
+        ] {
             let mut s = fixture();
             let base = s.as_ptr() as usize;
             let mut h: Header = read_value(&s, 1024, base).unwrap();
-            let mut a: Attribute = read_value(&s, 1024, base+32).unwrap();
+            let mut a: Attribute = read_value(&s, 1024, base + 32).unwrap();
             match field {
                 "header" => h.version = 2,
                 "table" => h.attributes = usize::MAX,
-                "name" => a.name.buffer = base-1,
-                "value" => a.values = base+1020,
-                "duplicate" => { h.count = 2; put(&mut s, 32+size_of::<Attribute>(), a); }
+                "name" => a.name.buffer = base - 1,
+                "value" => a.values = base + 1020,
+                "duplicate" => {
+                    h.count = 2;
+                    put(&mut s, 32 + size_of::<Attribute>(), a);
+                }
                 "length" => a.name.length = 3,
-                "used" => {},
+                "used" => {}
                 _ => unreachable!(),
             }
-            put(&mut s, 0, h);put(&mut s, 32, a);
-            assert!(verify_attribute(&s, if field=="used" {2048} else {1024}).is_err(), "{field}");
+            put(&mut s, 0, h);
+            put(&mut s, 32, a);
+            assert!(
+                verify_attribute(&s, if field == "used" { 2048 } else { 1024 }).is_err(),
+                "{field}"
+            );
         }
     }
     #[test]
     fn an_ordinary_test_process_is_not_a_host_lpac() {
-        use windows_sys::Win32::{Foundation::CloseHandle, Security::TOKEN_QUERY,
-            System::Threading::{GetCurrentProcess, OpenProcessToken}};
+        use windows_sys::Win32::{
+            Foundation::CloseHandle,
+            Security::TOKEN_QUERY,
+            System::Threading::{GetCurrentProcess, OpenProcessToken},
+        };
         let mut token = std::ptr::null_mut();
         // SAFETY: current process pseudo-handle and writable token result.
-        assert_ne!(unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) }, 0);
+        assert_ne!(
+            unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) },
+            0
+        );
         let result = verify_lpac(token);
         // SAFETY: test owns this query-only token handle.
-        unsafe { CloseHandle(token); }
+        unsafe {
+            CloseHandle(token);
+        }
         assert!(result.is_err());
     }
 }

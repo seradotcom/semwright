@@ -2,7 +2,7 @@ from pathlib import Path
 import subprocess,os,json,datetime,time,hashlib,shutil
 R=Path(r"E:\Projects\semwright-blender52")
 env=os.environ.copy()
-env.update({"PATH":r"C:\msys64\mingw64\bin;C:\Users\sergi\.cargo\bin;"+env["PATH"],
+env.update({"PATH":r"C:\msys64\mingw64\bin;C:\Users\owner\.cargo\bin;"+env["PATH"],
 "CARGO_TARGET_DIR":str(R/".local/target"),"CARGO_BUILD_JOBS":"2",
 "CARGO_PROFILE_DEV_DEBUG":"0","CARGO_PROFILE_TEST_DEBUG":"0","CARGO_INCREMENTAL":"0",
 "TMP":str(R/".local/tmp"),"TEMP":str(R/".local/tmp"),
@@ -25,7 +25,7 @@ for name in files:
 diff=subprocess.run(["git","diff","--binary"],cwd=R,capture_output=True,check=True).stdout
 (snapshot/"tracked-wip.diff").write_bytes(diff)
 (snapshot/"manifest.json").write_text(json.dumps(before,indent=2)+"\n",encoding="utf-8")
-cmd=[r"C:\Users\sergi\.cargo\bin\cargo.exe","+1.98.1-x86_64-pc-windows-gnu","test",
+cmd=[r"C:\Users\owner\.cargo\bin\cargo.exe","+1.98.1-x86_64-pc-windows-gnu","test",
 "-p","semwright-driver-blender","--features","windows-launch-test-fixture",
 "--test","windows_fsctl_control","--target","x86_64-pc-windows-gnu","--locked","--offline",
 "owner_fsctl_restriction_control","--","--ignored","--exact","--nocapture","--test-threads=1"]

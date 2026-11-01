@@ -186,7 +186,6 @@ def checkpoint_preflight(bpy):
     allowed = {"scenes", "objects", "meshes", "materials", "cameras", "lights",
                "worlds", "collections", "linestyles", "palettes", "images",
                "screens", "workspaces", "window_managers"}
-    transient_ui = {"screens", "workspaces", "window_managers"}
     # Blender's factory scene contains empty Render Result/Viewer placeholders.
     # No name exceptions: pixel content, dirty state, external/generated images and
     # persistent scene references remain unsupported.

@@ -1,10 +1,10 @@
 from pathlib import Path
 import subprocess,os,json,datetime,time,hashlib
 R=Path(r'E:\Projects\semwright-blender52');env=os.environ.copy()
-env.update({'PATH':r'C:\msys64\mingw64\bin;C:\Users\sergi\.cargo\bin;'+env['PATH'],'CARGO_TARGET_DIR':str(R/'.local/target'),'CARGO_BUILD_JOBS':'2','CARGO_PROFILE_DEV_DEBUG':'0','CARGO_PROFILE_TEST_DEBUG':'0','CARGO_INCREMENTAL':'0','TMP':str(R/'.local/tmp'),'TEMP':str(R/'.local/tmp'),'SEMWRIGHT_TEST_BLENDER_RUNTIME':r'E:\Projects\worldwright-archipelago\tools\blender-5.2.1-runtime'})
+env.update({'PATH':r'C:\msys64\mingw64\bin;C:\Users\owner\.cargo\bin;'+env['PATH'],'CARGO_TARGET_DIR':str(R/'.local/target'),'CARGO_BUILD_JOBS':'2','CARGO_PROFILE_DEV_DEBUG':'0','CARGO_PROFILE_TEST_DEBUG':'0','CARGO_INCREMENTAL':'0','TMP':str(R/'.local/tmp'),'TEMP':str(R/'.local/tmp'),'SEMWRIGHT_TEST_BLENDER_RUNTIME':r'E:\Projects\worldwright-archipelago\tools\blender-5.2.1-runtime'})
 toolchain='1.98.1-x86_64-pc-windows-gnu'
 files=['crates/driver-blender/src/bin/session_runner/windows_fixture.rs','crates/driver-blender/src/bin/session_runner/windows_activation_readback.rs','crates/driver-blender/tests/windows_native_launch.rs','crates/driver-blender/src/bin/session_runner/windows_cpu_payload.rs','crates/driver-blender/src/bin/session_runner/windows_cpu_fixture.rs','crates/driver-blender/src/bin/session_runner/windows_cpu_images.rs','crates/driver-blender/src/bin/session_runner/windows_cpu_resource_activation.rs']
-cmd=[r'C:\Users\sergi\.cargo\bin\cargo.exe','+'+toolchain,'test','-p','semwright-driver-blender','--features','windows-launch-test-fixture','--test','windows_native_launch','--target','x86_64-pc-windows-gnu','--locked','--offline','initial_host_','--','--include-ignored','--skip','initial_host_cpu_component_probe','--skip','initial_host_cpu_resource_activation_probe','--nocapture','--test-threads=1']
+cmd=[r'C:\Users\owner\.cargo\bin\cargo.exe','+'+toolchain,'test','-p','semwright-driver-blender','--features','windows-launch-test-fixture','--test','windows_native_launch','--target','x86_64-pc-windows-gnu','--locked','--offline','initial_host_','--','--include-ignored','--skip','initial_host_cpu_component_probe','--skip','initial_host_cpu_resource_activation_probe','--nocapture','--test-threads=1']
 base=R/'.local/logs/windows-positive-manifests-after-resource-probe'
 log=base.with_suffix('.log');receipt_path=base.with_suffix('.json')
 assert not log.exists() and not receipt_path.exists(),'Existing run: inspect, never replay'

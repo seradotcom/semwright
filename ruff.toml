@@ -1,0 +1,7 @@
+# Archived immutable evidence captures include historical scripts and source snapshots.
+# Lint active code, tests and tooling; the OSS hygiene validator still scans
+# every tracked file, including this historical evidence, for private paths.
+extend-exclude = [
+    "crates/driver-blender/evidence",
+    "crates/driver-godot/evidence",
+]

@@ -28,7 +28,11 @@ const SESSION_CWD_MOUNT: &str = if cfg!(target_os = "windows") {
     SCRATCH_MOUNT
 };
 const BLENDER_TOOL: &str = "blender";
-const SESSION_RUNNER_TOOL: &str = if cfg!(target_os="windows") {"blender"} else {"blender-session-runner"};
+const SESSION_RUNNER_TOOL: &str = if cfg!(target_os = "windows") {
+    "blender"
+} else {
+    "blender-session-runner"
+};
 const MAX_DRIVER_SESSIONS: usize = 2;
 const LEGACY_DESCRIPTORS: &str = include_str!("../../../schemas/commands.json");
 #[cfg(test)]
@@ -1434,19 +1438,27 @@ fn lifecycle_capabilities() -> Vec<Capability> {
         "driver.blender.session.checkpoint.inspect",
         "Read-only advisory inspection of this caller's checkpoint closure; does not create a session or save data",
         json!({"type":"object","properties":{},"additionalProperties":false}),
-        checkpoint_inspection_schema(), &["session"]);
+        checkpoint_inspection_schema(),
+        &["session"],
+    );
     inspect.tags = vec!["blender".into(), "native".into(), "lifecycle".into()];
     let mut save = descriptor(
         "driver.blender.file.checkpoint",
         "Save a new verified static scene recovery copy without overwriting files; preserve orphan data in the copy and restore source retention flags",
         json!({"type":"object","properties":{"path":{"type":"string","minLength":1,"maxLength":1024}},
             "required":["path"],"additionalProperties":false}),
-        checkpoint_schema(), &["file"]);
+        checkpoint_schema(),
+        &["file"],
+    );
     save.descriptor.risk = Risk::MutatingReversible;
     save.descriptor.idempotency = Idempotency::NonIdempotent;
     save.descriptor.timeout_ms = 70_000;
-    save.tags = vec!["blender".into(), "native".into(), "lifecycle".into(),
-        semwright_driver_sdk::artifact_output_tag("model/3d").expect("Fixed artifact contract")];
+    save.tags = vec![
+        "blender".into(),
+        "native".into(),
+        "lifecycle".into(),
+        semwright_driver_sdk::artifact_output_tag("model/3d").expect("Fixed artifact contract"),
+    ];
     vec![close, checkpoint, open, inspect, save]
 }
 
@@ -1529,7 +1541,9 @@ fn bridge_error_code(value: &str) -> ErrorCode {
 
 fn session_arguments() -> Vec<RuntimeToolArg> {
     // Windows Host owns the closed native launch. Linux retains its runner contract.
-    if cfg!(target_os="windows") {return Vec::new();}
+    if cfg!(target_os = "windows") {
+        return Vec::new();
+    }
     let args = vec![
         RuntimeToolArg::Literal {
             value: "--blender".into(),
@@ -1749,10 +1763,14 @@ impl BlenderDriver {
                 SESSION_RUNNER_TOOL,
                 session_arguments(),
                 Duration::from_secs(3_600),
-                if cfg!(target_os = "windows") { None } else { Some(RuntimeToolCwd {
-                    mount: SESSION_CWD_MOUNT.into(),
-                    relative: String::new(),
-                }) },
+                if cfg!(target_os = "windows") {
+                    None
+                } else {
+                    Some(RuntimeToolCwd {
+                        mount: SESSION_CWD_MOUNT.into(),
+                        relative: String::new(),
+                    })
+                },
                 Duration::from_secs(if cfg!(target_os = "windows") { 45 } else { 5 }),
             )
             .await?;
@@ -1868,8 +1886,14 @@ impl Driver for BlenderDriver {
         let capability = Self::validate_call(command, digest, &args)?;
         if command == "driver.blender.session.checkpoint.inspect" {
             let mut value = if let Some(session) = self.sessions.get(context.session()).cloned() {
-                let mut value = Self::exchange(&context, &session,
-                    "driver.blender.file.checkpoint_inspect", json!({}), 10_000).await?;
+                let mut value = Self::exchange(
+                    &context,
+                    &session,
+                    "driver.blender.file.checkpoint_inspect",
+                    json!({}),
+                    10_000,
+                )
+                .await?;
                 value["session_open"] = json!(true);
                 value
             } else {
@@ -1880,15 +1904,31 @@ impl Driver for BlenderDriver {
             return Ok(value.take());
         }
         if command == "driver.blender.session.open" {
-            if self.sessions.contains_key(context.session()) || self.authoring.get(context.session())
-                .is_some_and(authoring_runtime::State::poisoned) {
-                return Err(Error::new(ErrorCode::Conflict, "Initial open refuses an existing or unresolved caller session"));
+            if self.sessions.contains_key(context.session())
+                || self
+                    .authoring
+                    .get(context.session())
+                    .is_some_and(authoring_runtime::State::poisoned)
+            {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Initial open refuses an existing or unresolved caller session",
+                ));
             }
             let session = self.ensure_session(&context).await?;
-            let value = Self::exchange(&context, &session, "driver.blender.file.open_initial",
-                args.clone(), 30_000).await?;
+            let value = Self::exchange(
+                &context,
+                &session,
+                "driver.blender.file.open_initial",
+                args.clone(),
+                30_000,
+            )
+            .await?;
             if value["path"] != args["path"] || value["sha256"] != args["expected_sha256"] {
-                return Err(Error::new(ErrorCode::ProtocolMismatch, "Initial open receipt disagrees"));
+                return Err(Error::new(
+                    ErrorCode::ProtocolMismatch,
+                    "Initial open receipt disagrees",
+                ));
             }
             self.authoring.remove(context.session());
             Self::validate_output(&capability, &value)?;
@@ -1901,13 +1941,21 @@ impl Driver for BlenderDriver {
             // The SDK holds the exclusive driver mutex across this entire await sequence.
             // Checkpoint errors never enter the generic transport-error close path below.
             let checkpoint = Self::exchange(
-                &context, &session, "driver.blender.file.checkpoint",
-                json!({"path":args["checkpoint_path"]}), 55_000,
-            ).await?;
-            let validator = jsonschema::validator_for(&checkpoint_schema())
-                .map_err(|_| Error::new(ErrorCode::Internal, "Invalid checkpoint receipt schema"))?;
+                &context,
+                &session,
+                "driver.blender.file.checkpoint",
+                json!({"path":args["checkpoint_path"]}),
+                55_000,
+            )
+            .await?;
+            let validator = jsonschema::validator_for(&checkpoint_schema()).map_err(|_| {
+                Error::new(ErrorCode::Internal, "Invalid checkpoint receipt schema")
+            })?;
             if !validator.is_valid(&checkpoint) || checkpoint["path"] != args["checkpoint_path"] {
-                return Err(Error::new(ErrorCode::ProtocolMismatch, "Invalid checkpoint receipt; session retained"));
+                return Err(Error::new(
+                    ErrorCode::ProtocolMismatch,
+                    "Invalid checkpoint receipt; session retained",
+                ));
             }
             let (closed, close_state) = if context.check_cancelled().is_err() {
                 (false, "not_attempted")
@@ -1933,7 +1981,9 @@ impl Driver for BlenderDriver {
                 self.versions.remove(context.session());
                 self.authoring.remove(context.session());
                 true
-            } else { false };
+            } else {
+                false
+            };
             let value = json!({"closed":closed});
             Self::validate_output(&capability, &value)?;
             return Ok(value);
@@ -2285,7 +2335,10 @@ mod tests {
     fn session_arguments_use_only_typed_host_refs() {
         let args = session_arguments();
         if cfg!(target_os = "windows") {
-            assert!(args.is_empty(), "Windows Host exclusively supplies native launch arguments");
+            assert!(
+                args.is_empty(),
+                "Windows Host exclusively supplies native launch arguments"
+            );
             return;
         }
         assert_eq!(args.len(), if cfg!(target_os = "linux") { 10 } else { 8 });
@@ -2369,13 +2422,19 @@ mod native_lifecycle_tests {
     }
     #[test]
     fn native_initial_open_is_hash_bound_and_legacy_destructive_file_operations_remain() {
-        let cap = lifecycle_capabilities().into_iter()
-            .find(|c| c.descriptor.name == "driver.blender.session.open").unwrap();
+        let cap = lifecycle_capabilities()
+            .into_iter()
+            .find(|c| c.descriptor.name == "driver.blender.session.open")
+            .unwrap();
         let validator = jsonschema::validator_for(&cap.descriptor.input_schema).unwrap();
-        assert!(validator.is_valid(&json!({"path":"input.blend","expected_sha256":"0".repeat(64)})));
+        assert!(
+            validator.is_valid(&json!({"path":"input.blend","expected_sha256":"0".repeat(64)}))
+        );
         assert!(!validator.is_valid(&json!({"path":"input.blend"})));
-        assert!(!validator.is_valid(&json!({"path":"input.blend","expected_sha256":"0".repeat(64),"replace":true})));
-        for name in ["driver.blender.file.save","driver.blender.file.open"] {
+        assert!(!validator.is_valid(
+            &json!({"path":"input.blend","expected_sha256":"0".repeat(64),"replace":true})
+        ));
+        for name in ["driver.blender.file.save", "driver.blender.file.open"] {
             let cap = capability(name).unwrap();
             assert!(matches!(cap.descriptor.risk, Risk::Destructive));
             assert!(cap.descriptor.interactive_consent);
@@ -2383,31 +2442,46 @@ mod native_lifecycle_tests {
     }
     #[test]
     fn native_checkpoint_close_is_new_only_and_cannot_select_foreign_session() {
-        let cap = lifecycle_capabilities().into_iter()
-            .find(|cap| cap.descriptor.name == "driver.blender.session.checkpoint_close").unwrap();
+        let cap = lifecycle_capabilities()
+            .into_iter()
+            .find(|cap| cap.descriptor.name == "driver.blender.session.checkpoint_close")
+            .unwrap();
         assert!(matches!(cap.descriptor.risk, Risk::MutatingReversible));
-        assert!(matches!(cap.descriptor.idempotency, Idempotency::NonIdempotent));
+        assert!(matches!(
+            cap.descriptor.idempotency,
+            Idempotency::NonIdempotent
+        ));
         let validator = jsonschema::validator_for(&cap.descriptor.input_schema).unwrap();
         assert!(validator.is_valid(&json!({"checkpoint_path":"recover.blend"})));
-        for args in [json!({}),json!({"checkpoint_path":""}),
+        for args in [
+            json!({}),
+            json!({"checkpoint_path":""}),
             json!({"checkpoint_path":"recover.blend","session":"other"}),
-            json!({"checkpoint_path":"recover.blend","discard_unsaved":true})] {
+            json!({"checkpoint_path":"recover.blend","discard_unsaved":true}),
+        ] {
             assert!(!validator.is_valid(&args));
         }
         let output = jsonschema::validator_for(&cap.descriptor.output_schema).unwrap();
-        assert!(output.is_valid(&json!({"closed":false,"close_state":"no_session","checkpoint":null})));
+        assert!(
+            output.is_valid(&json!({"closed":false,"close_state":"no_session","checkpoint":null}))
+        );
         assert!(!output.is_valid(&json!({"closed":true})));
     }
     #[test]
     fn native_session_close_requires_explicit_discard_and_has_destructive_risk() {
-        let cap = lifecycle_capabilities().into_iter()
-            .find(|cap| cap.descriptor.name == "driver.blender.session.close").unwrap();
+        let cap = lifecycle_capabilities()
+            .into_iter()
+            .find(|cap| cap.descriptor.name == "driver.blender.session.close")
+            .unwrap();
         assert!(matches!(cap.descriptor.risk, Risk::Destructive));
         assert!(runtime_allows_capability(&cap, "5.2.1 LTS"));
         let validator = jsonschema::validator_for(&cap.descriptor.input_schema).unwrap();
         assert!(validator.is_valid(&json!({"discard_unsaved":true})));
-        for invalid in [json!({}),json!({"discard_unsaved":false}),
-            json!({"discard_unsaved":true,"session":"another-caller"})] {
+        for invalid in [
+            json!({}),
+            json!({"discard_unsaved":false}),
+            json!({"discard_unsaved":true,"session":"another-caller"}),
+        ] {
             assert!(!validator.is_valid(&invalid));
         }
     }

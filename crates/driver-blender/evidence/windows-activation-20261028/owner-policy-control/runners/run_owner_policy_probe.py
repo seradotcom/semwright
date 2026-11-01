@@ -3,14 +3,14 @@ import subprocess,os,json,datetime,time,hashlib,shutil
 R=Path(r"E:\Projects\semwright-blender52")
 env=os.environ.copy()
 env.update({
-    "PATH":r"C:\msys64\mingw64\bin;C:\Users\sergi\.cargo\bin;"+env["PATH"],
+    "PATH":r"C:\msys64\mingw64\bin;C:\Users\owner\.cargo\bin;"+env["PATH"],
     "CARGO_TARGET_DIR":str(R/".local/target"),"CARGO_BUILD_JOBS":"2",
     "CARGO_PROFILE_DEV_DEBUG":"0","CARGO_PROFILE_TEST_DEBUG":"0",
     "CARGO_INCREMENTAL":"0","TMP":str(R/".local/tmp"),"TEMP":str(R/".local/tmp"),
     "SEMWRIGHT_TEST_BLENDER_RUNTIME":
         r"E:\Projects\worldwright-archipelago\tools\blender-5.2.1-runtime"})
 assert shutil.disk_usage(R).free>15*1024**3
-cmd=[r"C:\Users\sergi\.cargo\bin\cargo.exe",
+cmd=[r"C:\Users\owner\.cargo\bin\cargo.exe",
     "+1.98.1-x86_64-pc-windows-gnu","test","-p","semwright-driver-blender",
     "--features","windows-launch-test-fixture","--test","windows_native_launch",
     "--target","x86_64-pc-windows-gnu","--locked","--offline",

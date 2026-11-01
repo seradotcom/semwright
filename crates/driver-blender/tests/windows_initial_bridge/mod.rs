@@ -332,18 +332,31 @@ async fn registry_read_initial_bridge_typed_edit_export() {
             .any(|n| n["name"] == "IsolatedProofCube")
     );
     assert!(!document["meshes"].as_array().unwrap().is_empty());
-    let node = document["nodes"].as_array().unwrap().iter()
-        .find(|n| n["name"] == "IsolatedProofCube").unwrap();
-    for (field, expected) in [("translation",[3.0,5.0,-4.0]),("scale",[1.0,1.0,2.0])] {
+    let node = document["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["name"] == "IsolatedProofCube")
+        .unwrap();
+    for (field, expected) in [
+        ("translation", [3.0, 5.0, -4.0]),
+        ("scale", [1.0, 1.0, 2.0]),
+    ] {
         let actual = node[field].as_array().expect("explicit glTF transform");
-        assert_eq!(actual.len(),3);
-        for (value,want) in actual.iter().zip(expected) {
-            assert!((value.as_f64().unwrap()-want).abs()<0.00001,"GLB transform readback");
+        assert_eq!(actual.len(), 3);
+        for (value, want) in actual.iter().zip(expected) {
+            assert!(
+                (value.as_f64().unwrap() - want).abs() < 0.00001,
+                "GLB transform readback"
+            );
         }
     }
-    for name in ["buffers","images"] {
-        if let Some(items)=document[name].as_array() {
-            assert!(items.iter().all(|item| item.get("uri").is_none()),"GLB must be self-contained");
+    for name in ["buffers", "images"] {
+        if let Some(items) = document[name].as_array() {
+            assert!(
+                items.iter().all(|item| item.get("uri").is_none()),
+                "GLB must be self-contained"
+            );
         }
     }
     eprintln!(
