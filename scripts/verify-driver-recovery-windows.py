@@ -61,7 +61,14 @@ def doctor(cli, pipe, ticket):
     response = run([str(cli), "--socket", pipe, "--session-file", str(ticket),
                     "--json", "doctor"])
     if response.returncode:
-        raise RuntimeError("Read-only broker doctor unavailable")
+        try:
+            failure = json.loads(response.stdout)
+            error_code = failure.get("error", {}).get("code", "unknown")
+        except (ValueError, AttributeError, TypeError):
+            error_code = "no-json"
+        raise RuntimeError(
+            f"Read-only broker doctor unavailable (exit={response.returncode}, code={error_code})"
+        )
     data = json.loads(response.stdout)
     if data.get("ok") is not True:
         raise RuntimeError("Doctor did not return a success envelope")
@@ -94,11 +101,21 @@ def main():
     parser.add_argument("--bin-dir", type=Path, required=True)
     parser.add_argument("--cli", type=Path, required=True)
     parser.add_argument("--work-root", type=Path, required=True)
+    parser.add_argument("--cycles", type=int, default=1,
+                        help="Number of controlled driver crashes (1-3, bounded by supervisor budget)")
+    parser.add_argument("--observe-seconds", type=int, default=0,
+                        help="Read-only stability sampling after recovery (0-120 seconds)")
     args = parser.parse_args()
+    if not 1 <= args.cycles <= 3 or not 0 <= args.observe_seconds <= 120:
+        parser.error("--cycles must be 1..3 and --observe-seconds must be 0..120")
     if os.name != "nt":
         raise RuntimeError("This particular physical fixture exercises Windows isolation")
     binaries = args.bin_dir.resolve(strict=True)
     cli = args.cli.resolve(strict=True)
+    if cli.parent != binaries or cli.name.lower() != "semwright.exe":
+        raise RuntimeError(
+            "The CLI must be built alongside the broker from this same source revision"
+        )
     root_parent = args.work_root.resolve(strict=True)
     expected = ["semwrightd.exe", "semwright-sandbox.exe",
                 "semwright-driver-fixture.exe"]
@@ -155,37 +172,65 @@ def main():
         ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=log,
             creationflags=subprocess.CREATE_NO_WINDOW)
         wait_for_broker(proc)
-        before = doctor(cli, pipe, ticket)
-        if not before.get("connected"):
+        current = doctor(cli, pipe, ticket)
+        if not current.get("connected"):
             raise RuntimeError("Initial owner-pinned fixture is not live")
-        code, ping = cli_execute(cli, pipe, ticket, "driver.fixture.ping")
-        if code != 0 or ping.get("ok") is not True:
-            raise RuntimeError("First live sandboxed fixture ping failed")
-        code, crashed = cli_execute(cli, pipe, ticket, "driver.fixture.disconnect")
-        if code == 0 or crashed.get("ok") is not False:
-            raise RuntimeError("Fixture termination did not cause expected request failure")
-        recovered = None
-        for delay in (1.8, 1.4, 1.7, 1.7, 1.8):
-            time.sleep(delay)
+        initial_generation = current["generation"]
+        recovered_generations = []
+        disconnect_codes = []
+        for cycle in range(args.cycles):
+            code, ping = cli_execute(cli, pipe, ticket, "driver.fixture.ping")
+            if code != 0 or ping.get("ok") is not True:
+                raise RuntimeError(f"Cycle {cycle + 1}: live fixture ping failed")
+            code, crashed = cli_execute(cli, pipe, ticket, "driver.fixture.disconnect")
+            if code == 0 or crashed.get("ok") is not False:
+                raise RuntimeError("Fixture termination did not cause expected request failure")
+            disconnect_codes.append(crashed.get("error", {}).get("code"))
+            recovered = None
+            # Cover all three supervisor backoffs (1, 3, 9 s), plus sandbox
+            # attestation and CLI handshake; keep the deadline strictly bounded.
+            for delay in (1.8, 1.4, 1.7, 1.7, 1.8, 1.8, 1.8, 1.8):
+                time.sleep(delay)
+                if proc.poll() is not None:
+                    raise RuntimeError("Broker died instead of recovering its isolated child")
+                try:
+                    row = doctor(cli, pipe, ticket)
+                except RuntimeError:
+                    continue
+                if row.get("connected") and row.get("generation", 0) > current.get("generation", 0):
+                    recovered = row
+                    break
+            if recovered is None:
+                raise RuntimeError(f"Cycle {cycle + 1}: no live recovery generation")
+            code, ping = cli_execute(cli, pipe, ticket, "driver.fixture.ping")
+            if code != 0 or ping.get("ok") is not True:
+                raise RuntimeError(f"Cycle {cycle + 1}: recovered fixture ping failed")
+            current = recovered
+            recovered_generations.append(current["generation"])
+        samples = 0
+        remaining = args.observe_seconds
+        while remaining > 0:
+            interval = min(10, remaining)
+            time.sleep(interval)
+            remaining -= interval
             if proc.poll() is not None:
-                raise RuntimeError("Broker died instead of recovering its isolated child")
-            try:
-                row = doctor(cli, pipe, ticket)
-            except RuntimeError:
-                continue
-            if row.get("connected") and row.get("generation", 0) > before.get("generation", 0):
-                recovered = row
-                break
-        if recovered is None:
-            raise RuntimeError("No new live provider generation was published")
-        code, ping = cli_execute(cli, pipe, ticket, "driver.fixture.ping")
-        if code != 0 or ping.get("ok") is not True:
-            raise RuntimeError("Recovered sandboxed fixture failed read-only ping")
+                raise RuntimeError("Broker died during read-only stability observation")
+            row = doctor(cli, pipe, ticket)
+            if not row.get("connected") or row.get("generation") != current["generation"]:
+                raise RuntimeError("Provider changed unexpectedly during idle observation")
+            code, ping = cli_execute(cli, pipe, ticket, "driver.fixture.ping")
+            if code != 0 or ping.get("ok") is not True:
+                raise RuntimeError("Provider ping failed during idle observation")
+            samples += 1
         summary = {
             "result": "PASS",
-            "initial_generation": before["generation"],
-            "recovered_generation": recovered["generation"],
-            "disconnect_error_code": crashed.get("error", {}).get("code"),
+            "cycles": args.cycles,
+            "observed_seconds": args.observe_seconds,
+            "read_samples": samples,
+            "initial_generation": initial_generation,
+            "recovered_generation": current["generation"],
+            "recovery_generations": recovered_generations,
+            "disconnect_error_codes": disconnect_codes,
             "fixture_digest": digest,
             "broker_unchanged": proc.poll() is None,
         }

@@ -46,6 +46,12 @@ Build the binaries from the same revision, and supply a separate trusted directo
 ```powershell
 cargo build --locked -p semwright-daemon --bin semwrightd -p semwright-plugin-host --bin semwright-sandbox -p semwright-driver-host --bin semwright-driver-fixture -p semwright-cli --bin semwright
 python scripts/verify-driver-recovery-windows.py --bin-dir target/debug --cli target/debug/semwright.exe --work-root .local
+
+# Optional bounded stability acceptance: all three permitted restarts,
+# followed by 90 seconds of read-only observations (nine health samples).
+python scripts/verify-driver-recovery-windows.py --bin-dir target/debug --cli target/debug/semwright.exe --work-root .local --cycles 3 --observe-seconds 90
 ```
 
-The script only launches its own instance under an owner-only test directory. It verifies a pinned sandboxed driver, a controlled child exit, a new generation and a subsequent successful read. It never changes installed broker files or retries the failed command. Results and bounded diagnostic logs remain in the protected test directory.
+**Windows acceptance, 2026-10-31:** all three real sandboxed child exits recovered through generations 160 → 162 → 164 → 166. Every interrupted operation returned `Unavailable`, the broker remained alive and nine subsequent read-only observations passed over 90 seconds. The acceptance executable and CLI were built together from this source revision; a stale installed CLI may consume a new session on each invocation and invalidate the purpose of the session-reuse test.
+
+The script only launches its own instance under an owner-only test directory. It verifies a pinned sandboxed driver, controlled child exits, new generations and subsequent successful reads. It never changes installed broker files or retries failed commands. Results and bounded diagnostic logs remain in the protected test directory. These bounded observations do not replace multihour application-specific stability tests.
