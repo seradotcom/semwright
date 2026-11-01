@@ -65,6 +65,15 @@ printf 'KWIN_OUTPUT=NESTED_XVFB KWIN_RENDERER=QPainter QT_QUICK_BACKEND=software
 kpackagetool6 --type=KWin/Script -i /workspace/bridges/kwin   2>&1 | tee "$EVIDENCE_DIR/kwin-package-install.log"
 kwriteconfig6 --file kwinrc --group Plugins --key semwrightEnabled true
 
+# Verify that a real Qt/XCB client can authenticate to the private Xvfb before
+# starting KWin. Never replace the actual Wayland window-lifecycle acceptance.
+if ! QT_QPA_PLATFORM=xcb WAYLAND_DISPLAY= /usr/bin/kdialog --version \
+    >"$EVIDENCE_DIR/xvfb-xcb-probe.log" 2>&1; then
+  echo "private Xvfb is not accessible to Qt/XCB client" >&2
+  cat "$EVIDENCE_DIR/xvfb-xcb-probe.log" >&2
+  exit 9
+fi
+
 cleanup() {
   local status=$?
   if [[ -n "${KWIN_PID:-}" ]]; then
@@ -112,6 +121,22 @@ env -u WAYLAND_DISPLAY -u QT_QPA_PLATFORM -u KDE_FULL_SESSION -u KDE_SESSION_VER
   QT_LOGGING_RULES='kwin_core.debug=true;kwin_wayland.debug=true;kwin_scripting.debug=true' \
   kwin_wayland   --x11-display "$DISPLAY"   --width 1280   --height 720   --no-lockscreen   --socket "$WAYLAND_SOCKET"   >"$EVIDENCE_DIR/kwin.log" 2>&1 &
 KWIN_PID=$!
+
+# Surface an early compositor exit instead of waiting for a misleading D-Bus
+# timeout in the client test. Only this disposable KWin process is observed.
+while kill -0 "$TEST_PID" 2>/dev/null; do
+  if ! kill -0 "$KWIN_PID" 2>/dev/null; then
+    set +e
+    wait "$KWIN_PID"
+    KWIN_RC=$?
+    set -e
+    printf 'KWin exited before window acceptance: rc=%s\n' "$KWIN_RC" \
+      | tee "$EVIDENCE_DIR/kwin-exit.log" >&2
+    cat "$EVIDENCE_DIR/kwin.log" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
 
 set +e
 wait "$TEST_PID"
