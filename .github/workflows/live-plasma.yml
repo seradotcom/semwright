@@ -63,8 +63,12 @@ jobs:
           for node in /dev/dri/renderD*; do
             test -c "$node" || continue
             drm_name="$(basename "$node")"
+            sysfs_node="$(readlink -f "/sys/class/drm/$drm_name" || true)"
             driver="$(readlink -f "/sys/class/drm/$drm_name/device/driver" || true)"
-            if [[ "$driver" == */vgem ]]; then
+            # Current Azure kernels register vgem under /devices/faux/vgem,
+            # without a per-node device/driver symlink. Verify either trusted
+            # sysfs form, never merely infer from renderD128 numbering.
+            if [[ "$driver" == */vgem || "$sysfs_node" == */vgem/drm/"$drm_name" ]]; then
               vgem_node="$node"
               break
             fi
