@@ -29,7 +29,8 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_TEST_DEBUG: 0
-  KDE_NEON_IMAGE: invent-registry.kde.org/neon/docker-images/plasma@sha256:1bb5ec13cb413065e39426abeac2d969cd511109f4116e9eea8d1a746b61cf87
+  # KDE neon User, immutable amd64 image verified in the upstream registry.
+  KDE_NEON_IMAGE: invent-registry.kde.org/neon/docker-images/plasma@sha256:ab8faaef342303c21c40d44e9a94d03efa7cfb25cccf251c896a0cd0a9a65808
 
 jobs:
   plasma-wayland:
@@ -84,7 +85,7 @@ jobs:
         run: |
           docker pull "$KDE_NEON_IMAGE"
           docker image inspect "$KDE_NEON_IMAGE"             --format '{{json .RepoDigests}}'             | tee verification/live-plasma-ci/container-image.log
-          grep -q 'sha256:1bb5ec13cb413065e39426abeac2d969cd511109f4116e9eea8d1a746b61cf87'             verification/live-plasma-ci/container-image.log
+          grep -q 'sha256:ab8faaef342303c21c40d44e9a94d03efa7cfb25cccf251c896a0cd0a9a65808'             verification/live-plasma-ci/container-image.log
 
       - name: Real KWin 6 virtual Wayland bridge lifecycle
         run: |
