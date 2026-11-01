@@ -775,6 +775,119 @@ async fn disconnect_invalidates_catalog_pagination_and_in_flight_execution() {
     fixture.broker.shutdown().await;
 }
 #[tokio::test]
+async fn recovery_requires_closed_same_identity_and_never_replays_requests() {
+    let fixture = Fixture::new(true);
+    fixture.provider.native_refs.store(true, Ordering::SeqCst);
+    fixture.mount().await;
+    let previous: Arc<dyn Provider> = fixture.provider.clone();
+    let replacement = FixtureProvider::new();
+    replacement.native_refs.store(true, Ordering::SeqCst);
+    let next: Arc<dyn Provider> = replacement.clone();
+    let revision = fixture.broker.catalog_revision().unwrap();
+    assert!(!fixture.broker.provider_recovery_eligible(&previous));
+
+    assert_eq!(
+        fixture
+            .broker
+            .replace_disconnected_provider(&previous, next.clone())
+            .await
+            .unwrap_err()
+            .code,
+        ErrorCode::Conflict
+    );
+    let session = unique_id();
+    let ref_result = fixture.call_in_session(&session, "native", json!({})).await;
+    assert!(ref_result.ok);
+    let stale_ref = ref_result.data.unwrap()["data"]["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    fixture.provider.blocked.store(true, Ordering::SeqCst);
+    let running = tokio::spawn(call(
+        fixture.broker.clone(),
+        "driver.fixture.count".into(),
+        json!({}),
+        CancellationToken::new(),
+    ));
+    tokio::time::timeout(Duration::from_secs(2), fixture.provider.entered.notified())
+        .await
+        .unwrap();
+    fixture.provider.closed.cancel();
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(2), running)
+            .await
+            .unwrap()
+            .unwrap()
+            .error
+            .unwrap()
+            .code,
+        ErrorCode::Unavailable
+    );
+    wait_inactive(&fixture.broker).await;
+    assert!(fixture.broker.provider_recovery_eligible(&previous));
+    let published = fixture
+        .broker
+        .replace_disconnected_provider(&previous, next.clone())
+        .await
+        .unwrap();
+    assert!(published > revision);
+    assert!(!fixture.broker.provider_recovery_eligible(&previous));
+    assert_eq!(replacement.calls.load(Ordering::SeqCst), 0);
+    let stale = fixture
+        .call_in_session(&session, "count", json!({"ref":stale_ref}))
+        .await;
+    assert_eq!(stale.error.unwrap().code, ErrorCode::StaleReference);
+    assert!(fixture.call("count", json!({})).await.ok);
+    assert_eq!(replacement.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        fixture
+            .broker
+            .replace_disconnected_provider(&previous, FixtureProvider::new())
+            .await
+            .unwrap_err()
+            .code,
+        ErrorCode::Conflict
+    );
+    fixture.broker.shutdown().await;
+}
+
+#[tokio::test]
+async fn recovery_rejects_other_identity_and_owner_removal() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let previous: Arc<dyn Provider> = fixture.provider.clone();
+    fixture.provider.closed.cancel();
+    wait_inactive(&fixture.broker).await;
+    assert_eq!(
+        fixture
+            .broker
+            .replace_disconnected_provider(&previous, FixtureProvider::figma_semantic_policy())
+            .await
+            .unwrap_err()
+            .code,
+        ErrorCode::PolicyDenied
+    );
+    fixture
+        .broker
+        .remove_provider("driver:fixture")
+        .await
+        .unwrap();
+    assert!(!fixture.broker.provider_recovery_eligible(&previous));
+    assert_eq!(
+        fixture
+            .broker
+            .replace_disconnected_provider(&previous, FixtureProvider::new())
+            .await
+            .unwrap_err()
+            .code,
+        ErrorCode::Conflict
+    );
+    assert!(fixture.broker.describe("driver.fixture.count").is_err());
+    fixture.broker.shutdown().await;
+}
+
+#[tokio::test]
 async fn update_replaces_descriptors_atomically_and_removal_cleans_up() {
     let fixture = Fixture::new(true);
     fixture.mount().await;

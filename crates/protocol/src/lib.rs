@@ -133,7 +133,7 @@ pub fn default_session_ticket(socket: &Path) -> Result<PathBuf> {
                         .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
             })
             .unwrap_or("broker");
-        return Ok(runtime_directory()?.join(format!("cli-{name}.session")));
+        Ok(runtime_directory()?.join(format!("cli-{name}.session")))
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -529,16 +529,13 @@ pub async fn connect_persistent(socket: &Path, ticket: &Path) -> Result<Client> 
         .ok_or_else(|| Error::unavailable("Windows session lock unavailable"))?;
     let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {
-        match lock_file.try_lock() {
-            Ok(()) => break,
-            Err(std::fs::TryLockError::WouldBlock) => {
-                if tokio::time::Instant::now() >= deadline {
-                    return Err(Error::new(ErrorCode::Timeout, "Session ticket is busy"));
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-            }
-            Err(std::fs::TryLockError::Error(error)) => return Err(error.into()),
+        if semwright_platform_services::try_lock_session_file(&lock_file)? {
+            break;
         }
+        if tokio::time::Instant::now() >= deadline {
+            return Err(Error::new(ErrorCode::Timeout, "Session ticket is busy"));
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     }
     let session = load_ticket(ticket)?;
     let client = match tokio::time::timeout(

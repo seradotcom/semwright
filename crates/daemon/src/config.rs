@@ -35,6 +35,10 @@ pub struct Config {
     pub drivers: Vec<PathBuf>,
     #[serde(default)]
     pub driver_network: bool,
+    /// Owner opt-in: supervised recovery of already-authorized driver processes.
+    /// Only the same pinned manifest and permissions may be reused; requests are never replayed.
+    #[serde(default)]
+    pub driver_recovery: bool,
     /// Owner opt-in; manifests cannot grant NVIDIA device authority on their own.
     #[serde(default)]
     pub driver_nvidia_gpu: bool,
@@ -68,6 +72,7 @@ impl Default for Config {
             plugins: vec![],
             drivers: vec![],
             driver_network: false,
+            driver_recovery: false,
             driver_nvidia_gpu: false,
             driver_windows_blender52_initial: false,
             plugin_network: false,
@@ -465,5 +470,15 @@ mod native_owner_config_tests {
         assert!(explicit.driver_windows_blender52_initial);
         assert!(!explicit.driver_network);
         assert!(!explicit.driver_nvidia_gpu);
+    }
+
+    #[test]
+    fn generic_driver_recovery_is_an_independent_owner_opt_in() {
+        assert!(!Config::default().driver_recovery);
+        let opted: Config = toml::from_str("driver_recovery = true").unwrap();
+        assert!(opted.driver_recovery);
+        assert!(!opted.driver_network);
+        assert!(!opted.driver_nvidia_gpu);
+        assert!(!opted.driver_windows_blender52_initial);
     }
 }
