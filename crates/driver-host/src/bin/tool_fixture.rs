@@ -77,6 +77,43 @@ fn session_loop(prefix: Option<String>) -> std::io::Result<()> {
     }
 }
 
+fn stderr_fixture(case: &str) -> std::io::Result<i32> {
+    use std::io::Write;
+    let mut stdout = std::io::stdout().lock();
+    let mut stderr = std::io::stderr().lock();
+    stdout.write_all(b"fixture-stdout")?;
+    stdout.flush()?;
+    match case {
+        "exit2" => {
+            stderr.write_all(b"fixture diagnostic\0stderr\n")?;
+        }
+        "exact_limit" | "overflow" | "frame_overflow" => {
+            let byte = if case == "frame_overflow" { b'e' } else { 1 };
+            let chunk = [byte; 8192];
+            for _ in 0..32 {
+                stderr.write_all(&chunk)?;
+            }
+            if case == "overflow" {
+                stderr.write_all(b"x")?;
+                stderr.flush()?;
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                std::fs::write("stderr.complete", b"unexpected completion")?;
+            }
+        }
+        "hold" | "deadline" => {
+            stderr.write_all(b"stderr before termination")?;
+            stderr.flush()?;
+            std::fs::write("stderr.ready", b"ready")?;
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            stderr.write_all(b" late stderr")?;
+            std::fs::write("stderr.complete", b"unexpected completion")?;
+        }
+        _ => return Err(std::io::Error::other("invalid stderr fixture case")),
+    }
+    stderr.flush()?;
+    Ok(if case == "exit2" { 2 } else { 0 })
+}
+
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     if args.iter().any(|arg| arg == "--session") {
@@ -142,6 +179,14 @@ fn main() {
                 std::process::exit(2);
             });
         std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+    }
+    if let Some(index) = args.iter().position(|arg| arg == "--stderr-case") {
+        let exit_code = args
+            .get(index + 1)
+            .ok_or_else(|| std::io::Error::other("missing stderr fixture case"))
+            .and_then(|case| stderr_fixture(case))
+            .unwrap_or(19);
+        std::process::exit(exit_code);
     }
     if lifecycle_marker && std::fs::write("finished.marker", b"finished").is_err() {
         eprintln!("failed to write finished.marker");
