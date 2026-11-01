@@ -242,20 +242,20 @@ mod tests {
     fn capability_identity_attributes_and_extras_are_not_ignored() {
         let one = (vec![1, 2, 3], 4);
         let two = (vec![4, 5, 6], 4);
+        let only_one = std::slice::from_ref(&one);
         require_exact_capabilities(&[], &[]).unwrap();
-        require_exact_capabilities(&[one.clone()], &[one.clone()]).unwrap();
-        assert!(require_exact_capabilities(&[one.clone()], &[]).is_err());
-        assert!(require_exact_capabilities(&[two], &[one.clone()]).is_err());
-        assert!(require_exact_capabilities(&[(one.0.clone(), 0)], &[one.clone()]).is_err());
+        require_exact_capabilities(only_one, only_one).unwrap();
+        assert!(require_exact_capabilities(only_one, &[]).is_err());
+        assert!(require_exact_capabilities(std::slice::from_ref(&two), only_one).is_err());
+        assert!(
+            require_exact_capabilities(std::slice::from_ref(&(one.0.clone(), 0)), only_one)
+                .is_err()
+        );
         // ARM emulation plus network can request the same registryRead pair twice.
-        require_exact_capabilities(&[one.clone()], &[one.clone(), one.clone()]).unwrap();
-        require_exact_capabilities(&[one.clone(), one.clone()], &[one.clone()]).unwrap();
-        assert!(
-            require_exact_capabilities(&[one.clone(), (one.0.clone(), 0)], &[one.clone()]).is_err()
-        );
-        assert!(
-            require_exact_capabilities(&[one.clone()], &[one.clone(), (one.0.clone(), 0)]).is_err()
-        );
+        require_exact_capabilities(only_one, &[one.clone(), one.clone()]).unwrap();
+        require_exact_capabilities(&[one.clone(), one.clone()], only_one).unwrap();
+        assert!(require_exact_capabilities(&[one.clone(), (one.0.clone(), 0)], only_one).is_err());
+        assert!(require_exact_capabilities(only_one, &[one.clone(), (one.0.clone(), 0)]).is_err());
     }
     #[test]
     fn pointer_bearing_token_data_is_bounded() {

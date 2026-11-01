@@ -7,6 +7,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def generated():
     commands = json.loads((ROOT / "schemas/commands.json").read_text())
+    blender_commands = {c["name"]: c["input_schema"] for c in commands if c["name"].startswith("blender.")}
+    # The native driver ships additional, separately versioned Blender commands.
+    # Preserve their declared schemas rather than silently dropping capabilities.
+    runtime = json.loads((ROOT / "crates/driver-host/src/windows_blender52_runtime/commands.json").read_text())
+    for name, schema in runtime.items():
+        if not name.startswith("blender."):
+            raise ValueError(f"Unexpected native Blender command namespace: {name}")
+        if name in blender_commands and blender_commands[name] != schema:
+            raise ValueError(f"Native Blender command conflicts with builtin schema: {name}")
+        blender_commands.setdefault(name, schema)
     lines = ["# Command reference", "", "Generated from `schemas/commands.json`; do not edit by hand.", "",
              f"{len(commands)} built-in descriptors. A descriptor is not proof of live backend support.",
              "Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.", "",
@@ -23,7 +33,7 @@ def generated():
                   "```json", json.dumps(c['input_schema'], indent=2, ensure_ascii=False), "```"]
     return {
         ROOT / "docs/commands.md": "\n".join(lines) + "\n",
-        ROOT / "adapters/blender/semwright_blender/commands.json": json.dumps({c['name']: c['input_schema'] for c in commands if c['name'].startswith('blender.')}, indent=2) + "\n",
+        ROOT / "adapters/blender/semwright_blender/commands.json": json.dumps(blender_commands, indent=2) + "\n",
     }
 
 def main():

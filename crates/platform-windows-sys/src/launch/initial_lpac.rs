@@ -65,7 +65,7 @@ fn verify_attribute(storage: &[u64], used: usize) -> io::Result<()> {
             .ok_or_else(denied)?;
         let a: Attribute = read_value(storage, used, address)?;
         if a.name.length == 0
-            || a.name.length % 2 != 0
+            || !a.name.length.is_multiple_of(2)
             || a.name.length > 512
             || a.name.maximum_length < a.name.length
         {
@@ -264,10 +264,8 @@ mod tests {
         };
         let mut token = std::ptr::null_mut();
         // SAFETY: current process pseudo-handle and writable token result.
-        assert_ne!(
-            unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) },
-            0
-        );
+        let opened = unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) };
+        assert_ne!(opened, 0);
         let result = verify_lpac(token);
         // SAFETY: test owns this query-only token handle.
         unsafe {
