@@ -35,6 +35,10 @@ pub struct Config {
     pub drivers: Vec<PathBuf>,
     #[serde(default)]
     pub driver_network: bool,
+    /// Owner opt-in to bounded restart of the same verified, sandboxed driver.
+    /// Mutations with uncertain outcomes are never replayed automatically.
+    #[serde(default)]
+    pub driver_recovery: bool,
     /// Owner opt-in; manifests cannot grant NVIDIA device authority on their own.
     #[serde(default)]
     pub driver_nvidia_gpu: bool,
@@ -64,6 +68,7 @@ impl Default for Config {
             plugins: vec![],
             drivers: vec![],
             driver_network: false,
+            driver_recovery: false,
             driver_nvidia_gpu: false,
             plugin_network: false,
             mcp_network: false,
@@ -321,5 +326,18 @@ trust_driver_everything = true
         assert!(!opted_in.driver_network);
         assert!(!opted_in.plugin_network);
         assert!(!opted_in.mcp_network);
+    }
+
+    #[test]
+    fn generic_driver_recovery_owner_opt_in_defaults_off() {
+        assert!(!Config::default().driver_recovery);
+        let baseline: Config = toml::from_str("").unwrap();
+        assert!(!baseline.driver_recovery);
+        let opted: Config = toml::from_str("driver_recovery = true").unwrap();
+        assert!(opted.driver_recovery);
+        assert!(!opted.driver_network);
+        assert!(!opted.driver_nvidia_gpu);
+        assert!(!opted.plugin_network);
+        assert!(!opted.mcp_network);
     }
 }
