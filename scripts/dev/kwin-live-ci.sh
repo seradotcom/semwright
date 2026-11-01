@@ -90,7 +90,12 @@ done
 
 gdbus call --session   --dest org.freedesktop.DBus   --object-path /org/freedesktop/DBus   --method org.freedesktop.DBus.NameHasOwner org.semwright.Broker   | tee "$EVIDENCE_DIR/broker-bus-owner.log" | grep -q true
 
-QT_LOGGING_RULES='kwin_core.debug=true;kwin_wayland.debug=true;kwin_scripting.debug=true' \
+# KWin --virtual is the Wayland server, NOT a client of its own socket.
+# Keep WAYLAND_DISPLAY and QT_QPA_PLATFORM for the fixture/test only.
+# Permission relaxation applies only to this private, network-isolated CI compositor.
+env -u WAYLAND_DISPLAY -u QT_QPA_PLATFORM -u KDE_FULL_SESSION -u KDE_SESSION_VERSION \
+  KWIN_WAYLAND_NO_PERMISSION_CHECKS=1 \
+  QT_LOGGING_RULES='kwin_core.debug=true;kwin_wayland.debug=true;kwin_scripting.debug=true' \
   kwin_wayland   --virtual   --width 1280   --height 720   --no-lockscreen   --socket "$WAYLAND_SOCKET"   >"$EVIDENCE_DIR/kwin.log" 2>&1 &
 KWIN_PID=$!
 
