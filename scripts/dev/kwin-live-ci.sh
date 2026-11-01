@@ -31,6 +31,11 @@ export KDE_FULL_SESSION=true
 export QT_QPA_PLATFORM=wayland
 export WAYLAND_DISPLAY="$WAYLAND_SOCKET"
 export LIBGL_ALWAYS_SOFTWARE=1
+# Hosted CI has no DRM render device. Keep a real KWin compositor running
+# with its QPainter compositor and Qt Quick software scene graph.
+export KWIN_COMPOSE=Q
+export QT_QUICK_BACKEND=software
+printf 'KWIN_RENDERER=QPainter QT_QUICK_BACKEND=software\n' > "$EVIDENCE_DIR/render-mode.log"
 
 {
   kwin_wayland --version
