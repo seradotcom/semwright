@@ -29,7 +29,10 @@ fn terminal() -> Result<AsyncFd<File>> {
             "Approval descriptor is not a terminal",
         ));
     }
-    AsyncFd::new(file).map_err(Into::into)
+    // SAFETY: `file` is a live, owned, nonblocking descriptor opened above.
+    // AsyncFd takes ownership and keeps the same descriptor until it is dropped;
+    // no other owner replaces, closes or detaches it during registration.
+    unsafe { AsyncFd::register(file) }.map_err(|error| -> Error { io::Error::from(error).into() })
 }
 async fn write(fd: &AsyncFd<File>, mut bytes: &[u8]) -> Result<()> {
     while !bytes.is_empty() {
