@@ -30,10 +30,11 @@ export XDG_CURRENT_DESKTOP=KDE
 export KDE_FULL_SESSION=true
 export QT_QPA_PLATFORM=wayland
 export WAYLAND_DISPLAY="$WAYLAND_SOCKET"
-# The KDE image carries DISPLAY=:1 for its desktop container, but this
-# hermetic virtual-Wayland fixture has no X server. Do not let Qt/GTK portal
-# helpers try the nonexistent X11 display instead of the KWin Wayland socket.
-unset DISPLAY
+# The output of KWin is a private host Xvfb; window fixtures are real
+# Wayland clients of KWin's separate, owner-only socket.
+: "${DISPLAY:?private Xvfb output display is required}"
+: "${XAUTHORITY:?private Xvfb authorization file is required}"
+test -r "$XAUTHORITY"
 # This fixture tests native KWin window management, not desktop document
 # portals. Do not activate a FUSE-backed file portal in a network-isolated,
 # unprivileged container; it is unrelated to the compositor contract.
@@ -51,7 +52,7 @@ export LIBGL_ALWAYS_SOFTWARE=1
 # with its QPainter compositor and Qt Quick software scene graph.
 export KWIN_COMPOSE=Q
 export QT_QUICK_BACKEND=software
-printf 'KWIN_RENDERER=QPainter QT_QUICK_BACKEND=software\n' > "$EVIDENCE_DIR/render-mode.log"
+printf 'KWIN_OUTPUT=NESTED_XVFB KWIN_RENDERER=QPainter QT_QUICK_BACKEND=software\n' > "$EVIDENCE_DIR/render-mode.log"
 
 {
   kwin_wayland --version
@@ -102,14 +103,14 @@ done
 
 gdbus call --session   --dest org.freedesktop.DBus   --object-path /org/freedesktop/DBus   --method org.freedesktop.DBus.NameHasOwner org.semwright.Broker   | tee "$EVIDENCE_DIR/broker-bus-owner.log" | grep -q true
 
-# KWin --virtual is the Wayland server, NOT a client of its own socket.
-# Keep WAYLAND_DISPLAY and QT_QPA_PLATFORM for the fixture/test only.
+# KWin is the Wayland server nested on the private Xvfb output, NOT a
+# client of its own Wayland socket. Only the fixture/test use that socket.
 # Permission relaxation applies only to this private, network-isolated CI compositor.
 env -u WAYLAND_DISPLAY -u QT_QPA_PLATFORM -u KDE_FULL_SESSION -u KDE_SESSION_VERSION \
   -u QT_NO_XDG_DESKTOP_PORTAL \
   KWIN_WAYLAND_NO_PERMISSION_CHECKS=1 \
   QT_LOGGING_RULES='kwin_core.debug=true;kwin_wayland.debug=true;kwin_scripting.debug=true' \
-  kwin_wayland   --virtual   --width 1280   --height 720   --no-lockscreen   --socket "$WAYLAND_SOCKET"   >"$EVIDENCE_DIR/kwin.log" 2>&1 &
+  kwin_wayland   --x11-display "$DISPLAY"   --width 1280   --height 720   --no-lockscreen   --socket "$WAYLAND_SOCKET"   >"$EVIDENCE_DIR/kwin.log" 2>&1 &
 KWIN_PID=$!
 
 set +e
@@ -122,4 +123,4 @@ test "$TEST_RC" -eq 0
 
 gdbus call --session   --dest org.freedesktop.DBus   --object-path /org/freedesktop/DBus   --method org.freedesktop.DBus.NameHasOwner org.kde.KWin   | tee "$EVIDENCE_DIR/kwin-bus-owner.log" | grep -q true
 
-printf '%s\n' "Plasma/KWin virtual Wayland integration: PASS"   | tee "$EVIDENCE_DIR/result.log"
+printf '%s\n' "Plasma/KWin nested Wayland integration: PASS"   | tee "$EVIDENCE_DIR/result.log"

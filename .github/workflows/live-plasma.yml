@@ -65,7 +65,7 @@ jobs:
       - name: Build the production KWin backend integration test
         run: |
           sudo apt-get update
-          sudo apt-get install -y libpipewire-0.3-dev
+          sudo apt-get install -y libpipewire-0.3-dev xvfb xauth
           mkdir -p verification/live-plasma-ci
           cargo test --locked -p semwright-platform-linux --test kwin_live             --no-run --message-format=json             > verification/live-plasma-ci/rust-build.jsonl
           test_bin=$(python3 - <<'PY'
@@ -101,9 +101,45 @@ jobs:
           docker image inspect "$KDE_NEON_IMAGE"             --format '{{json .RepoDigests}}'             | tee verification/live-plasma-ci/container-image.log
           grep -q 'sha256:ab8faaef342303c21c40d44e9a94d03efa7cfb25cccf251c896a0cd0a9a65808'             verification/live-plasma-ci/container-image.log
 
-      - name: Real KWin 6 virtual Wayland bridge lifecycle
+      - name: Real KWin 6 nested Wayland bridge lifecycle
         run: |
-          docker run --rm --init --network none             --security-opt seccomp=unconfined             --cap-add SYS_NICE             --device /dev/udmabuf:/dev/udmabuf             --group-add "$(stat -c '%g' /dev/udmabuf)"             --user "$(id -u):$(id -g)"             --entrypoint /usr/bin/dbus-run-session             -e DISPLAY=             -e SEMWRIGHT_KWIN_TEST_BIN=/test/kwin-live             -e SEMWRIGHT_KWIN_EVIDENCE_DIR=/evidence             -v "$GITHUB_WORKSPACE:/workspace:ro"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci:/evidence"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci/kwin-live-test:/test/kwin-live:ro"             "$KDE_NEON_IMAGE"             -- /usr/bin/bash /workspace/scripts/dev/kwin-live-ci.sh
+          set -euo pipefail
+          # KWin's nested X11 output uses a private software-only framebuffer.
+          # The actual tested windows are Wayland clients of KWin, not Xvfb.
+          test ! -e /tmp/.X11-unix/X99
+          umask 077
+          auth_file="$RUNNER_TEMP/semwright-kwin-xvfb.auth"
+          touch "$auth_file"
+          cookie=$(od -v -N16 -An -tx1 /dev/urandom | tr -d ' \n')
+          xauth -f "$auth_file" add :99 . "$cookie"
+          # Xauthority's local hostname differs inside Docker. Share the same
+          # private cookie using the X11 wild family, not an unauthenticated -ac.
+          xauth -f "$auth_file" nlist :99 | sed 's/^..../ffff/' | xauth -f "$auth_file" nmerge -
+          Xvfb :99 -screen 0 1280x720x24 -nolisten tcp -auth "$auth_file" \
+            > verification/live-plasma-ci/xvfb.log 2>&1 &
+          xvfb_pid=$!
+          trap 'kill "$xvfb_pid" 2>/dev/null || true; wait "$xvfb_pid" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 50); do
+            test -S /tmp/.X11-unix/X99 && break
+            kill -0 "$xvfb_pid" || { cat verification/live-plasma-ci/xvfb.log; exit 1; }
+            sleep 0.1
+          done
+          test -S /tmp/.X11-unix/X99
+          docker run --rm --init --network none \
+            --security-opt seccomp=unconfined --cap-add SYS_NICE \
+            --device /dev/udmabuf:/dev/udmabuf \
+            --group-add "$(stat -c '%g' /dev/udmabuf)" \
+            --user "$(id -u):$(id -g)" \
+            --entrypoint /usr/bin/dbus-run-session \
+            -e DISPLAY=:99 -e XAUTHORITY=/tmp/semwright-kwin-xvfb.auth \
+            -e SEMWRIGHT_KWIN_TEST_BIN=/test/kwin-live \
+            -e SEMWRIGHT_KWIN_EVIDENCE_DIR=/evidence \
+            -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+            -v "$auth_file:/tmp/semwright-kwin-xvfb.auth:ro" \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -v "$GITHUB_WORKSPACE/verification/live-plasma-ci:/evidence" \
+            -v "$GITHUB_WORKSPACE/verification/live-plasma-ci/kwin-live-test:/test/kwin-live:ro" \
+            "$KDE_NEON_IMAGE" -- /usr/bin/bash /workspace/scripts/dev/kwin-live-ci.sh
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()

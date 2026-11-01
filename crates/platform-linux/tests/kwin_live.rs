@@ -140,7 +140,7 @@ async fn wait_for_bounds(
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "requires a private D-Bus bus and live KWin 6 Wayland virtual compositor"]
+#[ignore = "requires a private D-Bus bus and live KWin 6 Wayland compositor"]
 async fn real_kwin6_mailbox_controls_window_and_rejects_stale_ref() {
     if std::env::var_os("SEMWRIGHT_TEST_KWIN").is_none() {
         return;
