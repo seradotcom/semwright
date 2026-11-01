@@ -7,7 +7,7 @@ HOME_DIR=${SEMWRIGHT_KWIN_HOME:-/tmp/semwright-plasma-home}
 RUNTIME_DIR=${SEMWRIGHT_KWIN_RUNTIME:-/tmp/semwright-plasma-runtime}
 WAYLAND_SOCKET=${SEMWRIGHT_KWIN_WAYLAND_DISPLAY:-semwright-plasma}
 
-for command in dbus-run-session gdbus kwin_wayland kpackagetool6 kwriteconfig6 kdialog; do
+for command in dbus-run-session dbus-update-activation-environment gdbus kwin_wayland kpackagetool6 kwriteconfig6 kdialog; do
   command -v "$command" >/dev/null || {
     echo "missing Plasma test dependency: $command" >&2
     exit 5
@@ -34,6 +34,12 @@ export WAYLAND_DISPLAY="$WAYLAND_SOCKET"
 # hermetic virtual-Wayland fixture has no X server. Do not let Qt/GTK portal
 # helpers try the nonexistent X11 display instead of the KWin Wayland socket.
 unset DISPLAY
+# D-Bus activates KDE/GTK portal helpers as separate processes. They need the
+# same private Wayland socket as our clients; exporting to this shell alone does
+# not update the already-running session bus's activation environment.
+dbus-update-activation-environment \
+  WAYLAND_DISPLAY QT_QPA_PLATFORM XDG_SESSION_TYPE XDG_CURRENT_DESKTOP XDG_RUNTIME_DIR \
+  >"$EVIDENCE_DIR/dbus-activation.log" 2>&1
 export LIBGL_ALWAYS_SOFTWARE=1
 # Hosted CI has no DRM render device. Keep a real KWin compositor running
 # with its QPainter compositor and Qt Quick software scene graph.
