@@ -61,16 +61,42 @@ async fn wait_for_bridge(backend: &Kwin) {
 
 async fn wait_for_fixture(backend: &Kwin, ctx: &Context) -> (Value, NativeTarget) {
     tokio::time::timeout(Duration::from_secs(15), async {
+        let mut polls = 0_u32;
         loop {
-            if let Ok(listed) = backend.execute(ctx, "window.list", &json!({})).await
-                && let Some(row) = listed["windows"].as_array().and_then(|rows| {
-                    rows.iter()
-                        .find(|row| row["title"].as_str() == Some("Semwright Plasma Fixture"))
-                })
-            {
-                let target = serde_json::from_value::<NativeTarget>(row["ref"]["$ref"].clone())
-                    .expect("fixture target");
-                return (row.clone(), target);
+            polls += 1;
+            match backend.execute(ctx, "window.list", &json!({})).await {
+                Ok(listed) => {
+                    if let Some(row) = listed["windows"].as_array().and_then(|rows| {
+                        // KDE may append a translated application suffix to the
+                        // title. The unique fixture prefix remains required.
+                        rows.iter().find(|row| {
+                            row["title"]
+                                .as_str()
+                                .is_some_and(|title| title.starts_with("Semwright Plasma Fixture"))
+                        })
+                    }) {
+                        let target =
+                            serde_json::from_value::<NativeTarget>(row["ref"]["$ref"].clone())
+                                .expect("fixture target");
+                        return (row.clone(), target);
+                    }
+                    if polls.is_multiple_of(25) {
+                        let titles = listed["windows"]
+                            .as_array()
+                            .map(|rows| {
+                                rows.iter()
+                                    .take(12)
+                                    .filter_map(|row| row["title"].as_str())
+                                    .collect::<Vec<_>>()
+                            })
+                            .unwrap_or_default();
+                        eprintln!("KWin mailbox fixture absent (poll {polls}): {titles:?}");
+                    }
+                }
+                Err(error) if polls.is_multiple_of(25) => {
+                    eprintln!("KWin mailbox list error (poll {polls}): {:?}", error.code);
+                }
+                Err(_) => {}
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
         }

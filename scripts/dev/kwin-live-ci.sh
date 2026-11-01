@@ -30,6 +30,10 @@ export XDG_CURRENT_DESKTOP=KDE
 export KDE_FULL_SESSION=true
 export QT_QPA_PLATFORM=wayland
 export WAYLAND_DISPLAY="$WAYLAND_SOCKET"
+# The KDE image carries DISPLAY=:1 for its desktop container, but this
+# hermetic virtual-Wayland fixture has no X server. Do not let Qt/GTK portal
+# helpers try the nonexistent X11 display instead of the KWin Wayland socket.
+unset DISPLAY
 export LIBGL_ALWAYS_SOFTWARE=1
 # Hosted CI has no DRM render device. Keep a real KWin compositor running
 # with its QPainter compositor and Qt Quick software scene graph.
