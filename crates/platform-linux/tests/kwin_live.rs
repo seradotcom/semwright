@@ -4,7 +4,7 @@ use semwright_backend_api::{Backend, Context};
 use semwright_platform_linux::bridge::Kwin;
 use semwright_types::{CapabilityStatus, ErrorCode, NativeTarget};
 use serde_json::{Value, json};
-use std::{path::Path, time::Duration};
+use std::{os::unix::fs::FileTypeExt, path::Path, time::Duration};
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 use zbus::{Connection, Proxy};
@@ -185,21 +185,42 @@ async fn real_kwin6_mailbox_controls_window_and_rejects_stale_ref() {
     wait_for_name(&connection, "org.kde.KWin").await;
     wait_for_bridge(&backend).await;
 
+    // The KWin D-Bus bridge may start before the Wayland listener is ready.
+    // A client must not race compositor socket creation in this live test.
+    let runtime = std::env::var_os("XDG_RUNTIME_DIR").expect("private runtime directory");
+    let display = std::env::var_os("WAYLAND_DISPLAY").expect("private Wayland socket name");
+    let wayland_socket = Path::new(&runtime).join(display);
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if std::fs::metadata(&wayland_socket)
+                .is_ok_and(|metadata| metadata.file_type().is_socket())
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(75)).await;
+        }
+    })
+    .await
+    .expect("virtual KWin must create its Wayland socket");
+
     let fixture =
         std::env::var("SEMWRIGHT_TEST_KWIN_FIXTURE").unwrap_or_else(|_| "/usr/bin/kdialog".into());
     assert!(
         Path::new(&fixture).is_file(),
         "KDE fixture executable missing"
     );
-    let mut child = Command::new(&fixture)
-        .args([
-            "--title",
-            "Semwright Plasma Fixture",
-            "--msgbox",
-            "Disposable KWin 6 integration fixture",
-        ])
-        .spawn()
-        .expect("KDE fixture must start");
+    let mut command = Command::new(&fixture);
+    command.args([
+        "--title",
+        "Semwright Plasma Fixture",
+        "--msgbox",
+        "Disposable KWin 6 integration fixture",
+    ]);
+    if let Ok(directory) = std::env::var("SEMWRIGHT_KWIN_EVIDENCE_DIR") {
+        let log = Path::new(&directory).join("kdialog.stderr.log");
+        command.stderr(std::fs::File::create(log).expect("fixture stderr evidence"));
+    }
+    let mut child = command.spawn().expect("KDE fixture must start");
 
     let ctx = context();
     let (row, target) = wait_for_fixture(&backend, &ctx, &mut child).await;

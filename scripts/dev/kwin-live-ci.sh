@@ -34,11 +34,17 @@ export WAYLAND_DISPLAY="$WAYLAND_SOCKET"
 # hermetic virtual-Wayland fixture has no X server. Do not let Qt/GTK portal
 # helpers try the nonexistent X11 display instead of the KWin Wayland socket.
 unset DISPLAY
+# This fixture tests native KWin window management, not desktop document
+# portals. Do not activate a FUSE-backed file portal in a network-isolated,
+# unprivileged container; it is unrelated to the compositor contract.
+export QT_NO_XDG_DESKTOP_PORTAL=1
+export GDK_BACKEND=wayland
 # D-Bus activates KDE/GTK portal helpers as separate processes. They need the
 # same private Wayland socket as our clients; exporting to this shell alone does
 # not update the already-running session bus's activation environment.
 dbus-update-activation-environment \
   WAYLAND_DISPLAY QT_QPA_PLATFORM XDG_SESSION_TYPE XDG_CURRENT_DESKTOP XDG_RUNTIME_DIR \
+  QT_NO_XDG_DESKTOP_PORTAL GDK_BACKEND \
   >"$EVIDENCE_DIR/dbus-activation.log" 2>&1
 export LIBGL_ALWAYS_SOFTWARE=1
 # Hosted CI has no DRM render device. Keep a real KWin compositor running
@@ -100,6 +106,7 @@ gdbus call --session   --dest org.freedesktop.DBus   --object-path /org/freedesk
 # Keep WAYLAND_DISPLAY and QT_QPA_PLATFORM for the fixture/test only.
 # Permission relaxation applies only to this private, network-isolated CI compositor.
 env -u WAYLAND_DISPLAY -u QT_QPA_PLATFORM -u KDE_FULL_SESSION -u KDE_SESSION_VERSION \
+  -u QT_NO_XDG_DESKTOP_PORTAL \
   KWIN_WAYLAND_NO_PERMISSION_CHECKS=1 \
   QT_LOGGING_RULES='kwin_core.debug=true;kwin_wayland.debug=true;kwin_scripting.debug=true' \
   kwin_wayland   --virtual   --width 1280   --height 720   --no-lockscreen   --socket "$WAYLAND_SOCKET"   >"$EVIDENCE_DIR/kwin.log" 2>&1 &
