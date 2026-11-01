@@ -75,7 +75,15 @@ jobs:
           key: dependency-tools
       - run: cargo install --locked cargo-audit --version 0.22.2
       - run: cargo install --locked cargo-deny --version 0.20.2
-      - run: cargo audit --deny warnings
+      # Only the reviewed unmaintained advisories below are temporarily accepted.
+      # All known vulnerabilities still fail this security gate.
+      # Keep in sync with deny.toml and docs/SECURITY_ADVISORY_EXCEPTIONS.md.
+      - run: |
+          cargo audit --deny warnings \
+            --ignore RUSTSEC-2024-0449 \
+            --ignore RUSTSEC-2026-0370 \
+            --ignore RUSTSEC-2026-0371 \
+            --ignore RUSTSEC-2026-0372
       - run: cargo deny --locked check
   coverage:
     needs: scope
