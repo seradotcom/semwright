@@ -58,7 +58,7 @@ dropped lossy caption mask, changing backgrounds and malformed frames.
 The catalog descriptor/digest/snapshot is regenerated with the existing
 Semwright generator, not hand-written or made digest-optional.
 
-**Downstream:** Motionwright #240 remains review-only until a separate
-PR pins an upstream **merged and CI-passing** observer and proves a
-production owner-local result. Synthetic CI samples do not mint
-`DeliverLocal` consent or release approvals.
+**Integration boundary:** Downstream consumers must pin a reviewed Semwright
+release and independently validate genuine owner-local media under their own
+approval and distribution policies. Synthetic conformance fixtures do not
+establish user consent, production readiness or publication approval.

@@ -480,8 +480,8 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
             {"rule":"safe_area","subject":"label","tolerance":0.0}
         ]);
     }
-    // Exercise the exact half-open terminal boundary used by Motionwright:
-    // two seconds at 30 fps must keep authored subjects observable through frame 59.
+    // Exercise the exact half-open terminal boundary: two seconds at 30 fps
+    // must keep authored subjects observable through frame 59.
     film["timing"]["duration"] = json!({"num":"2","den":"1"});
     for span in film["timing"]["spans"]
         .as_array_mut()
@@ -795,8 +795,8 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
 
 /// A second explicitly authored native project revision in the existing
 /// disposable Broker session, never a retry of the original baseline render.
-/// These two synthetic text cues mirror Motionwright's exact 30 fps bounds,
-/// without importing any user media or alternate renderer.
+/// These two synthetic text cues exercise exact 30 fps timing bounds,
+/// without importing user media or using an alternate renderer.
 async fn assert_source_bound_native_caption_frames(
     broker: &Arc<Broker>,
     mut film: Value,
@@ -806,7 +806,7 @@ async fn assert_source_bound_native_caption_frames(
     shot["layers"].as_array_mut().unwrap().push(json!({
         "id":"caption-overlay","order":1,"intentional_overlay":true
     }));
-    film["editorial"]["type_scale"]["mw-caption"] = json!(44.0);
+    film["editorial"]["type_scale"]["caption-style"] = json!(44.0);
 
     let source =
         semwright_semantic_composition::Digest::of_bytes(b"CI-only-synthetic-caption-source");
@@ -830,7 +830,7 @@ async fn assert_source_bound_native_caption_frames(
             "layer":"caption-overlay",
             "content":{"kind":"text","runs":[{"text":label,"weight":600,
                       "color":"#223344","emphasis":false}],
-                       "style":"mw-caption","direction":"auto","language":"en",
+                       "style":"caption-style","direction":"auto","language":"en",
                        "wrap":true,"truncate":false},
             "layout":{"kind":"fixed","position":{"x":0.0,"y":0.0},
                       "size":{"width":1400.0,"height":160.0}},

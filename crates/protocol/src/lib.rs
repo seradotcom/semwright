@@ -566,7 +566,8 @@ mod windows_ticket_tests {
     #[test]
     fn default_session_file_is_a_distinct_private_path_per_windows_pipe() {
         let first = default_session_ticket(Path::new(r"\\.\pipe\semwright-test-broker")).unwrap();
-        let second = default_session_ticket(Path::new(r"\\.\pipe\semwright-test-olevu")).unwrap();
+        let second =
+            default_session_ticket(Path::new(r"\\.\pipe\semwright-test-other-broker")).unwrap();
         assert!(first.is_absolute());
         assert_ne!(first, second);
         assert!(first.starts_with(runtime_directory().unwrap()));
