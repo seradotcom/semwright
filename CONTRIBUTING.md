@@ -34,6 +34,14 @@ it as an ADR, design note, test plan or evidence record before committing it. Pr
 provenance such as source SHAs, run IDs and failure receipts, and omit transient working notes that
 do not help future contributors.
 
+Keep documentation, source comments, fixture names, pull requests and commit messages
+self-contained and product-neutral. Describe Semwright contracts, observable behavior and
+reproducible evidence, rather than internal assistant conversations, task assignments,
+handoff messages or unrelated projects' issue trackers. When a downstream integration
+exposes a defect, prefer a synthetic fixture with generic names. References to AI
+agents as supported clients and to third-party applications as integrations remain
+appropriate when they explain Semwright functionality.
+
 ## Security-sensitive changes
 
 Describe the authority/configuration impact and rollback/compatibility implications. A new
