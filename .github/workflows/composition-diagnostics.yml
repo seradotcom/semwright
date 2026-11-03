@@ -106,7 +106,7 @@ jobs:
         run: cargo clippy --locked -p semwright-semantic-composition -p semwright-media-time -p semwright-motion-authoring -p semwright-av-composition --all-targets --no-deps -- -D warnings
       - name: Generated contract schemas
         run: cargo run --locked -p semwright-semantic-composition --example schemas > verification/composition/schemas.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: composition-contracts-${{ matrix.os }}-${{ github.sha }}
@@ -163,7 +163,7 @@ jobs:
           mkdir -p verification/composition-package
           python scripts/composition/package-dev.py build --output verification/composition-package/semwright-composition-development.zip
           python scripts/composition/package-dev.py verify verification/composition-package/semwright-composition-development.zip
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: composition-development-${{ github.sha }}
           path: verification/composition-package

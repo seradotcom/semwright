@@ -33,7 +33,7 @@ jobs:
           nix-store --query --requisites "$result" | LC_ALL=C sort             > verification/supply-chain/nix-closure.txt
           nix path-info --json --closure-size "$result"             > verification/supply-chain/nix-path-info.json
           printf '%s\n' "1bc55b9def8165e82073919945c3239903fe4dc2"             > verification/supply-chain/nixpkgs-revision.txt
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: nix-certification-${{ github.sha }}
           path: verification/supply-chain
@@ -96,7 +96,7 @@ jobs:
             cd "supply-chain/${{ matrix.arch }}"
             find binaries packages sbom -type f -print0               | LC_ALL=C sort -z               | xargs -0 sha256sum > SHA256SUMS
           )
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: supply-chain-${{ matrix.arch }}-${{ github.sha }}
           path: supply-chain/${{ matrix.arch }}
