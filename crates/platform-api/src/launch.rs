@@ -773,6 +773,25 @@ impl SandboxProcess {
     }
 }
 
+/// Private, Rust-only stderr observation for one owner-selected launch. This is
+/// not a sandbox grant or wire field. Implementations must not block, persist
+/// bytes synchronously, or retain an unbounded payload in these callbacks.
+pub trait SandboxStderrObserver: Send + Sync {
+    fn started(&self);
+    fn bytes(&self, bytes: &[u8]);
+    fn terminal(&self, terminal: SandboxStderrTerminal);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SandboxStderrTerminal {
+    Eof,
+    ReadFailed {
+        kind: std::io::ErrorKind,
+        raw_os_error: Option<i32>,
+    },
+    Interrupted,
+}
+
 pub trait SandboxLauncher: Send + Sync {
     fn command(&self, spec: &SandboxSpec) -> Result<Command>;
 
@@ -790,6 +809,22 @@ pub trait SandboxLauncher: Send + Sync {
             )
         })?;
         SandboxProcess::from_tokio_child(child)
+    }
+
+    /// Selected observation must use the platform's real containment/lifecycle
+    /// path. A platform without that support refuses it before launching.
+    fn spawn_with_stderr_observer(
+        &self,
+        spec: &SandboxSpec,
+        observer: Option<Arc<dyn SandboxStderrObserver>>,
+    ) -> Result<SandboxProcess> {
+        if observer.is_some() {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Selected private sandbox stderr observation is unavailable",
+            ));
+        }
+        self.spawn(spec)
     }
 
     fn available(&self, helper: &Path) -> bool;
