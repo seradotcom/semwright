@@ -3,11 +3,13 @@ use semwright_platform_api::launch::{
     ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass,
     SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_HOST_TOOL_CWD_ENV, SANDBOX_HOST_TOOL_TYPED_ARGS_ENV,
     SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, SandboxChildControl, SandboxKind, SandboxLauncher,
-    SandboxProcess, SandboxSpec, SandboxStdin, SandboxStdout, SealedToolSource,
-    encode_materialized_mounts, encode_materialized_tools, resolve_host_tool_args,
+    SandboxProcess, SandboxSpec, SandboxStderrObserver, SandboxStderrTerminal, SandboxStdin,
+    SandboxStdout, SealedToolSource, encode_materialized_mounts, encode_materialized_tools,
+    resolve_host_tool_args,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use sha2::{Digest, Sha256};
+use std::sync::Arc;
 use std::{
     io::Read,
     os::{
@@ -67,6 +69,100 @@ fn validated_nvidia_compute_sources() -> Result<(Vec<(&'static str, std::fs::Fil
     Ok((sources, proc))
 }
 const BWRAP_INFO_TIMEOUT: Duration = Duration::from_secs(5);
+
+fn observe_stderr(
+    observer: &dyn SandboxStderrObserver,
+    event: impl FnOnce(&dyn SandboxStderrObserver),
+) -> bool {
+    // An owner observer failure must not close the child's pipe or replace a
+    // native error. The drain continues even if a callback panics.
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| event(observer))).is_ok()
+}
+
+struct StderrDrainTerminal {
+    observer: Arc<dyn SandboxStderrObserver>,
+    finished: bool,
+    observer_failed: bool,
+}
+
+impl StderrDrainTerminal {
+    fn finish(&mut self, terminal: SandboxStderrTerminal) {
+        self.finished = true;
+        let terminal = if self.observer_failed {
+            SandboxStderrTerminal::Interrupted
+        } else {
+            terminal
+        };
+        observe_stderr(self.observer.as_ref(), |observer| {
+            observer.terminal(terminal)
+        });
+    }
+}
+
+impl Drop for StderrDrainTerminal {
+    fn drop(&mut self) {
+        if !self.finished {
+            observe_stderr(self.observer.as_ref(), |observer| {
+                observer.terminal(SandboxStderrTerminal::Interrupted);
+            });
+        }
+    }
+}
+
+fn private_stderr_pipe(observer: Arc<dyn SandboxStderrObserver>) -> Result<Stdio> {
+    let mut fds = [-1i32; 2];
+    // SAFETY: pipe2 initializes both descriptors on success. Only the pipe
+    // writer is installed as child stderr; no custody-file descriptor is shared.
+    if unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: both descriptors were newly returned by pipe2.
+    let mut reader = unsafe { std::fs::File::from_raw_fd(fds[0]) };
+    // SAFETY: this is the distinct newly-owned writer returned by pipe2.
+    let writer = unsafe { OwnedFd::from_raw_fd(fds[1]) };
+    let mut terminal = StderrDrainTerminal {
+        observer,
+        finished: false,
+        observer_failed: false,
+    };
+    let thread = std::thread::Builder::new()
+        .name("semwright-startup-stderr".into())
+        .spawn(move || {
+            terminal.observer_failed =
+                !observe_stderr(terminal.observer.as_ref(), |observer| observer.started());
+            let mut chunk = [0u8; 8192];
+            loop {
+                match reader.read(&mut chunk) {
+                    Ok(0) => {
+                        terminal.finish(SandboxStderrTerminal::Eof);
+                        break;
+                    }
+                    Ok(count) => {
+                        if !terminal.observer_failed {
+                            terminal.observer_failed =
+                                !observe_stderr(terminal.observer.as_ref(), |observer| {
+                                    observer.bytes(&chunk[..count]);
+                                });
+                        }
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                    Err(error) => {
+                        terminal.finish(SandboxStderrTerminal::ReadFailed {
+                            kind: error.kind(),
+                            raw_os_error: error.raw_os_error(),
+                        });
+                        break;
+                    }
+                }
+            }
+        })
+        .map_err(|_| Error::unavailable("Private stderr drain unavailable"))?;
+    // This independent thread already runs before synchronous Bubblewrap
+    // metadata collection. It owns the reader until EOF, including post-Hello
+    // writes and cleanup. Dropping this handle never cancels the drain.
+    drop(thread);
+    Ok(Stdio::from(writer))
+}
 
 fn parse_bwrap_child_pid(bytes: &[u8]) -> Result<u32> {
     if bytes.is_empty() || bytes.len() > MAX_BWRAP_INFO_BYTES {
@@ -801,6 +897,14 @@ impl SandboxLauncher for LinuxSandbox {
     }
 
     fn spawn(&self, s: &SandboxSpec) -> Result<SandboxProcess> {
+        self.spawn_with_stderr_observer(s, None)
+    }
+
+    fn spawn_with_stderr_observer(
+        &self,
+        s: &SandboxSpec,
+        observer: Option<Arc<dyn SandboxStderrObserver>>,
+    ) -> Result<SandboxProcess> {
         if s.environment
             .iter()
             .any(|(name, _)| name == SANDBOX_BWRAP_INFO_FD_ENV)
@@ -824,12 +928,20 @@ impl SandboxLauncher for LinuxSandbox {
             write_fd.as_raw_fd().to_string(),
         ));
         let mut command = self.command(&spec)?;
+        let observing_stderr = observer.is_some();
+        if let Some(observer) = observer {
+            command.stderr(private_stderr_pipe(observer)?);
+        }
         let mut monitor = command.spawn().map_err(|_| {
             Error::new(
                 ErrorCode::SandboxDenied,
                 "Platform sandbox process failed to start",
             )
         })?;
+        // Do not retain an extra writer in the parent after the child starts.
+        if observing_stderr {
+            drop(command);
+        }
         drop(write_fd);
 
         let child_pid = match read_bwrap_child_pid(&read_fd, &mut monitor) {

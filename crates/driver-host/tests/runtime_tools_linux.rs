@@ -899,3 +899,263 @@ async fn linux_v6_runtime_tool_jobs_are_detached_session_bound_and_cancellable()
         "provider shutdown must reap a detached runtime-tool child"
     );
 }
+
+struct StderrHostFixture {
+    provider: std::sync::Arc<DriverProvider>,
+    capability: semwright_types::CommandDescriptor,
+    workspace: tempfile::TempDir,
+    _binary_dir: tempfile::TempDir,
+    _other_workspace: tempfile::TempDir,
+    _state: tempfile::TempDir,
+}
+
+impl StderrHostFixture {
+    async fn connect() -> Self {
+        assert!(Path::new("/usr/bin/bwrap").is_file());
+        let binary_dir = tempfile::tempdir().unwrap();
+        let driver = binary_dir.path().join("driver");
+        let tool = binary_dir.path().join("tool");
+        std::fs::copy(env!("CARGO_BIN_EXE_semwright-driver-fixture"), &driver).unwrap();
+        std::fs::copy(env!("CARGO_BIN_EXE_semwright-tool-fixture"), &tool).unwrap();
+        harden(&driver);
+        harden(&tool);
+        let workspace = tempfile::tempdir().unwrap();
+        let other_workspace = tempfile::tempdir().unwrap();
+        let roots = vec![
+            FilesystemGrant {
+                name: "fixture-tool-root".into(),
+                path: tool.canonicalize().unwrap(),
+                read: true,
+                write: false,
+            },
+            FilesystemGrant {
+                name: "tool-workspace".into(),
+                path: workspace.path().canonicalize().unwrap(),
+                read: true,
+                write: true,
+            },
+            FilesystemGrant {
+                name: "other-workspace".into(),
+                path: other_workspace.path().canonicalize().unwrap(),
+                read: true,
+                write: true,
+            },
+        ];
+        let state = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        let provider = DriverProvider::connect(
+            manifest(driver, digest(&tool), 7),
+            state.path(),
+            &sandbox_helper(),
+            &roots,
+            false,
+        )
+        .await
+        .expect("real Linux Host for stderr regression");
+        let capability = Provider::capabilities(provider.as_ref())
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|capability| capability.descriptor.name == "driver.fixture.tool_job")
+            .unwrap()
+            .descriptor;
+        Self {
+            provider,
+            capability,
+            workspace,
+            _binary_dir: binary_dir,
+            _other_workspace: other_workspace,
+            _state: state,
+        }
+    }
+
+    async fn run(&self, args: serde_json::Value) -> semwright_types::Result<serde_json::Value> {
+        Provider::execute(
+            self.provider.as_ref(),
+            &Context {
+                session: "stderr-regression".into(),
+                request_id: semwright_types::unique_id(),
+                cancellation: CancellationToken::new(),
+            },
+            &self.capability,
+            &args,
+        )
+        .await
+    }
+
+    async fn start(&self, case: &str, typed: bool) -> String {
+        let started = self
+            .run(serde_json::json!({
+                "action": if typed { "start_stdin_custody" } else { "start" },
+                "sleep_ms": 100,
+                "stderr_case": case,
+                "cwd_mount": "tool-workspace",
+            }))
+            .await
+            .unwrap();
+        assert_eq!(started["state"], "running");
+        started["job"].as_str().unwrap().to_owned()
+    }
+
+    async fn terminal(&self, job: &str) -> serde_json::Value {
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                let state = self
+                    .run(serde_json::json!({"action":"status","job":job}))
+                    .await
+                    .unwrap();
+                match state["state"].as_str() {
+                    Some("running" | "cancelling") => {
+                        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    }
+                    _ => return state,
+                }
+            }
+        })
+        .await
+        .expect("runtime-tool terminal result within the test bound")
+    }
+
+    async fn ready(&self) {
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while !self.workspace.path().join("stderr.ready").is_file() {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("real runtime tool wrote stderr before termination");
+    }
+
+    async fn shutdown(&self) {
+        Provider::shutdown(self.provider.as_ref()).await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires real Bubblewrap + Landlock support"]
+async fn linux_runtime_tool_stderr_exit2_is_real_separate_and_collected_once() {
+    let fixture = StderrHostFixture::connect().await;
+    for typed in [false, true] {
+        let job = fixture.start("exit2", typed).await;
+        let terminal = fixture.terminal(&job).await;
+        // Runtime-tool completion is distinct from the child exit code.
+        assert_eq!(terminal["state"], "succeeded");
+        assert_eq!(terminal["exit_code"], 2);
+        assert_eq!(terminal["stdout"], "fixture-stdout");
+        assert_eq!(terminal["stderr"], "fixture diagnostic\0stderr\n");
+        let collected = fixture
+            .run(serde_json::json!({"action":"status","job":job}))
+            .await
+            .unwrap_err();
+        assert_eq!(collected.code, ErrorCode::NotFound);
+    }
+    fixture.shutdown().await;
+}
+
+#[tokio::test]
+#[ignore = "requires real Bubblewrap + Landlock support"]
+async fn linux_runtime_tool_stderr_limit_is_exact_and_overflow_is_uncertain() {
+    let fixture = StderrHostFixture::connect().await;
+    let exact = fixture.start("exact_limit", true).await;
+    let terminal = fixture.terminal(&exact).await;
+    assert_eq!(terminal["state"], "succeeded");
+    assert_eq!(terminal["exit_code"], 0);
+    assert_eq!(terminal["stdout"], "fixture-stdout");
+    assert!(terminal.get("stderr").is_none());
+    assert_eq!(terminal["stderr_bytes"], 256 * 1024);
+    assert_eq!(
+        terminal["stderr_sha256"],
+        hex::encode(Sha256::digest(vec![1u8; 256 * 1024]))
+    );
+
+    let overflow = fixture.start("overflow", true).await;
+    let terminal = fixture.terminal(&overflow).await;
+    assert_eq!(terminal["state"], "failed");
+    assert_eq!(terminal["error_code"], "ResourceExhausted");
+    assert_eq!(terminal["outcome_known"], false);
+    assert!(terminal.get("stdout").is_none());
+    assert!(terminal.get("stderr").is_none());
+    // The terminal reply and lack of published bytes do not attest reaping.
+    // An immediate absence of the fixture's delayed marker is not an oracle.
+
+    // One real launch mutates its granted workspace before overflowing stdout.
+    // The original effect prevents a known-failure classification from hiding it.
+    let effect = fixture.workspace.path().join("stdout.effect");
+    assert!(!effect.exists());
+    let stdout_overflow = fixture.start("stdout_overflow", true).await;
+    let terminal = fixture.terminal(&stdout_overflow).await;
+    assert_eq!(
+        std::fs::read(&effect).unwrap(),
+        b"effect before stdout overflow\n"
+    );
+    assert_eq!(terminal["state"], "failed");
+    assert_eq!(terminal["error_code"], "ResourceExhausted");
+    assert_eq!(terminal["outcome_known"], false);
+    assert!(terminal.get("stdout").is_none());
+    assert!(terminal.get("stderr").is_none());
+    assert!(terminal.get("stderr_bytes").is_none());
+    let collected = fixture
+        .run(serde_json::json!({"action":"status","job":stdout_overflow}))
+        .await
+        .unwrap_err();
+    assert_eq!(collected.code, ErrorCode::NotFound);
+
+    // ASCII 101 stays within the stderr channel limit but its exact JSON
+    // representation exceeds MAX_FRAME. The Host must reject that reply,
+    // retain uncertainty, collect the failure once, and remain usable.
+    let frame_overflow = fixture.start("frame_overflow", true).await;
+    let terminal = fixture.terminal(&frame_overflow).await;
+    assert_eq!(terminal["state"], "failed");
+    assert_eq!(terminal["error_code"], "ResourceExhausted");
+    assert_eq!(terminal["outcome_known"], false);
+    assert!(terminal.get("stdout").is_none());
+    assert!(terminal.get("stderr").is_none());
+    assert!(terminal.get("stderr_bytes").is_none());
+    let collected = fixture
+        .run(serde_json::json!({"action":"status","job":frame_overflow}))
+        .await
+        .unwrap_err();
+    assert_eq!(collected.code, ErrorCode::NotFound);
+    let next_job = fixture.start("exit2", true).await;
+    let next = fixture.terminal(&next_job).await;
+    assert_eq!(next["state"], "succeeded");
+    assert_eq!(next["exit_code"], 2);
+    assert_eq!(next["stdout"], "fixture-stdout");
+    assert_eq!(next["stderr"], "fixture diagnostic\0stderr\n");
+    fixture.shutdown().await;
+}
+
+#[tokio::test]
+#[ignore = "requires real Bubblewrap + Landlock support"]
+async fn linux_runtime_tool_stderr_cancel_and_deadline_do_not_publish_partial_output() {
+    let fixture = StderrHostFixture::connect().await;
+    let cancel_job = fixture.start("hold", true).await;
+    fixture.ready().await;
+    let cancelled = fixture
+        .run(serde_json::json!({"action":"cancel","job":cancel_job}))
+        .await
+        .unwrap();
+    let terminal = match cancelled["state"].as_str() {
+        Some("cancelled") => cancelled,
+        Some("cancelling") => fixture.terminal(&cancel_job).await,
+        other => panic!("unexpected cancellation state: {other:?}"),
+    };
+    assert_eq!(terminal["state"], "cancelled");
+    assert!(terminal.get("stdout").is_none());
+    assert!(terminal.get("stderr").is_none());
+    // The terminal reply and lack of published bytes do not attest reaping.
+    // An immediate absence of the fixture's delayed marker is not an oracle.
+    std::fs::remove_file(fixture.workspace.path().join("stderr.ready")).unwrap();
+
+    let deadline_job = fixture.start("deadline", true).await;
+    fixture.ready().await;
+    let terminal = fixture.terminal(&deadline_job).await;
+    assert_eq!(terminal["state"], "failed");
+    assert_eq!(terminal["error_code"], "Timeout");
+    assert_eq!(terminal["outcome_known"], false);
+    assert!(terminal.get("stdout").is_none());
+    assert!(terminal.get("stderr").is_none());
+    // The terminal reply and lack of published bytes do not attest reaping.
+    // An immediate absence of the fixture's delayed marker is not an oracle.
+    fixture.shutdown().await;
+}

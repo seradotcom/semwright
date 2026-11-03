@@ -141,9 +141,10 @@ fn tool_job_capability() -> Capability {
             input_schema: json!({
                 "type":"object",
                 "properties":{
-                    "action":{"enum":["start","status","cancel"]},
+                    "action":{"enum":["start","start_stdin_custody","status","cancel"]},
                     "job":{"type":"string","minLength":1,"maxLength":128},
                     "sleep_ms":{"type":"integer","minimum":1,"maximum":5000},
+                    "stderr_case":{"enum":["exit2","exact_limit","overflow","stdout_overflow","frame_overflow","hold","deadline"]},
                     "cwd_mount":{"type":"string","minLength":1,"maxLength":64},
                     "lifecycle_marker":{"type":"boolean"}
                 },
@@ -157,7 +158,11 @@ fn tool_job_capability() -> Capability {
                     "state":{"enum":["running","cancelling","succeeded","failed","cancelled"]},
                     "exit_code":{"type":"integer"},
                     "stdout":{"type":"string"},
-                    "error_code":{"type":"string"}
+                    "stderr":{"type":"string","maxLength":4096},
+                    "stderr_bytes":{"type":"integer","minimum":1,"maximum":262144},
+                    "stderr_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+                    "error_code":{"type":"string"},
+                    "outcome_known":{"type":"boolean"}
                 },
                 "required":["job","state"],
                 "additionalProperties":false
@@ -243,10 +248,32 @@ fn tool_job_result(job: &RuntimeToolJob, status: RuntimeToolJobStatus) -> Result
             value.insert("state".into(), "succeeded".into());
             value.insert("exit_code".into(), output.exit_code.into());
             value.insert("stdout".into(), stdout.into());
+            if !output.stderr.is_empty() {
+                use sha2::Digest as _;
+                value.insert("stderr_bytes".into(), output.stderr.len().into());
+                value.insert(
+                    "stderr_sha256".into(),
+                    hex::encode(sha2::Sha256::digest(&output.stderr)).into(),
+                );
+                // Large controlled fixtures return observations so this Driver
+                // reply cannot obscure the separate Host-to-Driver frame test.
+                if output.stderr.len() <= 4096 {
+                    let stderr = String::from_utf8(output.stderr).map_err(|_| {
+                        Error::new(
+                            ErrorCode::BackendFailed,
+                            "fixture detached tool stderr was not UTF-8",
+                        )
+                    })?;
+                    value.insert("stderr".into(), stderr.into());
+                }
+            }
         }
         RuntimeToolJobStatus::Failed { error } => {
             value.insert("state".into(), "failed".into());
             value.insert("error_code".into(), format!("{:?}", error.code).into());
+            if !error.outcome_known {
+                value.insert("outcome_known".into(), false.into());
+            }
         }
         RuntimeToolJobStatus::Cancelled => {
             value.insert("state".into(), "cancelled".into());
@@ -863,7 +890,12 @@ impl Driver for Fixture {
             if args.keys().any(|key| {
                 !matches!(
                     key.as_str(),
-                    "action" | "job" | "sleep_ms" | "cwd_mount" | "lifecycle_marker"
+                    "action"
+                        | "job"
+                        | "sleep_ms"
+                        | "cwd_mount"
+                        | "lifecycle_marker"
+                        | "stderr_case"
                 )
             }) {
                 return Err(Error::invalid(
@@ -875,7 +907,7 @@ impl Driver for Fixture {
                 .and_then(Value::as_str)
                 .ok_or_else(|| Error::invalid("fixture tool job action is required"))?;
             return match action {
-                "start" => {
+                "start" | "start_stdin_custody" => {
                     if args.get("job").is_some() {
                         return Err(Error::invalid(
                             "fixture tool job start does not accept a job id",
@@ -887,7 +919,34 @@ impl Driver for Fixture {
                             "fixture tool job sleep_ms exceeds test bounds",
                         ));
                     }
+                    let stderr_case = match args.get("stderr_case") {
+                        None => None,
+                        Some(Value::String(value))
+                            if matches!(
+                                value.as_str(),
+                                "exit2"
+                                    | "exact_limit"
+                                    | "overflow"
+                                    | "stdout_overflow"
+                                    | "frame_overflow"
+                                    | "hold"
+                                    | "deadline"
+                            ) =>
+                        {
+                            Some(value.as_str())
+                        }
+                        Some(_) => return Err(Error::invalid("invalid fixture stderr case")),
+                    };
+                    let timeout =
+                        std::time::Duration::from_secs(if stderr_case == Some("deadline") {
+                            1
+                        } else {
+                            10
+                        });
                     let mut tool_args = vec!["--sleep-ms".into(), sleep_ms.to_string()];
+                    if let Some(case) = stderr_case {
+                        tool_args.extend(["--stderr-case".into(), case.into()]);
+                    }
                     if args
                         .get("lifecycle_marker")
                         .and_then(Value::as_bool)
@@ -902,21 +961,31 @@ impl Driver for Fixture {
                                 mount: mount.to_owned(),
                                 relative: String::new(),
                             });
-                    let job = context
-                        .start_runtime_tool_job(
-                            "probe",
-                            tool_args,
-                            Vec::new(),
-                            std::time::Duration::from_secs(10),
-                            cwd,
-                        )
-                        .await?;
+                    let job = if action == "start_stdin_custody" {
+                        context
+                            .start_runtime_tool_job_args(
+                                "probe",
+                                tool_args
+                                    .into_iter()
+                                    .map(|value| RuntimeToolArg::Literal { value })
+                                    .collect(),
+                                b"semwright-custody-v7\0payload\n".to_vec(),
+                                timeout,
+                                cwd,
+                            )
+                            .await?
+                    } else {
+                        context
+                            .start_runtime_tool_job("probe", tool_args, Vec::new(), timeout, cwd)
+                            .await?
+                    };
                     Ok(json!({"job":job.id,"state":"running"}))
                 }
                 "status" | "cancel" => {
                     if args.get("sleep_ms").is_some()
                         || args.get("cwd_mount").is_some()
                         || args.get("lifecycle_marker").is_some()
+                        || args.get("stderr_case").is_some()
                     {
                         return Err(Error::invalid(
                             "fixture tool job status/cancel accepts only action and job",

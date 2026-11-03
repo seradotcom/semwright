@@ -1,6 +1,8 @@
 //! Sandboxed persistent application-driver host. Drivers are mounted into the broker as Providers.
 #[cfg(any(unix, windows))]
 mod loopback;
+#[cfg(target_os = "linux")]
+mod runtime_stderr;
 
 use async_trait::async_trait;
 use semwright_backend_api::{
@@ -178,6 +180,7 @@ async fn spawn_linux_broker_tool(
     spec: SandboxSpec,
     dependency_files: Vec<(String, std::fs::File)>,
     cancellation: Option<CancellationToken>,
+    stderr: Option<Arc<dyn semwright_platform_api::launch::SandboxStderrObserver>>,
 ) -> Result<SandboxProcess> {
     // Linux PR_SET_PDEATHSIG is tied to the thread that created the child.
     // A Tokio blocking worker may retire after ten idle seconds, causing
@@ -200,7 +203,7 @@ async fn spawn_linux_broker_tool(
                     "Linux runtime-tool preparation cancelled",
                 ))
             } else {
-                semwright_platform_services::sandbox_spawn(&spec)
+                semwright_platform_services::sandbox_spawn_with_stderr_observer(&spec, stderr)
             }
             .map(|process| process.with_launcher_guard(release));
             // The fresh descriptors live through Bubblewrap's bounded materialization handshake.
@@ -226,6 +229,12 @@ async fn spawn_linux_broker_tool(
 enum HostToolArgs {
     Raw(Vec<String>),
     Typed(Vec<RuntimeToolArg>),
+}
+
+fn redact_host_tool_error(error: Error, message: &'static str) -> Error {
+    let mut redacted = Error::new(error.code, message);
+    redacted.outcome_known = error.outcome_known;
+    redacted
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
@@ -1209,11 +1218,19 @@ impl HostToolExecutor for LinuxHostToolBroker {
             },
         });
 
-        let mut child =
-            spawn_linux_broker_tool(spec, dependency_files, Some(cancellation.clone())).await?;
-        let mut child_stdin = child.take_stdin()?;
-        let child_stdout = child.take_stdout()?;
+        let deadline = tokio::time::Instant::now() + timeout;
+        let stderr = Arc::new(runtime_stderr::RuntimeToolStderr::default());
+        let mut child = spawn_linux_broker_tool(
+            spec,
+            dependency_files,
+            Some(cancellation.clone()),
+            Some(stderr.clone()),
+        )
+        .await?;
         let execution = async {
+            // Once launched, missing handles are also uncertain outcomes.
+            let mut child_stdin = child.take_stdin()?;
+            let child_stdout = child.take_stdout()?;
             if !stdin_bytes.is_empty() {
                 child_stdin.write_all(&stdin_bytes).await?;
             }
@@ -1235,10 +1252,11 @@ impl HostToolExecutor for LinuxHostToolBroker {
                     "Linux Host-mediated sealed tool did not expose an exit code",
                 )
             })?;
+            let captured_stderr = stderr.finish().await?;
             let output = ToolExecutionOutput {
                 exit_code,
                 stdout,
-                stderr: Vec::new(),
+                stderr: captured_stderr,
             };
             output.validate()?;
             Ok(output)
@@ -1252,28 +1270,31 @@ impl HostToolExecutor for LinuxHostToolBroker {
         let completion = tokio::select! {
             biased;
             _ = cancellation.cancelled() => ToolCompletion::Cancelled,
+            error = stderr.failure() => ToolCompletion::Finished(Err(error)),
+            _ = tokio::time::sleep_until(deadline) => ToolCompletion::TimedOut,
             result = execution => ToolCompletion::Finished(result),
-            _ = tokio::time::sleep(timeout) => ToolCompletion::TimedOut,
         };
         match completion {
             ToolCompletion::Finished(Ok(output)) => Ok(output),
             ToolCompletion::Finished(Err(error)) => {
                 let _ = child.kill().await;
-                Err(error)
+                Err(error.uncertain())
             }
             ToolCompletion::Cancelled => {
                 let _ = child.kill().await;
                 Err(Error::new(
                     ErrorCode::Cancelled,
                     "Linux Host-mediated sealed tool was cancelled",
-                ))
+                )
+                .uncertain())
             }
             ToolCompletion::TimedOut => {
                 let _ = child.kill().await;
                 Err(Error::new(
                     ErrorCode::Timeout,
                     "Linux Host-mediated sealed tool timed out",
-                ))
+                )
+                .uncertain())
             }
         }
     }
@@ -1386,7 +1407,7 @@ impl HostToolExecutor for LinuxHostToolBroker {
                 format!("/workspace/{}", cwd.mount),
             ));
         }
-        spawn_linux_broker_tool(spec, dependency_files, None).await
+        spawn_linux_broker_tool(spec, dependency_files, None, None).await
     }
 }
 
@@ -2232,8 +2253,20 @@ fn spawn_v2_reader(
                             Ok(output) => Request::ToolResult { id, output },
                             Err(error) => Request::ToolFailure {
                                 id,
-                                error: Error::new(error.code, "Host-mediated sealed tool failed"),
+                                error: redact_host_tool_error(
+                                    error,
+                                    "Host-mediated sealed tool failed",
+                                ),
                             },
+                        };
+                        #[cfg(target_os = "linux")]
+                        let request = match runtime_stderr::bounded_reply(request) {
+                            Ok(request) => request,
+                            Err(_) => {
+                                terminate_call.cancel();
+                                closed_call.cancel();
+                                return;
+                            }
                         };
                         let mut input = input.lock().await;
                         if write_frame(&mut *input, &request).await.is_err() {
@@ -2346,11 +2379,20 @@ fn spawn_v2_reader(
                             Ok(output) => Request::ToolResult { id, output },
                             Err(error) => Request::ToolFailure {
                                 id,
-                                error: Error::new(
-                                    error.code,
+                                error: redact_host_tool_error(
+                                    error,
                                     "Typed Host-mediated sealed tool failed",
                                 ),
                             },
+                        };
+                        #[cfg(target_os = "linux")]
+                        let request = match runtime_stderr::bounded_reply(request) {
+                            Ok(request) => request,
+                            Err(_) => {
+                                terminate_call.cancel();
+                                closed_call.cancel();
+                                return;
+                            }
                         };
                         let mut input = input.lock().await;
                         if write_frame(&mut *input, &request).await.is_err() {
@@ -2472,8 +2514,8 @@ fn spawn_v2_reader(
                                                 RuntimeToolJobStatus::Cancelled
                                             }
                                             Err(error) => RuntimeToolJobStatus::Failed {
-                                                error: Error::new(
-                                                    error.code,
+                                                error: redact_host_tool_error(
+                                                    error,
                                                     "Host-mediated detached runtime-tool job failed",
                                                 ),
                                             },
@@ -2626,8 +2668,8 @@ fn spawn_v2_reader(
                                                 RuntimeToolJobStatus::Cancelled
                                             }
                                             Err(error) => RuntimeToolJobStatus::Failed {
-                                                error: Error::new(
-                                                    error.code,
+                                                error: redact_host_tool_error(
+                                                    error,
                                                     "Typed Host-mediated detached runtime-tool job failed",
                                                 ),
                                             },
@@ -2697,14 +2739,25 @@ fn spawn_v2_reader(
                     let request = match entry {
                         Some(entry) if entry.owner_session == caller_session => {
                             let status = entry.status.lock().await.clone();
-                            if status.terminal() {
+                            let terminal = status.terminal();
+                            let request = Request::ToolJobState {
+                                id: id.clone(),
+                                job: job.clone(),
+                                status,
+                            };
+                            #[cfg(target_os = "linux")]
+                            let request = match runtime_stderr::bounded_reply(request) {
+                                Ok(request) => request,
+                                Err(_) => {
+                                    terminate.cancel();
+                                    closed.cancel();
+                                    break;
+                                }
+                            };
+                            if terminal {
                                 host_tool_jobs.lock().await.remove(&job.id);
                             }
-                            Request::ToolJobState {
-                                id: id.clone(),
-                                job,
-                                status,
-                            }
+                            request
                         }
                         Some(_) => Request::ToolJobFailure {
                             id: id.clone(),
@@ -2768,14 +2821,24 @@ fn spawn_v2_reader(
                             let observed = status.clone();
                             let terminal = observed.terminal();
                             drop(status);
+                            let request = Request::ToolJobState {
+                                id: id.clone(),
+                                job: job.clone(),
+                                status: observed,
+                            };
+                            #[cfg(target_os = "linux")]
+                            let request = match runtime_stderr::bounded_reply(request) {
+                                Ok(request) => request,
+                                Err(_) => {
+                                    terminate.cancel();
+                                    closed.cancel();
+                                    break;
+                                }
+                            };
                             if terminal {
                                 host_tool_jobs.lock().await.remove(&job.id);
                             }
-                            Request::ToolJobState {
-                                id: id.clone(),
-                                job,
-                                status: observed,
-                            }
+                            request
                         }
                         Some(_) => Request::ToolJobFailure {
                             id: id.clone(),

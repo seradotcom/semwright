@@ -124,6 +124,11 @@ jobs:
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
           cargo build --locked -p semwright-native-sdk --features file-backed,effects,package --examples --bins
           cargo build --locked -p semwright-native-sdk --features process-bridge --example native-inventory
+      - name: Linux runtime-tool stderr and uncertain-outcome regression
+        env:
+          RUST_TEST_THREADS: '1'
+        run: |
+          cargo test --locked -p semwright-driver-host --features test-tools --test runtime_tools_linux linux_runtime_tool_stderr -- --ignored --test-threads=1
       - name: Real CLI and protocol MCP acceptance without mock Provider
         run: python3 scripts/native-sdk/run-suite.py native-host
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
