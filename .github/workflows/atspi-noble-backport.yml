@@ -46,7 +46,7 @@ jobs:
       - name: Verify package identity and provenance
         run: |
           tooling/compat/ubuntu-noble-atspi/verify-debs.sh             verification/atspi-noble-backport
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ubuntu-noble-atspi-backport-${{ github.sha }}
           path: verification/atspi-noble-backport
@@ -105,7 +105,7 @@ jobs:
         env:
           SEMWRIGHT_ATSPI_PRESSURE_ITERATIONS: 12
         run: scripts/dev/atspi-pressure-ci.sh
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: ubuntu-noble-atspi-pressure-${{ github.sha }}

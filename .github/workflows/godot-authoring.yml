@@ -89,7 +89,7 @@ jobs:
             --report verification/godot-authoring/scope.json
       - name: Scope evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: godot-ci-scope-${{ github.sha }}-${{ github.run_attempt }}
           path: verification/godot-authoring/scope.json
@@ -126,7 +126,7 @@ jobs:
         run: python3 scripts/godot-authoring/ci.py godot-model
       - name: Diagnostic evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: godot-model-${{ github.sha }}
           path: godot-authoring-evidence/
@@ -384,7 +384,7 @@ jobs:
           cargo test --locked -p semwright-driver-godot --test contracts -- --nocapture
       - name: Native evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: godot-native-authoring-${{ github.sha }}
           path: verification/godot-authoring/
@@ -458,7 +458,7 @@ jobs:
             2>&1 | tee verification/godot-persistence/persistence-host.log
       - name: Persistence evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: godot-persistence
           path: verification/godot-persistence/
@@ -526,7 +526,7 @@ jobs:
             2>&1 | tee verification/godot-export/export-host.log
       - name: Export evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: godot-export
           path: verification/godot-export/
@@ -593,7 +593,7 @@ jobs:
           done 2>&1 | tee verification/godot-authoring-hostile/focused-hostile.log
       - name: Hostile evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: godot-authoring-hostile
           path: verification/godot-authoring-hostile/
@@ -674,7 +674,7 @@ jobs:
           path.write_text(json.dumps(out, indent=2) + "\n")
           PY
       - name: Upload source backup
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: godot-authoring-source-${{ github.sha }}
           path: verification/godot-authoring/package/
@@ -797,7 +797,7 @@ jobs:
           PY2
       - name: Cross-app oracle evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: godot-cross-app-glb-${{ github.sha }}
           path: verification/godot-cross-app/

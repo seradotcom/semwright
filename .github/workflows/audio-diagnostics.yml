@@ -195,7 +195,7 @@ jobs:
         run: |
           cargo fmt -p semwright-audio-authoring -p semwright-audio-domain -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -- --check
           cargo clippy --locked -p semwright-audio-authoring -p semwright-audio-domain -p semwright-faust-audio-driver -p semwright-ardour-audio-driver --all-targets -- -D warnings
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: audio-portable-${{ github.sha }}
@@ -224,7 +224,7 @@ jobs:
           key: audio-v1-portable-${{ matrix.os }}
       - name: Portable audio tests
         run: python3 scripts/audio/run-suite.py portable
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: audio-portable-${{ matrix.os }}-${{ github.sha }}
@@ -293,7 +293,7 @@ jobs:
           export SEMWRIGHT_TEST_FAUST_HELPER="$RUNNER_TEMP/semwright-faust-interpreter"
           export SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
           python3 scripts/audio/run-suite.py faust-host
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: audio-faust-${{ matrix.version }}-${{ github.sha }}
@@ -333,7 +333,7 @@ jobs:
           export SEMWRIGHT_TEST_AUDIO_METER="$RUNNER_TEMP/semwright-audio-meter"
           export SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
           python3 scripts/audio/run-suite.py analysis-host
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: audio-analysis-${{ github.sha }}
@@ -401,7 +401,7 @@ jobs:
         run: |
           export SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
           python3 scripts/audio/run-suite.py ardour-host
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: audio-ardour-${{ github.sha }}
@@ -432,7 +432,7 @@ jobs:
           for target in audio_domain_model audio_domain_edit audio_wav; do
             cargo +nightly-2026-09-18 fuzz run "$target" -- -max_total_time=15 -timeout=3 -rss_limit_mb=1024 -max_len=32768 2>&1 | tee "verification/audio/fuzz/$target.log"
           done
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: audio-fuzz-${{ github.sha }}
@@ -479,7 +479,7 @@ jobs:
       - name: Create and inspect real development packages
         run: |
           python3 scripts/audio/package-development.py             --semwright "$GITHUB_WORKSPACE/target/debug/semwright"             --faust-driver "$GITHUB_WORKSPACE/target/debug/semwright-faust-audio-driver"             --analysis-driver "$GITHUB_WORKSPACE/target/debug/semwright-audio-analysis-driver"             --ardour-driver "$GITHUB_WORKSPACE/target/debug/semwright-ardour-audio-driver"             --faust-helper "$RUNNER_TEMP/semwright-faust-interpreter"             --audio-meter "$RUNNER_TEMP/semwright-audio-meter"             --ardour-lua "$SEMWRIGHT_PACKAGE_ARDOUR_LUA"             --ardour-create "$SEMWRIGHT_PACKAGE_ARDOUR_CREATE"             --ardour-export "$SEMWRIGHT_PACKAGE_ARDOUR_EXPORT"             --faust-libraries /usr/share/faust             --output verification/audio/packages
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: audio-development-packages-${{ github.sha }}
           path: verification/audio/packages
@@ -577,7 +577,7 @@ jobs:
               json.dump(payload, handle, indent=2, sort_keys=True)
               handle.write("\n")
           PY
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: audio-final-certification-${{ github.sha }}
           path: verification/audio/final-certification.json

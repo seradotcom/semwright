@@ -172,7 +172,7 @@ jobs:
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
         run: |
           cargo test --locked -p semwright-driver-figma --features test-tools             --test host_conformance -- --ignored --nocapture             2>&1 | tee verification/figma-semantic-authoring/host-conformance.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: figma-semantic-authoring-evidence
@@ -205,7 +205,7 @@ jobs:
         run: cargo test --locked -p semwright-driver-figma --features test-tools --test windows_host_conformance -- --nocapture
       - name: Record Windows driver digest
         run: sha256sum target/debug/semwright-figma-driver.exe > target/debug/figma-driver.sha256
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: semwright-figma-windows-x64-${{ github.sha }}
           path: |
@@ -239,7 +239,7 @@ jobs:
         run: |
           mkdir -p verification/figma-semantic-authoring
           cargo +nightly-2026-09-18 fuzz run figma_composition --             -max_total_time=45 -timeout=3 -rss_limit_mb=1024 -max_len=8192             2>&1 | tee verification/figma-semantic-authoring/fuzz-figma-composition.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: figma-semantic-authoring-fuzz
