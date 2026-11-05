@@ -311,6 +311,7 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
     candidate.protocol = 4;
     candidate.interfaces.host_tools = true;
     candidate.tools = vec![DriverToolMount {
+        sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
         root: "fixture-tool-root".into(),
         name: "probe".into(),
         sha256: digest(&owner_tool),
@@ -421,6 +422,7 @@ async fn secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts() {
         },
     ];
     candidate.tools = vec![DriverToolMount {
+        sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
         root: "fixture-tool-root".into(),
         name: "probe".into(),
         sha256: digest(&owner_tool),
@@ -547,6 +549,7 @@ async fn secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped() 
     ];
     candidate.tools = vec![
         DriverToolMount {
+            sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
             root: "fixture-tool-root".into(),
             name: "probe".into(),
             sha256: digest(&probe_tool),
@@ -557,6 +560,7 @@ async fn secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped() 
             resources: None,
         },
         DriverToolMount {
+            sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
             root: "helper-tool-root".into(),
             name: "helper".into(),
             sha256: digest(&helper_tool),
@@ -700,6 +704,7 @@ async fn secure_windows_v8_runtime_tool_receives_only_declared_system_config() {
         },
     ];
     candidate.tools = vec![DriverToolMount {
+        sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
         root: "fixture-tool-root".into(),
         name: "probe".into(),
         sha256: digest(&probe_tool),
@@ -811,6 +816,7 @@ async fn secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancell
         execute: false,
     }];
     candidate.tools = vec![DriverToolMount {
+        sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
         root: "fixture-tool-root".into(),
         name: "probe".into(),
         sha256: digest(&owner_tool),
@@ -1025,6 +1031,7 @@ async fn secure_windows_v8_runtime_tool_sessions_are_provider_scoped_and_reaped(
         },
     ];
     candidate.tools = vec![DriverToolMount {
+        sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
         root: "fixture-tool-root".into(),
         name: "probe".into(),
         sha256: digest(&owner_tool),
@@ -1240,6 +1247,7 @@ async fn secure_windows_driver_sealed_tool_rejects_digest_mismatch() {
     candidate.protocol = 4;
     candidate.interfaces.host_tools = true;
     candidate.tools = vec![DriverToolMount {
+        sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
         root: "fixture-tool-root".into(),
         name: "probe".into(),
         sha256: "0".repeat(64),

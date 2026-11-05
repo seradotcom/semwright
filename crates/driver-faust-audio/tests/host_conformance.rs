@@ -382,6 +382,7 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
         system_config: vec![],
         secrets: vec![],
         tools: vec![DriverToolMount {
+            sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
             root: "faust-tool".into(),
             name: "faust-interpreter".into(),
             sha256: digest(&tool),

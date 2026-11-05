@@ -178,6 +178,7 @@ mod linux {
         let motion_v7 = id == "motion-canvas";
         let tools = if let Some(node) = motion_node {
             vec![DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "motion-node-tool".into(),
                 name: "motion-node".into(),
                 sha256: digest(node)?,

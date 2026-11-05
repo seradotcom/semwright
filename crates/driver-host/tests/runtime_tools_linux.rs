@@ -63,6 +63,7 @@ fn manifest(executable: PathBuf, tool_digest: String, protocol: u32) -> Manifest
         system_config: vec![],
         secrets: vec![],
         tools: vec![DriverToolMount {
+            sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
             root: "fixture-tool-root".into(),
             name: "probe".into(),
             sha256: tool_digest,
@@ -101,6 +102,7 @@ fn manifest_v7(executable: PathBuf, probe_digest: String, helper_digest: String)
     let mut candidate = manifest(executable, probe_digest, 7);
     candidate.tools[0].dependencies = vec!["helper".into()];
     candidate.tools.push(DriverToolMount {
+        sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
         root: "helper-tool-root".into(),
         name: "helper".into(),
         sha256: helper_digest,
