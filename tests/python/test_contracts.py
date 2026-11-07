@@ -14,11 +14,36 @@ REGISTRY = {command["name"]: command for command in COMMANDS}
 
 class ContractTests(unittest.TestCase):
     def test_all_command_schemas_valid(self):
-        self.assertEqual(len(COMMANDS), 159)
+        # Original acc0 catalog contains 161 unique commands. The explicit,
+        # separately policy-scoped providers.release_bound adds exactly one.
+        self.assertEqual(len(COMMANDS), 162)
         for command in COMMANDS:
             for key in ("input_schema", "output_schema"):
                 with self.subTest(command=command["name"], kind=key):
                     jsonschema.Draft202012Validator.check_schema(command[key])
+
+    def test_bound_provider_release_is_explicit_and_session_scoped(self):
+        release = REGISTRY["providers.release_bound"]
+        self.assertEqual(release["requires"], ["providers.release_bound"])
+        self.assertEqual(release["backends"], ["core"])
+        self.assertEqual(release["risk"], "mutating")
+        self.assertEqual(release["idempotency"], "non_idempotent")
+        self.assertFalse(release["dry_run"])
+        self.assertFalse(release["interactive_consent"])
+        self.assertFalse(release["input_schema"]["additionalProperties"])
+        self.assertEqual(
+            set(release["input_schema"]["required"]),
+            {"provider", "root", "binding_ref"},
+        )
+        result = release["output_schema"]
+        self.assertFalse(result["additionalProperties"])
+        self.assertEqual(result["properties"]["lease_shutdown_completed"], {"const": True})
+        self.assertEqual(result["properties"]["native_process_closure_inferred"], {"const": False})
+        self.assertEqual(
+            set(result["required"]),
+            {"provider", "connection", "provider_generation", "binding_ref",
+             "catalog_revision", "lease_shutdown_completed", "native_process_closure_inferred"},
+        )
 
     def test_blender_glb_export_is_registered_and_bounded(self):
         export = REGISTRY["blender.export.glb"]
