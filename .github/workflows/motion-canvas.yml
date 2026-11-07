@@ -437,6 +437,9 @@ jobs:
       - name: Bind exact candidate and historical producer
         run: |
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          if ! git cat-file -e acc0a089e2f0e3e9936632fb2a4aa0c2fab56199^{commit} 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin acc0a089e2f0e3e9936632fb2a4aa0c2fab56199
+          fi
           git show acc0a089e2f0e3e9936632fb2a4aa0c2fab56199:integrations/composition/motion/native.ts > "$RUNNER_TEMP/native-layout-baseline.ts"
           python3 - <<'PY'
           import hashlib, os
