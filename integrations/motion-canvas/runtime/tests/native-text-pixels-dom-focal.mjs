@@ -20,8 +20,9 @@ for (let i = 2; i < process.argv.length; i += 2) {
 assert.deepEqual([...args.keys()].sort(), ['--baseline', '--case', '--output']);
 const CASES = ['paint-red', 'paint-green', 'absent-profile', 'unselected-frame', 'cached', 'unsupported-effects', 'same-color', 'operation-overflow', 'inactive-second'];
 const selection = args.get('--case');
-assert(selection === 'all' || selection === 'other-eight' || CASES.includes(selection), 'closed text pixel focal case');
-const selected = selection === 'all' ? CASES : selection === 'other-eight' ? CASES.filter(name=>name!=='paint-red') : [selection];
+assert(selection === 'all' || selection === 'other-eight' || selection === 'overflow-and-inactive' || CASES.includes(selection), 'closed text pixel focal case');
+const selected = selection === 'all' ? CASES : selection === 'other-eight' ? CASES.filter(name=>name!=='paint-red')
+ : selection === 'overflow-and-inactive' ? ['operation-overflow','inactive-second'] : [selection];
 const HISTORICAL = {
  GREEN: 'afc197bacf9d73c007833a315b253b1b901005a2c9ef7506eec57b2683aaf3c7',
  RED: 'ac4df30d0bdeab0a93924d5841ea18a76f269ce99f2903a2cfebc38e254a3c12',
@@ -92,7 +93,9 @@ function dataFor(name){
   ...(name==='cached'?[subject('cacheRoot',null,{kind:'group'},fixed(0,0,W,H))]:[]),
   subject('camera',name==='cached'?'cacheRoot':null,{kind:'camera',zoom:1},fixed(0,0,W,H)),
   subject('clip','camera',{kind:'group'},fixed(-220,0,overflow?900:720,overflow?1000:340),'main',true),
-  subject('text','clip',content(overflow?[run(Array(65).fill('X').join('\n'))]:[
+  // Separate, differently colored native inline runs force actual glyph operations;
+  // newline characters alone collapsed to spaces in the retained negative fixture.
+  subject('text','clip',content(overflow?Array.from({length:65},(_,i)=>run('X',i%2?'#d4a62a':'#f4f4f4')):[
    run('Real native '),run('styled\n','#d4a62a',700),run('antialiased glyphs')]),
    fixed(0,0,overflow?880:690,overflow?980:200)),
  ];
@@ -429,6 +432,14 @@ try {
     for(const row of legacy.subjects)delete row.native_text_pixels;
     assert.deepEqual(legacy,before.probe,'prior native geometry or text observations changed');
     const text=after.probe.subjects.filter(row=>Object.hasOwn(after.independent_glyph_operations,row.id));
+    if(name==='operation-overflow'){
+      assert(Object.values(after.independent_glyph_operations).reduce((n,row)=>n+row.calls.length,0)>64,'actual operation budget not exceeded');
+      assert.equal(after.semantic_draw_calls,1,'overflow must occur within one native Txt.draw');
+      assert.equal(after.producer_capture.operations,65,'producer must stop observing at the first operation outside its limit');
+      assert.equal(after.producer_capture.subjects.length,1);
+      assert.equal(after.producer_capture.subjects[0].calls,64,'the admitted operation prefix changed');
+      assert(after.producer_capture.failure!==null&&after.producer_capture.completed&&after.producer_capture.restored);
+    }
     if(name==='absent-profile'){
       assert(text.every(row=>!Object.hasOwn(row,'native_text_pixels')),'absent profile gained pixel evidence');
       assert.equal(after.producer_getImageData_calls,before.producer_getImageData_calls,'absent profile read pixels');
@@ -436,7 +447,6 @@ try {
       assert(text.every(row=>row.native_text_pixels?.status==='unknown'),'unsupported observation became known');
       if(name==='unselected-frame')assert.equal(after.producer_getImageData_calls,before.producer_getImageData_calls,'unselected frame read pixels');
       if(name==='cached'||name==='unsupported-effects')assert(Object.values(after.independent_glyph_operations).some(row=>row.offscreen_calls>0),'actual offscreen negative missing');
-      if(name==='operation-overflow')assert(Object.values(after.independent_glyph_operations).reduce((n,row)=>n+row.calls.length,0)>64,'actual operation budget not exceeded');
     }else{
       for(const row of text){
         assert.equal(row.native_text_pixels?.status,'known','real selected glyph contribution not observed');
