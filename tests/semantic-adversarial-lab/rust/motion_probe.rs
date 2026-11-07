@@ -149,6 +149,7 @@ fn probe(id: &str) -> ProbeResult<Value> {
                     end_frame_exclusive: 6,
                     scale: RenderScale::Full,
                     transparent: true,
+                    text_pixel_observation_frames: Vec::new(),
                     timeout_ms: 10_000,
                 },
             )?;
@@ -167,6 +168,7 @@ fn probe(id: &str) -> ProbeResult<Value> {
                 end_frame_exclusive: end,
                 scale: RenderScale::Full,
                 transparent: false,
+                text_pixel_observation_frames: Vec::new(),
                 timeout_ms: timeout,
             };
             json!({

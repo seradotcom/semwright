@@ -773,6 +773,10 @@ pub struct RenderProfile {
     pub scale: RenderScale,
     #[serde(default)]
     pub transparent: bool,
+    /// Selected native playback frames for bounded read-only glyph paint observation.
+    /// Empty retains the legacy profile and has no serialized field.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub text_pixel_observation_frames: Vec<u64>,
     pub timeout_ms: u64,
 }
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

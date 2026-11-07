@@ -2290,6 +2290,7 @@ fn motion_live_profile() -> semwright_driver_motion_canvas::model::RenderProfile
         end_frame_exclusive: 6,
         scale: semwright_driver_motion_canvas::model::RenderScale::Full,
         transparent: false,
+        text_pixel_observation_frames: Vec::new(),
         timeout_ms: 120_000,
     }
 }

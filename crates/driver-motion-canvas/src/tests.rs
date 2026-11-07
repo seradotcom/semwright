@@ -85,6 +85,7 @@ fn hello_text_source_codegen_and_render_plan_match_goldens() {
             end_frame_exclusive: 30,
             scale: RenderScale::Full,
             transparent: false,
+            text_pixel_observation_frames: Vec::new(),
             timeout_ms: 10_000,
         },
     )
@@ -362,6 +363,7 @@ fn render_range_is_half_open() {
             end_frame_exclusive: 6,
             scale: RenderScale::Full,
             transparent: true,
+            text_pixel_observation_frames: Vec::new(),
             timeout_ms: 10000,
         },
     )
@@ -406,6 +408,7 @@ fn render_profile_is_bounded() {
                     end_frame_exclusive: end,
                     scale: RenderScale::Full,
                     transparent: false,
+                    text_pixel_observation_frames: Vec::new(),
                     timeout_ms: 10000
                 }
             )
@@ -656,6 +659,7 @@ fn authoring_render_range_requires_replay_from_frame_zero() {
         end_frame_exclusive: 2,
         scale: RenderScale::Full,
         transparent: false,
+        text_pixel_observation_frames: Vec::new(),
         timeout_ms: 10_000,
     };
     let error = validate::render_plan(&authoring, &partial).unwrap_err();
@@ -667,7 +671,7 @@ fn authoring_render_range_requires_replay_from_frame_zero() {
         &RenderProfile {
             first_frame: 0,
             end_frame_exclusive: 2,
-            ..partial
+            ..partial.clone()
         },
     )
     .unwrap();
@@ -677,4 +681,73 @@ fn authoring_render_range_requires_replay_from_frame_zero() {
     let legacy = fixture();
     let legacy_partial = validate::render_plan(&legacy, &partial).unwrap();
     assert_eq!(legacy_partial.first_frame, 1);
+}
+
+// Pure profile/plan regressions. These fixtures are not Native evidence.
+#[test]
+fn text_pixel_profile_absence_preserves_legacy_wire_bytes() {
+    let original = br#"{"first_frame":0,"end_frame_exclusive":30,"scale":"full","transparent":false,"timeout_ms":10000}"#;
+    let profile: RenderProfile = serde_json::from_slice(original).unwrap();
+    assert!(profile.text_pixel_observation_frames.is_empty());
+    assert_eq!(serde_json::to_vec(&profile).unwrap(), original);
+    let plan = validate::render_plan(&fixture(), &profile).unwrap();
+    assert!(
+        serde_json::to_value(plan)
+            .unwrap()
+            .get("text_pixel_observation_frames")
+            .is_none()
+    );
+}
+
+#[test]
+fn text_pixel_profile_binds_ordered_authoring_samples_and_area() {
+    use semwright_motion_authoring::{AspectFamily, Film};
+    let mut film: Film = semwright_semantic_composition::strict_decode(include_bytes!(
+        "../../../fixtures/composition/motion/technical.json"
+    ))
+    .unwrap();
+    let mut profile = RenderProfile {
+        first_frame: 0,
+        end_frame_exclusive: 30,
+        scale: RenderScale::Full,
+        transparent: false,
+        timeout_ms: 10_000,
+        text_pixel_observation_frames: vec![0, 10, 29],
+    };
+    for (width, height, aspect) in [
+        (1920, 1080, AspectFamily::Landscape),
+        (1080, 1920, AspectFamily::Portrait),
+        (1080, 1080, AspectFamily::Square),
+    ] {
+        film.output.width = width;
+        film.output.height = height;
+        film.output.aspect = aspect;
+        let (project, _) = crate::authoring::project(&film, None).unwrap();
+        let plan = validate::render_plan(&project, &profile).unwrap();
+        assert_eq!(plan.text_pixel_observation_frames, [0, 10, 29]);
+        assert_eq!((plan.width, plan.height), (width, height));
+        let before = semwright_semantic_composition::canonical_digest(&plan).unwrap();
+        profile.text_pixel_observation_frames = vec![0, 11, 29];
+        let changed = validate::render_plan(&project, &profile).unwrap();
+        assert_ne!(
+            before,
+            semwright_semantic_composition::canonical_digest(&changed).unwrap()
+        );
+        profile.text_pixel_observation_frames = vec![0, 10, 29];
+    }
+    let (project, _) = crate::authoring::project(&film, None).unwrap();
+    for roster in [
+        vec![10, 0],
+        vec![0, 0],
+        vec![30],
+        vec![u64::MAX],
+        (0..8).collect(),
+    ] {
+        profile.text_pixel_observation_frames = roster;
+        assert!(validate::render_plan(&project, &profile).is_err());
+    }
+    profile.text_pixel_observation_frames = vec![0];
+    assert!(validate::render_plan(&fixture(), &profile).is_err());
+    profile.scale = RenderScale::Double;
+    assert!(validate::render_plan(&project, &profile).is_err());
 }

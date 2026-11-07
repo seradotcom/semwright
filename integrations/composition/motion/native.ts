@@ -3,7 +3,7 @@
  * semwright-motion-authoring before it enters this module; runtime guards remain.
  */
 import {Node,Layout,Rect,Circle,Line,Txt,Code,Img,Video,Camera,makeScene2D,lines,LezerHighlighter} from '@motion-canvas/2d';
-import {Vector2,all,delay,waitFor,tween,linear,easeInCubic,easeOutCubic,easeInOutCubic,easeOutBack,easeOutExpo,easeInOutSine,easeOutElastic,useTime,useThread} from '@motion-canvas/core';
+import {Vector2,all,delay,waitFor,tween,linear,easeInCubic,easeOutCubic,easeInOutCubic,easeOutBack,easeOutExpo,easeInOutSine,easeOutElastic,useTime,useThread,usePlayback} from '@motion-canvas/core';
 import type {ThreadGenerator,TimingFunction} from '@motion-canvas/core';
 import {parser as jsParser} from '@lezer/javascript';
 import {parser as pythonParser} from '@lezer/python';
@@ -40,11 +40,13 @@ type ResolvedCue={status:'resolved';start:Rat;end:Rat}|{status:'unknown';reason:
 export type NativeSceneData={version:1;id:string;start:Rat;end:Rat;width:number;height:number;aspect:string;safe_area:Insets;editorial:Editorial;shots:NativeShot[];instructions:Instruction[];cues:Record<string,ResolvedCue>};
 export type AssetUrls=Readonly<Record<string,string>>;
 export type FontEvidence={family:string;sha256:string;weights:number[];codepoints:number[][];face_loaded:boolean};
-export type FrameBinding={render_input_digest:string;native_stage_version:'3.17.2';font_evidence:FontEvidence[]};
+export type FrameBinding={render_input_digest:string;native_stage_version:'3.17.2';font_evidence:FontEvidence[];
+ text_pixel_observation_frames?:number[];text_pixel_background?:string|null};
 export type NativeProbe={frame:number;subjects:unknown[];transitions:unknown[];captions:unknown[];unresolved_cues:string[]};
 declare global {
  var __SEMWRIGHT_NATIVE_PROBE__: undefined|((canvas:HTMLCanvasElement,frame:number,binding:FrameBinding)=>Promise<NativeProbe>);
  var __SEMWRIGHT_NATIVE_FRAME_CLOCK__: undefined|{frame:number;fps_num:number;fps_den:number};
+ var __SEMWRIGHT_NATIVE_CONFIG__: undefined|(FrameBinding&{fps_num:number;fps_den:number});
  var __SEMWRIGHT_TEXT_DIGEST__: undefined|((text:string)=>Promise<string>);
 }
 const known=<T>(value:T):Known<T>=>({status:'known',value});
@@ -269,6 +271,204 @@ type NativeClipRecord={canvas:HTMLCanvasElement;value:Known<NativeOwnClip>};
 type NativeSceneDraw={scene:Node;canvas:HTMLCanvasElement;matrix:Matrix6;completed:boolean};
 type NativeMethod=(this:unknown,...args:unknown[])=>unknown;
 
+// Read-only contribution observation of real Canvas glyph paint operations.
+// No isolated text render, generated GOLD, ROI proxy or RED/GREEN difference.
+type TextPixelCall={serial:number;operation:'fill_text'|'stroke_text';matrix:Matrix6;
+ text:string;text_digest:string;font:string;color:[number,number,number];x:number;y:number;
+ max_width:number|null;changed_pixels:number;global_alpha:1;composite:'source-over';filter:'none'};
+type TextPixelMask={encoding:'row-runs-u16le-base64';data:string;runs:number;changed_pixels:number};
+type NativeTextPixels={native_key:string;frame:number;width:number;height:number;playback_fps:number;
+ fps_num:number;fps_den:number;selected_frames:number[];render_input_digest:string;
+ output_background:string|null;calls:TextPixelCall[];mask:TextPixelMask};
+type PendingTextCall=Omit<TextPixelCall,'text_digest'>;
+type TextPixelSubject={node:Txt;visits:number;completed:boolean;calls:PendingTextCall[];bits:Uint8Array};
+type TextPixelFrame={frame:number;fps:number;fps_num:number;fps_den:number;samples:number[];
+ digest:string;background:string|null;canvas:HTMLCanvasElement;context:CanvasRenderingContext2D;
+ width:number;height:number;subjects:Map<string,TextPixelSubject>;union:Uint8Array;
+ operations:number;callBytes:number;completed:boolean;restored:boolean;failure:string|null};
+const TEXT_PIXEL_AREA=1920*1080,TEXT_PIXEL_MAX_CALLS=64,TEXT_PIXEL_RLE_BYTES=65532;
+function textPixelRgb(value:unknown):[number,number,number]|null{
+ if(typeof value!=='string')return null;
+ const found=/^#([0-9a-f]{6})$/i.exec(value);
+ if(!found)return null;
+ return [0,2,4].map(at=>parseInt(found[1].slice(at,at+2),16)) as [number,number,number];
+}
+function textPixelBit(bits:Uint8Array,index:number){return (bits[index>>3]&(1<<(index&7)))!==0;}
+function textPixelSet(bits:Uint8Array,index:number){bits[index>>3]|=1<<(index&7);}
+function textPixelRle(bits:Uint8Array,width:number,height:number):TextPixelMask{
+ const encoded=new Uint8Array(TEXT_PIXEL_RLE_BYTES);const view=new DataView(encoded.buffer);
+ let used=0,changed=0;
+ for(let y=0;y<height;y++)for(let x=0;x<width;){
+  if(!textPixelBit(bits,y*width+x)){x++;continue;}
+  const start=x;while(x<width&&textPixelBit(bits,y*width+x))x++;
+  requireValue(used+6<=encoded.length,'native text pixel RLE budget');
+  view.setUint16(used,y,true);view.setUint16(used+2,start,true);view.setUint16(used+4,x-start,true);
+  used+=6;changed+=x-start;
+ }
+ let bytes='';for(let i=0;i<used;i+=1024)bytes+=String.fromCharCode(...encoded.subarray(i,Math.min(i+1024,used)));
+ const data=btoa(bytes);encoded.fill(0);
+ requireValue(data.length<=87376&&data.length%8===0,'native text pixel transport bound');
+ return {encoding:'row-runs-u16le-base64',data,runs:used/6,changed_pixels:changed};
+}
+function beginTextPixelFrame(reg:ReturnType<typeof registration>,context:CanvasRenderingContext2D):TextPixelFrame|undefined{
+ const config=globalThis.__SEMWRIGHT_NATIVE_CONFIG__,samples=config?.text_pixel_observation_frames;
+ if(!samples?.length)return undefined;
+ const playback=usePlayback();
+ const width=context.canvas.width,height=context.canvas.height;
+ requireValue(Array.isArray(samples)&&samples.length<=7&&samples.every((v,i)=>Number.isSafeInteger(v)&&v>=0&&(i===0||samples[i-1]<v)),'native text pixel sample roster');
+ requireValue(Number.isSafeInteger(playback.frame)&&playback.frame>=0&&Number.isSafeInteger(config.fps_num)&&config.fps_num>0&&Number.isSafeInteger(config.fps_den)&&config.fps_den>0&&playback.fps===config.fps_num/config.fps_den,'native text pixel playback binding');
+ if(!samples.includes(playback.frame))return undefined;
+ requireValue(width>0&&height>0&&width<=4096&&height<=4096&&width*height<=TEXT_PIXEL_AREA,'native text pixel canvas budget');
+ requireValue(config.text_pixel_background===null||textPixelRgb(config.text_pixel_background)!==null,'native text pixel background observation');
+ const subjects=new Map<string,TextPixelSubject>();
+ for(const shot of reg.data.shots)for(const subject of shot.subjects)if(subject.content.kind==='text'){
+  const node=reg.nodes.get(subject.id);
+  requireValue(node instanceof Txt&&!subjects.has(subject.id),'native text pixel subject identity');
+  requireValue(subjects.size<2,'native text pixel subject budget');
+  subjects.set(subject.id,{node,visits:0,completed:false,calls:[],bits:new Uint8Array(Math.ceil(width*height/8))});
+ }
+ requireValue(/^[0-9a-f]{64}$/.test(config.render_input_digest),'native text pixel render binding');
+ return {frame:playback.frame,fps:playback.fps,fps_num:config.fps_num,fps_den:config.fps_den,
+  samples:[...samples],digest:config.render_input_digest,background:config.text_pixel_background,
+  canvas:context.canvas,context,width,height,subjects,union:new Uint8Array(Math.ceil(width*height/8)),
+  operations:0,callBytes:0,completed:false,restored:false,failure:null};
+}
+function paintTextPixels(frame:TextPixelFrame,reg:ReturnType<typeof registration>,method:'fillText'|'strokeText',
+ original:Function,receiver:unknown,args:unknown[]){
+ const forward=()=>Reflect.apply(original,receiver,args);
+ if(frame.failure)return forward();
+ const native=reg.renderStack[reg.renderStack.length-1],id=native?reg.semanticIds.get(native):undefined;
+ const subject=id?frame.subjects.get(id):undefined;
+ let call:PendingTextCall|undefined,before:ImageData|undefined;
+ try{
+  requireValue(receiver===frame.context&&subject&&native===subject.node&&frame.canvas===reg.canvas,'native glyph paint owner or canvas unavailable');
+  requireValue(++frame.operations<=TEXT_PIXEL_MAX_CALLS,'native glyph paint operation budget');
+  const context=frame.context;
+  requireValue(args.length>=3&&args.length<=4&&typeof args[0]==='string'&&new TextEncoder().encode(args[0]).length<=8192,
+   'native glyph paint arguments');
+  requireValue(args.slice(1).every(v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=2e6)
+   &&(args.length===3||(args[3] as number)>0),'native glyph paint coordinates');
+  requireValue(context.globalAlpha===1&&context.globalCompositeOperation==='source-over'&&context.filter==='none'
+   &&context.shadowBlur===0&&context.shadowOffsetX===0&&context.shadowOffsetY===0
+   &&context.shadowColor==='rgba(0, 0, 0, 0)','native glyph paint context unsupported');
+  const color=textPixelRgb(method==='fillText'?context.fillStyle:context.strokeStyle);
+  requireValue(color!==null,'native glyph paint opaque solid style unavailable');
+  const authored=reg.data.shots.flatMap(s=>s.subjects).find(s=>s.id===id)!;
+  requireValue(authored.content.kind==='text','native glyph source subject type');
+  const fallback=reg.data.editorial.colors.text??Object.values(reg.data.editorial.colors)[0]??'#202020';
+  const allowed=authored.content.runs.map(r=>textPixelRgb(r.color??fallback));
+  requireValue(allowed.every(v=>v!==null)&&allowed.some(v=>v!.every((c,i)=>c===color[i])),'native glyph style differs from observed source runs');
+  const background=frame.background===null?null:textPixelRgb(frame.background);
+  requireValue(background===null||background.some((c,i)=>c!==color[i]),'native glyph and output background have identical color');
+  requireValue(typeof context.font==='string'&&context.font.length>0&&new TextEncoder().encode(context.font).length<=512,'native glyph font style unavailable');
+  const attributes=context.getContextAttributes();
+  requireValue(attributes.colorSpace==='srgb','native glyph readback color space unsupported');
+  call={serial:frame.operations-1,operation:method==='fillText'?'fill_text':'stroke_text',matrix:nativeMatrix(context.getTransform()),
+   text:args[0],font:context.font,color,x:args[1] as number,y:args[2] as number,max_width:args.length===4?args[3] as number:null,
+   changed_pixels:0,global_alpha:1,composite:'source-over',filter:'none'};
+  before=context.getImageData(0,0,frame.width,frame.height);
+  requireValue(before.width===frame.width&&before.height===frame.height&&before.colorSpace==='srgb'
+   &&before.data instanceof Uint8ClampedArray&&before.data.length===frame.width*frame.height*4,'native glyph before readback incomplete');
+  // Equal opaque destination color could hide glyph coverage. Existing observed
+  // text is already in the frame union; other equal-color pixels deny this proof.
+  for(let p=0;p<frame.width*frame.height;p++){
+   const at=p*4;
+   requireValue(before.data[at+3]===0||textPixelBit(frame.union,p)
+    ||color.some((c,i)=>before!.data[at+i]!==c),'native glyph contrast is not independently decidable');
+  }
+ }catch{
+  frame.failure='native glyph operation, style, contrast or readback unsupported';
+  before=undefined;
+ }
+ // The original operation executes exactly once even if observation is denied.
+ let result:unknown;
+ try{result=forward();}catch(error){frame.failure='original native glyph operation did not complete';throw error;}
+ if(!frame.failure&&before&&call&&subject){
+  try{
+   const after=frame.context.getImageData(0,0,frame.width,frame.height);
+   requireValue(after.width===frame.width&&after.height===frame.height&&after.colorSpace==='srgb'
+    &&after.data instanceof Uint8ClampedArray&&after.data.length===before.data.length,'native glyph after readback incomplete');
+   for(let p=0;p<frame.width*frame.height;p++){
+    const at=p*4;
+    if(before.data[at]!==after.data[at]||before.data[at+1]!==after.data[at+1]
+      ||before.data[at+2]!==after.data[at+2]||before.data[at+3]!==after.data[at+3]){
+     textPixelSet(subject.bits,p);textPixelSet(frame.union,p);call.changed_pixels++;
+    }
+   }
+   // This bound is inside the existing 512 KiB observation-line and 8 MiB
+   // FixedTxt stream budgets. Overflow denies observation, never truncates it.
+   frame.callBytes+=new TextEncoder().encode(JSON.stringify(call)).length+82;
+   requireValue(frame.callBytes<=65536,'native glyph call metadata budget');
+   subject.calls.push(call);
+  }catch{frame.failure='native glyph after readback unavailable';}
+ }
+ before=undefined;
+ return result;
+}
+function withTextPixelFrame<T>(reg:ReturnType<typeof registration>,context:CanvasRenderingContext2D,run:()=>T):T{
+ if(reg.textPixels){
+  reg.textPixels.union.fill(0);
+  for(const subject of reg.textPixels.subjects.values()){subject.bits.fill(0);subject.calls.length=0;}
+ }
+ reg.textPixels=undefined;
+ let frame:TextPixelFrame|undefined;
+ try{frame=beginTextPixelFrame(reg,context);reg.textPixels=frame;}catch{/* requested observation remains UNKNOWN */}
+ if(!frame)return run();
+ frame.restored=true; // No method has been replaced yet.
+ const installed:{name:'fillText'|'strokeText';descriptor:PropertyDescriptor|undefined;original:Function}[]=[];
+ function restore(){
+  if(installed.length===0)return;
+  let okay=true;
+  for(const row of installed.reverse())try{
+   if(row.descriptor)Object.defineProperty(context,row.name,row.descriptor);else delete (context as unknown as Record<string,unknown>)[row.name];
+   if(context[row.name]!==row.original)okay=false;
+  }catch{okay=false;}
+  installed.length=0;frame!.restored=okay;
+  if(!okay)frame!.failure='native glyph method restoration failed';
+ }
+ try{
+  for(const name of ['fillText','strokeText'] as const){
+   const descriptor=Object.getOwnPropertyDescriptor(context,name),original=context[name];
+   requireValue(typeof original==='function'&&(!descriptor||descriptor.configurable),'native glyph method cannot be safely observed');
+   Object.defineProperty(context,name,{configurable:true,writable:true,enumerable:descriptor?.enumerable??false,value:function(this:unknown,...args:unknown[]){
+    return paintTextPixels(frame!,reg,name,original,this,args);
+   }});
+   installed.push({name,descriptor,original});
+   frame.restored=false;
+  }
+ }catch{frame.failure='native glyph observation wrapper unavailable';restore();}
+ try{const result=run();frame.completed=true;return result;}finally{restore();}
+}
+async function nativeTextPixelObservation(reg:ReturnType<typeof registration>,id:string,canvas:HTMLCanvasElement,frame:number,binding:FrameBinding){
+ if(!binding.text_pixel_observation_frames?.length)return {};
+ let observed:Known<NativeTextPixels>=unknown('native glyph contribution not selected or not observed');
+ try{
+  const capture=reg.textPixels,subject=capture?.subjects.get(id),node=reg.nodes.get(id);
+  requireValue(capture&&subject&&node instanceof Txt&&subject.node===node&&!capture.failure
+   &&capture.completed&&capture.restored,'native glyph capture incomplete or unsupported');
+  const invisible=node.absoluteOpacity()===0;
+  requireValue((subject.visits===1&&subject.completed)||(subject.visits===0&&invisible&&subject.calls.length===0),
+   'native glyph subject draw incomplete or repeated');
+  requireValue(capture.frame===frame&&capture.samples.length===binding.text_pixel_observation_frames.length
+   &&capture.samples.every((v,i)=>v===binding.text_pixel_observation_frames![i])&&capture.digest===binding.render_input_digest
+   &&capture.background===binding.text_pixel_background,'native glyph frame or renderer binding changed');
+  const exported=globalThis.__SEMWRIGHT_NATIVE_FRAME_CLOCK__;
+  requireValue(exported&&exported.frame===capture.frame&&exported.fps_num===capture.fps_num
+   &&exported.fps_den===capture.fps_den,'native glyph playback/exporter clock differs');
+  requireValue(capture.canvas===reg.canvas&&capture.width===canvas.width&&capture.height===canvas.height,
+   'native glyph canvas reference or exported dimensions changed');
+  requireValue(subject.calls.length>0||invisible||node.text()==='',
+   'native glyph root-canvas calls absent, possibly cached or offscreen');
+  const calls:TextPixelCall[]=[];
+  for(const call of subject.calls)calls.push({...call,text_digest:await textHash(call.text)});
+  observed=known({native_key:nativeKey(node),frame,width:capture.width,height:capture.height,
+   playback_fps:capture.fps,fps_num:capture.fps_num,fps_den:capture.fps_den,selected_frames:capture.samples,
+   render_input_digest:capture.digest,output_background:capture.background,calls,
+   mask:textPixelRle(subject.bits,capture.width,capture.height)});
+ }catch{/* No cropped mask, guessed ink, repeated paint or threshold fallback. */}
+ return {native_text_pixels:observed};
+}
+
 function nativeKey(n:Node):string{
  const key=n.key;requireValue(typeof key==='string'&&key.length>0&&key.length<=512&&/^[\x20-\x7e]+$/.test(key),'native node key unavailable');return key;
 }
@@ -446,7 +646,10 @@ function instrument(n:Node,id:string,reg:ReturnType<typeof registration>){
  if(n instanceof Camera){try{const original=n.scene();if(original instanceof Node)reg.cameraOrigins.set(n,original);}catch{/* unavailable scene identity stays UNKNOWN */}}
  const render=n.render.bind(n);
  n.render=(context:CanvasRenderingContext2D)=>{
+  const pixelSubject=reg.textPixels?.subjects.get(id);
+  if(pixelSubject)pixelSubject.visits++;
   const result=observeNativeRender(n,context,reg,()=>render(context));
+  if(pixelSubject)pixelSubject.completed=true;
   if(n.absoluteOpacity()>0){
    reg.rendered.add(id);
    // Layout/Txt transforms and cache bounds can require the native DOM layout
@@ -465,7 +668,7 @@ function instrument(n:Node,id:string,reg:ReturnType<typeof registration>){
 }
 function registration(data:NativeSceneData,nodes:Map<string,Node>){return {data,nodes,draws:new Map<string,DrawRecord>(),rendered:new Set<string>(),canvas:null as HTMLCanvasElement|null,drawSerial:0,finished:new Set<string>(),captionActive:new Map<string,boolean>(),
  nativeView:null as Node|null,semanticIds:new WeakMap<Node,string>(),renderStack:[] as Node[],nativeClips:new Map<Node,NativeClipRecord>(),
- cameraOrigins:new WeakMap<Camera,Node>(),cameraDraws:new Map<Camera,{count:number;draw?:NativeSceneDraw}>()};}
+ textPixels:undefined as TextPixelFrame|undefined,cameraOrigins:new WeakMap<Camera,Node>(),cameraDraws:new Map<Camera,{count:number;draw?:NativeSceneDraw}>()};}
 function transformed(box:DrawRecord['bounds'],m:DOMMatrix){const p=[[box.x,box.y],[box.x+box.width,box.y],[box.x,box.y+box.height],[box.x+box.width,box.y+box.height]].map(([x,y])=>m.transformPoint({x,y}));const x=Math.min(...p.map(x=>x.x)),y=Math.min(...p.map(x=>x.y));return{x,y,width:Math.max(...p.map(x=>x.x))-x,height:Math.max(...p.map(x=>x.y))-y};}
 async function textHash(text:string){const digest=globalThis.__SEMWRIGHT_TEXT_DIGEST__;requireValue(typeof digest==='function','native text digest binding unavailable');const hash=await digest(text);requireValue(/^[0-9a-f]{64}$/.test(hash),'native text digest binding returned invalid hash');return hash;}
 function hasGlyph(face:FontEvidence,cp:number){return face.codepoints.some(([a,b])=>a<=cp&&cp<=b);}
@@ -511,7 +714,8 @@ async function probeScene(reg:ReturnType<typeof registration>,canvas:HTMLCanvasE
   let asset_ready:Known<boolean>=known(true);
   if(c.kind==='image'||c.kind==='video')asset_ready=rendered?known(true):unknown('asset was not observed in a completed native draw');
   const observedLayout=nativeLayoutObservation(n,draw,coordinateKnown);
-  output.push({id:subject.id,...observedLayout,native_geometry:nativeGeometryObservation(n,draw,coordinateKnown,observedLayout.screen_layout_box.status==='known',reg),camera_scene:nativeCameraObservation(n,reg,canvas,cameras),local_size:draw?known({width:draw.bounds.width,height:draw.bounds.height}):unknown('native layout size unavailable'),bounds:coordinateKnown?known(transformed(draw!.bounds,draw!.matrix)):unknown('not drawn in the native scene buffer or unmodeled cache transform'),transform:coordinateKnown?known([draw!.matrix.a,draw!.matrix.b,draw!.matrix.c,draw!.matrix.d,draw!.matrix.e,draw!.matrix.f]):unknown('output transform unavailable'),opacity:known(n.absoluteOpacity()),drawn:rendered,z_order:draw?known(draw.serial):unknown('no native draw order'),clip_active:known(clipAncestor(n)),pixel_visibility:unknown('draw and alpha do not prove pixel contribution after overlap'),text,asset_ready});
+  const observedPixels=c.kind==='text'?await nativeTextPixelObservation(reg,subject.id,canvas,frame,binding):{};
+  output.push({id:subject.id,...observedLayout,...observedPixels,native_geometry:nativeGeometryObservation(n,draw,coordinateKnown,observedLayout.screen_layout_box.status==='known',reg),camera_scene:nativeCameraObservation(n,reg,canvas,cameras),local_size:draw?known({width:draw.bounds.width,height:draw.bounds.height}):unknown('native layout size unavailable'),bounds:coordinateKnown?known(transformed(draw!.bounds,draw!.matrix)):unknown('not drawn in the native scene buffer or unmodeled cache transform'),transform:coordinateKnown?known([draw!.matrix.a,draw!.matrix.b,draw!.matrix.c,draw!.matrix.d,draw!.matrix.e,draw!.matrix.f]):unknown('output transform unavailable'),opacity:known(n.absoluteOpacity()),drawn:rendered,z_order:draw?known(draw.serial):unknown('no native draw order'),clip_active:known(clipAncestor(n)),pixel_visibility:unknown('draw and alpha do not prove pixel contribution after overlap'),text,asset_ready});
  }
  const transitions=[...new Set(reg.data.instructions.map(i=>i.invocation))].map(id=>({invocation_id:id,finished:known(reg.finished.has(id))}));
  const captions=reg.data.shots.flatMap(s=>s.captions.map(c=>{const cue=reg.data.cues[c.cue_id];return{id:c.id,active:known((reg.captionActive.get(c.id)??false)&&reg.draws.has(c.subject)&&reg.nodes.get(c.subject)!.absoluteOpacity()>0&&(reg.nodes.get(c.subject) as Txt).text()===c.text),cue_start:cue?.status==='resolved'?known(cue.start):unknown('unresolved cue'),cue_end:cue?.status==='resolved'?known(cue.end):unknown('unresolved cue')};}));
@@ -539,7 +743,7 @@ export function createAuthoringScene(data:NativeSceneData,urls:AssetUrls){
   // instrument each subject inside createShot before parent.add/view.add can
   // prime Motion Canvas caches.
   reg.nativeView=view;const originalRender=view.render.bind(view);
-  view.render=(ctx:CanvasRenderingContext2D)=>{reg.canvas=ctx.canvas;reg.draws.clear();reg.rendered.clear();reg.drawSerial=0;reg.nativeClips.clear();reg.cameraDraws.clear();reg.renderStack.length=0;return originalRender(ctx);};
+  view.render=(ctx:CanvasRenderingContext2D)=>{reg.canvas=ctx.canvas;reg.draws.clear();reg.rendered.clear();reg.drawSerial=0;reg.nativeClips.clear();reg.cameraDraws.clear();reg.renderStack.length=0;return withTextPixelFrame(reg,ctx,()=>originalRender(ctx));};
   for(const shot of data.shots)view.add(createShot(shot,data,urls,nodes,reg));
   // Native dependency resolution participates in renderer startup; fonts and
   // media are awaited by native promises, never set ready from the desired model.

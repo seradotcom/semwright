@@ -57,6 +57,7 @@ fn subject(id: &str, bounds: Bounds) -> SubjectObservation {
         screen_layout_box: None,
         native_geometry: None,
         camera_scene: None,
+        native_text_pixels: None,
         local_size: Known::Known {
             value: Size {
                 width: bounds.width,

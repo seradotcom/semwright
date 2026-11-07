@@ -157,6 +157,255 @@ pub struct NativeCameraSceneObservation {
     pub cameras: Known<Vec<NativeCameraIdentity>>,
 }
 
+/// The affected pixels of actual Canvas glyph operations on the native scene
+/// buffer. This does not assert final visibility, isolated glyph coverage or GOLD.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeTextPixelObservation {
+    pub native_key: String,
+    pub frame: u64,
+    pub width: u32,
+    pub height: u32,
+    pub playback_fps: f64,
+    pub fps_num: u32,
+    pub fps_den: u32,
+    pub selected_frames: Vec<u64>,
+    pub render_input_digest: Digest,
+    #[serde(deserialize_with = "required_nullable_string")]
+    pub output_background: Option<String>,
+    pub calls: Vec<NativeTextPixelCall>,
+    pub mask: NativeTextPixelMask,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum NativeTextPixelOperation {
+    FillText,
+    StrokeText,
+}
+
+fn required_nullable_f64<'de, D>(deserializer: D) -> std::result::Result<Option<f64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<f64>::deserialize(deserializer)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeTextPixelCall {
+    pub serial: u32,
+    pub operation: NativeTextPixelOperation,
+    pub matrix: NativeDrawMatrix,
+    pub text: String,
+    pub text_digest: Digest,
+    pub font: String,
+    pub color: [u8; 3],
+    pub x: f64,
+    pub y: f64,
+    #[serde(deserialize_with = "required_nullable_f64")]
+    pub max_width: Option<f64>,
+    pub changed_pixels: u32,
+    pub global_alpha: f64,
+    pub composite: String,
+    pub filter: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeTextPixelMask {
+    pub encoding: String,
+    pub data: String,
+    pub runs: u32,
+    pub changed_pixels: u32,
+}
+
+impl NativeTextPixelMask {
+    fn validate(&self, width: u32, height: u32) -> Result<()> {
+        ensure(
+            self.encoding == "row-runs-u16le-base64"
+                && self.data.len() <= 87_376
+                && self.data.len().is_multiple_of(8)
+                && self.runs as usize == self.data.len() / 8,
+            "native glyph mask encoding or transport bound",
+        )?;
+        let mut previous: Option<(u32, u32)> = None;
+        let mut changed = 0_u32;
+        // Each canonical six-byte run is exactly eight base64 characters, so
+        // padding and alternate encodings are unnecessary and rejected.
+        for run in self.data.as_bytes().chunks_exact(8) {
+            let mut word = 0_u64;
+            for byte in run {
+                let part = match byte {
+                    b'A'..=b'Z' => u64::from(byte - b'A'),
+                    b'a'..=b'z' => u64::from(byte - b'a' + 26),
+                    b'0'..=b'9' => u64::from(byte - b'0' + 52),
+                    b'+' => 62,
+                    b'/' => 63,
+                    _ => return Err(c::ContractError::Invalid("native glyph mask base64".into())),
+                };
+                word = (word << 6) | part;
+            }
+            let bytes = word.to_be_bytes();
+            let y = u32::from(u16::from_le_bytes([bytes[2], bytes[3]]));
+            let x = u32::from(u16::from_le_bytes([bytes[4], bytes[5]]));
+            let count = u32::from(u16::from_le_bytes([bytes[6], bytes[7]]));
+            ensure(
+                y < height && x < width && count > 0 && x + count <= width,
+                "native glyph mask run leaves the observed canvas",
+            )?;
+            if let Some((old_y, old_end)) = previous {
+                ensure(
+                    y > old_y || (y == old_y && x > old_end),
+                    "native glyph mask runs overlap, touch or are unordered",
+                )?;
+            }
+            previous = Some((y, x + count));
+            changed += count;
+        }
+        ensure(
+            changed == self.changed_pixels && changed <= width * height,
+            "native glyph mask changed-pixel count differs",
+        )
+    }
+}
+
+impl FrameObservation {
+    fn validate_native_text_pixels(&self) -> Result<()> {
+        let mut known_count = 0_usize;
+        let mut calls = BTreeSet::new();
+        let mut binding: Option<&NativeTextPixelObservation> = None;
+        for subject in &self.subjects {
+            let Some(observed) = &subject.native_text_pixels else {
+                continue;
+            };
+            validate_observation_reason(observed)?;
+            let Some(value) = observed.value() else {
+                continue;
+            };
+            known_count += 1;
+            ensure(known_count <= 2, "native glyph observed subject budget")?;
+            validate_native_key(&value.native_key)?;
+            ensure(
+                subject.native_type.as_ref().and_then(Known::value) == Some(&NativeNodeType::Txt)
+                    && subject.text.is_some()
+                    && subject
+                        .native_geometry
+                        .as_ref()
+                        .and_then(Known::value)
+                        .is_some_and(|geometry| geometry.native_key == value.native_key),
+                "native glyph identity requires its observed native text node",
+            )?;
+            ensure(
+                value.frame == self.frame
+                    && (1..=4096).contains(&value.width)
+                    && (1..=4096).contains(&value.height)
+                    && u64::from(value.width) * u64::from(value.height) <= 1920 * 1080
+                    && !value.selected_frames.is_empty()
+                    && value.selected_frames.len() <= 7
+                    && value.selected_frames.contains(&self.frame)
+                    && value
+                        .selected_frames
+                        .windows(2)
+                        .all(|pair| pair[0] < pair[1])
+                    && value.selected_frames.iter().all(|frame| *frame <= 18_000),
+                "native glyph frame, canvas or selected roster differs",
+            )?;
+            ensure(
+                value.fps_den > 0
+                    && value.fps_num >= value.fps_den
+                    && u64::from(value.fps_num) <= 120 * u64::from(value.fps_den)
+                    && Rate::new(value.fps_num, value.fps_den)
+                        .is_ok_and(|rate| rate.num == value.fps_num && rate.den == value.fps_den)
+                    && value.playback_fps == f64::from(value.fps_num) / f64::from(value.fps_den),
+                "native glyph playback/export rate differs",
+            )?;
+            if let Some(color) = &value.output_background {
+                ensure(
+                    color.len() == 7
+                        && color.starts_with('#')
+                        && color.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit),
+                    "native glyph output background must be opaque or absent",
+                )?;
+            }
+            if let Some(first) = binding {
+                ensure(
+                    value.width == first.width
+                        && value.height == first.height
+                        && value.fps_num == first.fps_num
+                        && value.fps_den == first.fps_den
+                        && value.playback_fps == first.playback_fps
+                        && value.selected_frames == first.selected_frames
+                        && value.render_input_digest == first.render_input_digest
+                        && value.output_background == first.output_background,
+                    "native glyph subjects have different render bindings",
+                )?;
+            } else {
+                binding = Some(value);
+            }
+            ensure(
+                value.calls.len() <= 64,
+                "native glyph paint operation budget",
+            )?;
+            let mut prior_serial = None;
+            let mut summed_changes = 0_u64;
+            for call in &value.calls {
+                ensure(
+                    call.serial < 64
+                        && calls.insert(call.serial)
+                        && prior_serial.is_none_or(|prior| call.serial > prior),
+                    "native glyph operation serial is repeated or unordered",
+                )?;
+                prior_serial = Some(call.serial);
+                validate_native_matrix(&call.matrix)?;
+                crate::validate::finite(call.x, -2e6, 2e6)?;
+                crate::validate::finite(call.y, -2e6, 2e6)?;
+                if let Some(width) = call.max_width {
+                    crate::validate::finite(width, 0.0, 2e6)?;
+                    ensure(width > 0.0, "native glyph maximum width must be positive")?;
+                }
+                ensure(
+                    call.text.len() <= 8192
+                        && call.text_digest == Digest::of_bytes(call.text.as_bytes())
+                        && !call.font.is_empty()
+                        && call.font.len() <= 512
+                        && call.global_alpha == 1.0
+                        && call.composite == "source-over"
+                        && call.filter == "none"
+                        && call.changed_pixels <= value.width * value.height,
+                    "native glyph text, style or paint context differs",
+                )?;
+                if let Some(background) = &value.output_background {
+                    let same = (0..3).all(|index| {
+                        u8::from_str_radix(&background[1 + index * 2..3 + index * 2], 16)
+                            .is_ok_and(|channel| channel == call.color[index])
+                    });
+                    ensure(!same, "native glyph has no output background contrast")?;
+                }
+                summed_changes += u64::from(call.changed_pixels);
+            }
+            value.mask.validate(value.width, value.height)?;
+            ensure(
+                u64::from(value.mask.changed_pixels) <= summed_changes
+                    && (value.mask.changed_pixels > 0
+                        || value.calls.iter().all(|call| call.changed_pixels == 0)),
+                "native glyph union is inconsistent with its real paint operations",
+            )?;
+            if value.calls.is_empty() {
+                ensure(
+                    subject.opacity.value() == Some(&0.0)
+                        || subject
+                            .text
+                            .as_ref()
+                            .is_some_and(|text| text.observed_text_digest == Digest::of_bytes(b"")),
+                    "native glyph calls absent without observed empty or transparent text",
+                )?;
+            }
+        }
+        Ok(())
+    }
+}
+
 fn validate_native_key(key: &str) -> Result<()> {
     ensure(
         !key.is_empty() && key.len() <= 512 && key.bytes().all(|b| (32..=126).contains(&b)),
@@ -428,6 +677,9 @@ pub struct SubjectObservation {
     pub native_geometry: Option<Known<NativeGeometryObservation>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub camera_scene: Option<Known<NativeCameraSceneObservation>>,
+    /// Real per-operation pixel changes; absence and UNKNOWN prove no ink coverage.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_text_pixels: Option<Known<NativeTextPixelObservation>>,
     pub local_size: Known<Size>,
     pub bounds: Known<Bounds>,
     pub transform: Known<[f64; 6]>,
@@ -514,6 +766,7 @@ impl FrameObservation {
                 && self.unresolved_cues.len() <= 512,
             "native observation collection budget",
         )?;
+        self.validate_native_text_pixels()?;
         let mut seen = BTreeSet::new();
         for subject in &self.subjects {
             crate::validate::id(&subject.id)?;
