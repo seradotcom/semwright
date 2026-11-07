@@ -76,10 +76,10 @@ impl OwnerOperations {
             if state.physically_closed {
                 return Ok(());
             }
-            if !state
+            if state
                 .held
                 .get(permit)
-                .is_some_and(|held| held.parent == parent)
+                .is_none_or(|held| held.parent != parent)
             {
                 return Err(denied());
             }
