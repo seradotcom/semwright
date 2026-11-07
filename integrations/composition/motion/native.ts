@@ -282,16 +282,28 @@ type NativeTextPixels={native_key:string;frame:number;width:number;height:number
  output_background:string|null;calls:TextPixelCall[];mask:TextPixelMask};
 type PendingTextCall=Omit<TextPixelCall,'text_digest'>;
 type TextPixelSubject={node:Txt;visits:number;completed:boolean;calls:PendingTextCall[];bits:Uint8Array};
+type TextPixelFailure='native glyph operation, style, contrast or readback unsupported'
+ |'native glyph before readback shape or color unavailable'|'native glyph before contrast unavailable'
+ |'original native glyph operation did not complete'|'native glyph after readback unavailable'
+ |'native glyph method restoration failed'|'native glyph observation wrapper unavailable';
 type TextPixelFrame={frame:number;fps:number;fps_num:number;fps_den:number;samples:number[];
  digest:string;background:string|null;canvas:HTMLCanvasElement;context:CanvasRenderingContext2D;
  width:number;height:number;subjects:Map<string,TextPixelSubject>;union:Uint8Array;
- operations:number;callBytes:number;completed:boolean;restored:boolean;failure:string|null};
+ operations:number;callBytes:number;completed:boolean;restored:boolean;failure:TextPixelFailure|null};
 const TEXT_PIXEL_AREA=1920*1080,TEXT_PIXEL_MAX_CALLS=64,TEXT_PIXEL_RLE_BYTES=65532;
 function textPixelRgb(value:unknown):[number,number,number]|null{
  if(typeof value!=='string')return null;
  const found=/^#([0-9a-f]{6})$/i.exec(value);
  if(!found)return null;
  return [0,2,4].map(at=>parseInt(found[1].slice(at,at+2),16)) as [number,number,number];
+}
+// The native context must negotiate sRGB. Some pinned Firefox versions expose
+// no ImageData.colorSpace attribute; preserve that absence, never synthesize it.
+// An explicit contrary/undefined tag is rejected, as is an unobserved context.
+function textPixelReadbackInSrgb(image:ImageData,width:number,height:number,contextSpace:unknown):boolean{
+ return contextSpace==='srgb'&&image instanceof ImageData&&image.width===width&&image.height===height
+  &&image.data instanceof Uint8ClampedArray&&image.data.length===width*height*4
+  &&(!('colorSpace' in image)||image.colorSpace==='srgb');
 }
 function textPixelBit(bits:Uint8Array,index:number){return (bits[index>>3]&(1<<(index&7)))!==0;}
 function textPixelSet(bits:Uint8Array,index:number){bits[index>>3]|=1<<(index&7);}
@@ -340,6 +352,7 @@ function paintTextPixels(frame:TextPixelFrame,reg:ReturnType<typeof registration
  const native=reg.renderStack[reg.renderStack.length-1],id=native?reg.semanticIds.get(native):undefined;
  const subject=id?frame.subjects.get(id):undefined;
  let call:PendingTextCall|undefined,before:ImageData|undefined;
+ let beforeFailure:TextPixelFailure='native glyph operation, style, contrast or readback unsupported';
  try{
   requireValue(receiver===frame.context&&subject&&native===subject.node&&frame.canvas===reg.canvas,'native glyph paint owner or canvas unavailable');
   requireValue(++frame.operations<=TEXT_PIXEL_MAX_CALLS,'native glyph paint operation budget');
@@ -366,9 +379,10 @@ function paintTextPixels(frame:TextPixelFrame,reg:ReturnType<typeof registration
   call={serial:frame.operations-1,operation:method==='fillText'?'fill_text':'stroke_text',matrix:nativeMatrix(context.getTransform()),
    text:args[0],font:context.font,color,x:args[1] as number,y:args[2] as number,max_width:args.length===4?args[3] as number:null,
    changed_pixels:0,global_alpha:1,composite:'source-over',filter:'none'};
+  beforeFailure='native glyph before readback shape or color unavailable';
   before=context.getImageData(0,0,frame.width,frame.height);
-  requireValue(before.width===frame.width&&before.height===frame.height&&before.colorSpace==='srgb'
-   &&before.data instanceof Uint8ClampedArray&&before.data.length===frame.width*frame.height*4,'native glyph before readback incomplete');
+  requireValue(textPixelReadbackInSrgb(before,frame.width,frame.height,attributes.colorSpace),'native glyph before readback incomplete');
+  beforeFailure='native glyph before contrast unavailable';
   // Equal opaque destination color could hide glyph coverage. Existing observed
   // text is already in the frame union; other equal-color pixels deny this proof.
   for(let p=0;p<frame.width*frame.height;p++){
@@ -377,7 +391,7 @@ function paintTextPixels(frame:TextPixelFrame,reg:ReturnType<typeof registration
     ||color.some((c,i)=>before!.data[at+i]!==c),'native glyph contrast is not independently decidable');
   }
  }catch{
-  frame.failure='native glyph operation, style, contrast or readback unsupported';
+  frame.failure=beforeFailure;
   before=undefined;
  }
  // The original operation executes exactly once even if observation is denied.
@@ -386,8 +400,8 @@ function paintTextPixels(frame:TextPixelFrame,reg:ReturnType<typeof registration
  if(!frame.failure&&before&&call&&subject){
   try{
    const after=frame.context.getImageData(0,0,frame.width,frame.height);
-   requireValue(after.width===frame.width&&after.height===frame.height&&after.colorSpace==='srgb'
-    &&after.data instanceof Uint8ClampedArray&&after.data.length===before.data.length,'native glyph after readback incomplete');
+   requireValue(textPixelReadbackInSrgb(after,frame.width,frame.height,frame.context.getContextAttributes().colorSpace),
+    'native glyph after readback incomplete');
    for(let p=0;p<frame.width*frame.height;p++){
     const at=p*4;
     if(before.data[at]!==after.data[at]||before.data[at+1]!==after.data[at+1]
@@ -441,9 +455,10 @@ function withTextPixelFrame<T>(reg:ReturnType<typeof registration>,context:Canva
 }
 async function nativeTextPixelObservation(reg:ReturnType<typeof registration>,id:string,canvas:HTMLCanvasElement,frame:number,binding:FrameBinding){
  if(!binding.text_pixel_observation_frames?.length)return {};
- let observed:Known<NativeTextPixels>=unknown('native glyph contribution not selected or not observed');
+ const capture=reg.textPixels;
+ let observed:Known<NativeTextPixels>=unknown(capture?.failure??'native glyph contribution not selected or not observed');
  try{
-  const capture=reg.textPixels,subject=capture?.subjects.get(id),node=reg.nodes.get(id);
+  const subject=capture?.subjects.get(id),node=reg.nodes.get(id);
   requireValue(capture&&subject&&node instanceof Txt&&subject.node===node&&!capture.failure
    &&capture.completed&&capture.restored,'native glyph capture incomplete or unsupported');
   const invisible=node.absoluteOpacity()===0;

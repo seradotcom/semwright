@@ -20,15 +20,15 @@ for (let i = 2; i < process.argv.length; i += 2) {
 assert.deepEqual([...args.keys()].sort(), ['--baseline', '--case', '--output']);
 const CASES = ['paint-red', 'paint-green', 'absent-profile', 'unselected-frame', 'cached', 'unsupported-effects', 'same-color', 'operation-overflow', 'inactive-second'];
 const selection = args.get('--case');
-assert(selection === 'all' || CASES.includes(selection), 'closed text pixel focal case');
-const selected = selection === 'all' ? CASES : [selection];
+assert(selection === 'all' || selection === 'other-eight' || CASES.includes(selection), 'closed text pixel focal case');
+const selected = selection === 'all' ? CASES : selection === 'other-eight' ? CASES.filter(name=>name!=='paint-red') : [selection];
 const HISTORICAL = {
  GREEN: 'afc197bacf9d73c007833a315b253b1b901005a2c9ef7506eec57b2683aaf3c7',
  RED: 'ac4df30d0bdeab0a93924d5841ea18a76f269ce99f2903a2cfebc38e254a3c12',
 };
 const OBSERVED = {
- GREEN: '1c55cedb715c326f1a550e8111b30d88b64182959969762870adc141aa623174',
- RED: '1476ca0b2310593d73ac02ab406d538a94864ce238cd9161ba4dc7183bfa46e5',
+ GREEN: '0aa5b9bd414f3c7d88e9b871ee96e3523729c02caddd8d420d63d9f14c2c794d',
+ RED: '2d8ab6983d0845fe0290d6f25bef277759cb530ed85e6f3bd5e94f263a5f2bb3',
 };
 const RED = '   if(parent instanceof Camera){let scene=parent.scene();if(!scene){scene=new Node({});parent.scene(scene);}scene.add(n);}else parent.add(n);\n';
 const GREEN = `   // Fixed Txt keeps its DOM-enabled inline runs. A non-layout parent makes
@@ -118,6 +118,30 @@ function linearRuns(pixels){
  return runs;
 }
 
+function imageDataShape(image){
+ const present='colorSpace' in image,value=present?image.colorSpace:undefined;
+ return {width:image.width,height:image.height,data_type:image.data.constructor.name,data_bytes:image.data.length,
+  image_data_color_space:{attribute_present:present,value:value===undefined?null:value,value_type:typeof value}};
+}
+window.probeNativeReadbackApi=()=>{
+ const canvas=document.createElement('canvas');canvas.width=1;canvas.height=1;
+ const context=canvas.getContext('2d',{alpha:true,colorSpace:'srgb'}),attributes=context.getContextAttributes();
+ const image=context.getImageData(0,0,1,1),actual=imageDataShape(image),check=observedGreen.__focalReadbackInSrgb;
+ const accepted=check(image,1,1,attributes.colorSpace);
+ const descriptor=Object.getOwnPropertyDescriptor(image,'colorSpace');
+ let explicit_other_rejected=false,explicit_undefined_rejected=false;
+ try{
+  Object.defineProperty(image,'colorSpace',{configurable:true,value:'display-p3'});
+  explicit_other_rejected=check(image,1,1,attributes.colorSpace)===false;
+  Object.defineProperty(image,'colorSpace',{configurable:true,value:undefined});
+  explicit_undefined_rejected=check(image,1,1,attributes.colorSpace)===false;
+ }finally{if(descriptor)Object.defineProperty(image,'colorSpace',descriptor);else delete image.colorSpace;}
+ return {context_attributes:attributes,actual_native_image_data:actual,actual_readback_admitted:accepted,
+  synthetic_metadata_negative_checks:{explicit_other_rejected,explicit_undefined_rejected,
+   unobserved_context_rejected:check(image,1,1,undefined)===false,wrong_dimensions_rejected:check(image,2,1,attributes.colorSpace)===false},
+  original_image_data_metadata_restored:JSON.stringify(imageDataShape(image))===JSON.stringify(actual),
+  getImageData_calls:1,Txt_draw_calls:0,scene_render_calls:0,canvas_paint_calls:0};
+};
 window.runFocal=async({name,mode,arm})=>{
  const loaded=await Promise.all([400,700].map(weight=>document.fonts.load(weight+' 48px "Instrument Sans Variable"')));
  await document.fonts.ready;need(loaded.every(x=>x.length>0),'real bundled font not loaded');
@@ -158,12 +182,13 @@ window.runFocal=async({name,mode,arm})=>{
   const nativeRead=saved.get('getImageData').value;
   const oracle=Object.fromEntries(ids.map(id=>[id,{bits:new Uint8Array(W*H),calls:[],offscreen_calls:0}]));
   const owners=[],drawRestore=[],initialOwn=['fillText','strokeText'].map(key=>[key,Object.hasOwn(context,key)]);
-  let producerReads=0,drawCount=0,viewDraws=0;
+  let producerReads=0,drawCount=0,viewDraws=0,firstProducerReadbackShape=null;
   const view=scene.getView(),viewDescriptor=Object.getOwnPropertyDescriptor(view,'render'),viewRender=view.render;
   try{
    Object.defineProperty(view,'render',{configurable:true,writable:true,value:function(ctx){viewDraws++;return viewRender.call(this,ctx);}});
    Object.defineProperty(proto,'getImageData',{...saved.get('getImageData'),value:function(...args){
-    producerReads++;return nativeRead.apply(this,args);
+    producerReads++;const image=nativeRead.apply(this,args);
+    if(firstProducerReadbackShape===null)firstProducerReadbackShape=imageDataShape(image);return image;
    }});
    for(const id of ids){
     const node=reg.nodes.get(id),descriptor=Object.getOwnPropertyDescriptor(node,'draw'),original=node.draw;
@@ -227,11 +252,14 @@ window.runFocal=async({name,mode,arm})=>{
    row.bits.fill(0);
   }
   const finalPixels=nativeRead.call(context,0,0,W,H).data;
+  const capture=reg.textPixels;const producerCapture={present:!!capture,failure:capture?.failure??null,
+   completed:capture?.completed??null,restored:capture?.restored??null,operations:capture?.operations??null,
+   calls_metadata_bytes:capture?.callBytes??null,subjects:capture?[...capture.subjects].map(([id,s])=>({id,visits:s.visits,completed:s.completed,calls:s.calls.length})):[]};
   const methods=['fillText','strokeText'].map(key=>[key,Object.hasOwn(context,key)]);
   return {name,mode,arm,frame:playback.frame,width:W,height:H,input_binding:binding,
    pixel_sha256:await digest(pixels),post_probe_pixel_sha256:await digest(finalPixels),signals:afterSignals,probe,
    native_camera_scene_unchanged:camera.scene()===originalScene,independent_glyph_operations:independent,
-   producer_getImageData_calls:producerReads,semantic_draw_calls:drawCount,view_render_calls:viewDraws,scene_render_calls:1,render_elapsed_ms:renderMs,
+   producer_getImageData_calls:producerReads,first_producer_readback_shape:firstProducerReadbackShape,producer_capture:producerCapture,semantic_draw_calls:drawCount,view_render_calls:viewDraws,scene_render_calls:1,render_elapsed_ms:renderMs,
    context_own_methods_before:initialOwn,context_own_methods_after:methods,
    prototypes_restored:[...saved].every(([key,descriptor])=>Object.getOwnPropertyDescriptor(proto,key).value===descriptor.value),
    mismatched_export_bindings:mismatches};
@@ -311,9 +339,10 @@ try {
     const text = green.toString('utf8'); assert.equal(text.split(GREEN).length, 2, 'exact causal attachment delta');
     for (const [arm, body] of [['GREEN', text], ['RED', text.replace(GREEN, RED)]]) {
       assert.equal(sha(body), expected[arm], 'preserved arm source');
-      const tested = body + HOOK;
+      const access=HOOK+(mode==='observed'?'\nexport {textPixelReadbackInSrgb as __focalReadbackInSrgb};\n':'');
+      const tested = body + access;
       await fs.writeFile(path.join(work, mode + '-' + arm + '.ts'), tested, {flag:'wx'});
-      result.source_modules[mode + '-' + arm] = {original_sha256:sha(body), test_access_only_suffix_sha256:sha(HOOK), tested_sha256:sha(tested)};
+      result.source_modules[mode + '-' + arm] = {original_sha256:sha(body), test_access_only_suffix_sha256:sha(access), tested_sha256:sha(tested)};
     }
   }
   result.dependency_lock_sha256 = sha(lockBytes); result.pinned_native_API_files = API_PINS;
@@ -358,6 +387,15 @@ try {
   const context=await browser.newContext({viewport:{width:1920,height:1080},deviceScaleFactor:1,serviceWorkers:'block'});
   await context.route('**/*', route=>new URL(route.request().url()).origin===origin&&route.request().method()==='GET'
     ?route.continue():route.abort());
+  phase='native-api-readback-without-draw';
+  const apiPage=await context.newPage();
+  try{
+    await apiPage.goto(origin,{waitUntil:'networkidle',timeout:30000});
+    result.native_readback_API=await apiPage.evaluate(()=>window.probeNativeReadbackApi());
+  }finally{await apiPage.close();}
+  assert.equal(result.native_readback_API.actual_readback_admitted,true,'native sRGB readback API unavailable before drawing');
+  assert.equal(result.native_readback_API.original_image_data_metadata_restored,true);
+  assert(Object.values(result.native_readback_API.synthetic_metadata_negative_checks).every(value=>value===true));
   for (const name of selected) {
     phase = 'case:' + name; const arm=name.endsWith('-red')?'RED':'GREEN'; const rows=[];
     for (const mode of ['historical','observed']) {
@@ -373,7 +411,7 @@ try {
     }
     const [before,after]=rows;
     // Preserve both real draws before every verdict, including authentic negatives.
-    await retain(name+'.captured.original.json',{name,arm,original_native_results:rows});
+    await retain(name+'.captured.original.json',{name,arm,native_readback_API:result.native_readback_API,original_native_results:rows});
     assert.equal(before.pixel_sha256,after.pixel_sha256,'observer changed actual RGBA: '+name);
     for(const row of rows){
       assert.equal(row.pixel_sha256,row.post_probe_pixel_sha256,'probe changed actual RGBA');
