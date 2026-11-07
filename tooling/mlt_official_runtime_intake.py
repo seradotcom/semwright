@@ -24,7 +24,6 @@ import re
 import ssl
 import stat
 import subprocess
-import sys
 import tarfile
 import urllib.request
 

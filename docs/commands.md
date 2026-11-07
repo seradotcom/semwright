@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-161 built-in descriptors. A descriptor is not proof of live backend support.
+162 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -170,6 +170,7 @@ for many backends at this stage; strengthening them is a release gate.
 | `project.asset.provenance` | `filesystem.read:root` | read_only | 10000 ms | core |
 | `project.gc.preview` | `filesystem.read:root` | read_only | 10000 ms | core |
 | `project.gc.collect` | `filesystem.read:root`, `project.manage` | mutating | 10000 ms | core |
+| `providers.release_bound` | `providers.release_bound` | mutating | 15000 ms | core |
 | `providers.mount.observe` | `filesystem.read` | read_only | 10000 ms | core |
 | `providers.execute_bound` | `providers.execute_bound` | mutating | 300000 ms | core |
 
@@ -4942,6 +4943,41 @@ Idempotency: `non_idempotent`. Dry run: `false`.
     "project",
     "assets"
   ]
+}
+```
+
+## `providers.release_bound`
+
+Release an exact active provider generation bound by the same authenticated session mount. Reject a missing, expired, foreign or changed binding. Drain admitted operations and await actual ProviderLease shutdown; never infer child process closure or media success from this receipt.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "root": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "binding_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "provider",
+    "root",
+    "binding_ref"
+  ],
+  "additionalProperties": false
 }
 ```
 

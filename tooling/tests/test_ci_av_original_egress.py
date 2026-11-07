@@ -1,7 +1,5 @@
 """A6 AV27 typed original selector — inert, bounded, no native commands."""
 from __future__ import annotations
-import importlib.util
-import json
 import pathlib
 import sys
 import tempfile
