@@ -20,8 +20,8 @@ for (let i = 2; i < process.argv.length; i += 2) {
 assert.deepEqual([...args.keys()].sort(), ['--baseline', '--case', '--output']);
 const CASES = ['enabled-red', 'enabled-green', 'disabled-control', 'transformed', 'camera', 'cached'];
 const selection = args.get('--case');
-assert(selection === 'all' || CASES.includes(selection), 'closed focal case');
-const selected = selection === 'all' ? CASES : [selection];
+assert(selection === 'all' || selection === 'camera-and-cached' || CASES.includes(selection), 'closed focal case');
+const selected = selection === 'all' ? CASES : selection === 'camera-and-cached' ? ['camera','cached'] : [selection];
 const HISTORICAL = {
   GREEN: 'a400b38608e169a20e7ade099aa8632c11629152951b9e62a0fb66858b530f36',
   RED: 'dfe6c0fc226d7e9017eb718c7e745d942c4067a54f968d4483b80bbdd51b4fa8',
@@ -55,6 +55,8 @@ const API_PINS = {
   '@motion-canvas/2d/lib/components/View2D.js': 'dd62fee25ec7e8cfa6cdc4ee7e47d4cd82235c4258d571b3ca43f789c67c932e',
   '@motion-canvas/core/lib/app/Stage.js': '685ab2aa34c37e05932cbafea9aae6e8e5c5e101f72afc72fb475fdf90dbef23',
   '@motion-canvas/core/lib/types/BBox.js': '7c4f159e3b0e89bf886d773a9d63384bbbb5066d4a4e0521cf483df47f9653a7',
+  '@motion-canvas/core/lib/types/Vector.js': '5b45d059aee4c84f03b4bfa2c2b1609c6ed735d20bef9cc96e7bab6b0cc4f291',
+  '@motion-canvas/core/lib/types/Matrix2D.js': 'c6c3f2afe7da1e5c6b415e6d03bf8f73f6923d6eb514d93d155f4aceb9f743cd',
 };
 
 const BROWSER_SOURCE = String.raw`
@@ -92,9 +94,11 @@ function dataFor(name){
 function signals(node){return {position:[node.position().x,node.position().y],size:[node.size().x,node.size().y],
  scale:[node.scale().x,node.scale().y],rotation:node.rotation(),offset:[node.offset().x,node.offset().y],
  layout_root:node.isLayoutRoot(),text:node.text(),children:node.children().map(x=>x.key)};}
-function nativeOverlayBox(scene,node){
+function nativeOverlayBox(scene,node,drawMatrix=null){
  // Observe the real 3.17.2 Layout overlay polygon through a real 2D context.
- // Scene2D supplies the native world/camera matrix independently of our probe.
+ // Retain the editor's world/camera path separately from the actual draw CTM.
+ // Vector2.transformAsPoint quantizes its supplied matrix to Float32Array;
+ // the editor's composed DOMMatrix and the native draw CTM can round differently.
  const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;
  const context=canvas.getContext('2d');need(context,'overlay real Canvas2D');
  const paths=[],matrices=[];let current=null;
@@ -105,7 +109,10 @@ function nativeOverlayBox(scene,node){
  }
  const nativeDrawOverlay=node.drawOverlay;
  node.drawOverlay=function(ctx,matrix){matrices.push([matrix.a,matrix.b,matrix.c,matrix.d,matrix.e,matrix.f]);return nativeDrawOverlay.call(this,ctx,matrix);};
- try{scene.drawOverlay(node.key,new DOMMatrix(),context);}finally{node.drawOverlay=nativeDrawOverlay;}
+ try{
+  if(drawMatrix===null)scene.drawOverlay(node.key,new DOMMatrix(),context);
+  else node.drawOverlay(context,new DOMMatrix(drawMatrix));
+ }finally{node.drawOverlay=nativeDrawOverlay;}
  const corners=paths[2];need(corners&&corners.length>=4,'native overlay layout polygon unavailable');
  const xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]);
  const x=Math.min(...xs),y=Math.min(...ys);
@@ -138,7 +145,17 @@ window.runFocal=async({name,mode,arm})=>{
   });
   const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;
   const context=canvas.getContext('2d',{alpha:true,colorSpace:'srgb'});need(context,'real native Canvas2D unavailable');
-  await scene.render(context);
+  // Observe the native Txt.draw entry after Node.render has transformed Canvas.
+  // This oracle never reads reg.draws, probe geometry, or localToParent.
+  const nativeDraw=node.draw,ownDraw=Object.getOwnPropertyDescriptor(node,'draw'),drawCalls=[];
+  node.draw=function(ctx){
+   const m=ctx.getTransform();const call={matrix:[m.a,m.b,m.c,m.d,m.e,m.f],
+    canvas_is_scene:ctx.canvas===canvas,canvas_size:[ctx.canvas.width,ctx.canvas.height],completed:false};
+   drawCalls.push(call);const value=nativeDraw.call(this,ctx);call.completed=true;return value;
+  };
+  try{await scene.render(context);}finally{
+   if(ownDraw)Object.defineProperty(node,'draw',ownDraw);else delete node.draw;
+  }
   const pixels=context.getImageData(0,0,640,360).data;
   const before=scene.execute(()=>signals(node));
   globalThis.__SEMWRIGHT_NATIVE_FRAME_CLOCK__={frame:playback.frame,fps_num:30,fps_den:1};
@@ -149,9 +166,12 @@ window.runFocal=async({name,mode,arm})=>{
   const row=probe.subjects.find(x=>x.id==='text');need(row,'original serialized text observation missing');
   const rect=node.element.getBoundingClientRect();
   const overlay=scene.execute(()=>nativeOverlayBox(scene,node));
+  const drawOverlay=drawCalls.length===1&&drawCalls[0].completed
+   ?scene.execute(()=>nativeOverlayBox(scene,node,drawCalls[0].matrix)):null;
   return {name,mode,arm,frame:playback.frame,pixel_sha256:await digest(pixels),
    actual_canvas:context.getContextAttributes(),native_dom:{connected:node.element.isConnected,width:rect.width,height:rect.height},
-   signals:after,overlay_box:overlay.box,overlay_matrices:overlay.matrices,probe,subject:row,
+   signals:after,overlay_box:overlay.box,overlay_matrices:overlay.matrices,
+   native_draw_calls:drawCalls,native_draw_overlay:drawOverlay,probe,subject:row,
    native_ink_pixels:pixels.filter((_,i)=>i%4===3&&pixels[i]>0).length,
    root_native_class:node.constructor.name,actual_draw_observed:reg.rendered.has('text'),
    cache_canvas_observed:!!reg.draws.get('text')&&reg.draws.get('text').canvas!==reg.canvas};
@@ -281,11 +301,16 @@ try {
     const actualMatrix=after.subject.transform;
     const matrixDelta=actualMatrix?.status==='known'&&after.overlay_matrices.length===1
       ?actualMatrix.value.map((value,index)=>value-after.overlay_matrices[0][index]):null;
+    const drawGeometryDelta=actualBox?.status==='known'&&after.native_draw_overlay
+      ?Object.fromEntries(['x','y','width','height'].map(key=>[key,actualBox.value[key]-after.native_draw_overlay.box[key]])):null;
     // Preserve actual rows and differences before any verdict, including failures.
     await retain(name+'.captured.original.json',{name,arm,original_native_results:rows,
-      observed_minus_native_overlay_box:geometryDelta,observed_minus_native_overlay_matrix:matrixDelta});
+      observed_minus_native_overlay_box:geometryDelta,observed_minus_native_overlay_matrix:matrixDelta,
+      observed_minus_native_draw_overlay_box:drawGeometryDelta});
     assert.equal(before.pixel_sha256,after.pixel_sha256,'observer changed actual RGBA: '+name);
     assert.deepEqual(before.signals,after.signals,'observer changed native node signals: '+name);
+    assert.deepEqual(before.native_draw_calls,after.native_draw_calls,'observer changed actual draw CTM: '+name);
+    assert.deepEqual(before.native_draw_overlay,after.native_draw_overlay,'observer changed native draw overlay: '+name);
     assert.equal(before.frame,after.frame,'same native frame: '+name);
     assert(after.native_ink_pixels>0,'actual native ink missing: '+name);
     assert.equal(after.subject.native_type.status,'known');assert.equal(after.subject.native_type.value,'Txt');
@@ -293,6 +318,8 @@ try {
     for(const row of legacy.subjects)for(const key of ['native_type','layout_root','screen_layout_box'])delete row[key];
     assert.deepEqual(legacy,before.probe,'old observations changed: '+name);
     if(name==='cached') {
+      assert.equal(after.native_draw_calls.length,1,'one actual cached Txt.draw');
+      assert(after.native_draw_calls[0].completed&&!after.native_draw_calls[0].canvas_is_scene&&after.cache_canvas_observed,'actual offscreen cache draw required');
       assert.equal(after.subject.screen_layout_box.status,'unknown','cache transform must remain unknown');
     } else {
       assert(after.native_dom.connected&&after.native_dom.width>0&&after.native_dom.height>0,'real native DOM dimensions');
@@ -300,7 +327,11 @@ try {
       assert.equal(after.subject.layout_root.value,after.signals.layout_root,'actual Layout.isLayoutRoot');
       assert.equal(after.subject.layout_root.value,name!=='enabled-red','real RED/GREEN layout root distinction');
       assert.equal(after.subject.screen_layout_box.status,'known');
-      for(const key of ['x','y','width','height'])assert(Math.abs(after.subject.screen_layout_box.value[key]-after.overlay_box[key])<1e-5,'native overlay mismatch '+name+':'+key);
+      assert.equal(after.native_draw_calls.length,1,'one actual native Txt.draw');
+      assert(after.native_draw_calls[0].completed&&after.native_draw_calls[0].canvas_is_scene,'completed draw on the admitted scene canvas');
+      assert.deepEqual(after.native_draw_calls[0].canvas_size,[640,360],'native draw canvas dimensions');
+      assert(after.native_draw_overlay,'actual native draw overlay unavailable');
+      for(const key of ['x','y','width','height'])assert(Math.abs(after.subject.screen_layout_box.value[key]-after.native_draw_overlay.box[key])<1e-5,'native draw overlay mismatch '+name+':'+key);
       assert(Math.abs(after.native_dom.width-after.signals.size[0])<1e-5&&Math.abs(after.native_dom.height-after.signals.size[1])<1e-5,'size getter differs from real DOM');
     }
     const caseResult={name,arm,status:'REAL_DOM_FOCAL_PASSED',original_native_results:rows};

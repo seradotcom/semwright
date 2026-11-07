@@ -26,7 +26,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, enabled-red, enabled-green, disabled-control, transformed, camera, cached]
+        options: [all, enabled-red, enabled-green, disabled-control, transformed, camera, cached, camera-and-cached]
   workflow_call:
   push:
     branches: [feat/motion-canvas-driver]
@@ -446,7 +446,7 @@ jobs:
           from pathlib import Path
           p=Path(os.environ['RUNNER_TEMP'])/'native-layout-baseline.ts'
           assert hashlib.sha256(p.read_bytes()).hexdigest() == 'a400b38608e169a20e7ade099aa8632c11629152951b9e62a0fb66858b530f36'
-          assert os.environ['LAYOUT_CASE'] in ('all','enabled-red','enabled-green','disabled-control','transformed','camera','cached')
+          assert os.environ['LAYOUT_CASE'] in ('all','enabled-red','enabled-green','disabled-control','transformed','camera','cached','camera-and-cached')
           PY
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
