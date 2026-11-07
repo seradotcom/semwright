@@ -4084,8 +4084,8 @@ impl DriverProvider {
                         result = child.wait() => result.is_ok(),
                     };
                     let terminal = tokio::time::timeout(Duration::from_secs(4), async {
-                        child.kill().await?;
                         if !waited {
+                            child.kill().await?;
                             child.wait().await?;
                         }
                         Ok::<(), Error>(())
@@ -4467,8 +4467,8 @@ impl DriverProvider {
                         result = child.wait() => result.is_ok(),
                     };
                     let terminal = tokio::time::timeout(Duration::from_secs(4), async {
-                        child.kill().await?;
                         if !waited {
+                            child.kill().await?;
                             child.wait().await?;
                         }
                         Ok::<(), Error>(())
@@ -5002,19 +5002,47 @@ impl Provider for DriverProvider {
     }
     async fn shutdown(&self) -> Result<()> {
         if self.manifest.protocol >= 9 {
-            self.terminate.cancel();
-            return tokio::time::timeout(
-                Duration::from_secs(4),
-                self._owner_operations.wait_physical_exit(),
-            )
-            .await
-            .map_err(|_| {
-                Error::new(
-                    ErrorCode::Timeout,
-                    "Owned driver process termination was not confirmed",
+            // A clean provider-only release must ask the actual SDK driver to
+            // leave first, not kill its process and then claim SQLite closure.
+            // Owner process custody still requires actual physical exit.
+            let graceful = async {
+                if !self.closed.is_cancelled() {
+                    let id = unique_id();
+                    let response = self
+                        .exchange(
+                            Request::Shutdown { id: id.clone() },
+                            &id,
+                            Duration::from_secs(3),
+                        )
+                        .await?;
+                    if !matches!(response, Response::Shutdown { id: response_id } if response_id == id) {
+                        return Err(Error::new(
+                            ErrorCode::ProtocolMismatch,
+                            "Owned driver shutdown acknowledgement mismatch",
+                        )
+                        .uncertain());
+                    }
+                }
+                tokio::time::timeout(
+                    Duration::from_secs(4),
+                    self._owner_operations.wait_physical_exit(),
                 )
-                .uncertain()
-            });
+                .await
+                .map_err(|_| {
+                    Error::new(
+                        ErrorCode::Timeout,
+                        "Owned driver process did not exit after graceful shutdown",
+                    )
+                    .uncertain()
+                })
+            }
+            .await;
+            if graceful.is_err() {
+                // Clean shutdown was not proven; emergency cleanup must never
+                // become a successful provider-only release receipt.
+                self.terminate.cancel();
+            }
+            return graceful;
         }
         if self.closed.is_cancelled() {
             return Ok(());

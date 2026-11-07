@@ -335,7 +335,7 @@ impl Broker {
         let generation = bound.lease.generation;
         let binding_ref = bound.reference_id.clone();
         let catalog_revision = self
-            .remove_provider_with_expected_lease(&provider, Some(&bound.lease))
+            .remove_provider_with_expected_lease(&provider, Some(&bound.lease), true)
             .await?;
         Ok(json!({
             "provider": provider,

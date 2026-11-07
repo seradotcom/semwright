@@ -61,6 +61,10 @@ impl Provider for TestProvider {
     fn closed(&self) -> Option<CancellationToken> {
         Some(self.closed.clone())
     }
+    async fn shutdown(&self) -> Result<()> {
+        self.closed.cancel();
+        Ok(())
+    }
     async fn execute(&self, context: &Context, _: &CommandDescriptor, _: &Value) -> Result<Value> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         self.entered.notify_one();
@@ -1632,6 +1636,56 @@ mod pair_contract_controls {
         assert!(!terminal.ok);
         assert!(terminal.data.is_none());
         assert_eq!(terminal.error.unwrap().code, expected);
+    }
+
+    #[tokio::test]
+    async fn release_bound_waits_for_original_admitted_callback_before_driver_shutdown() {
+        let f = Arc::new(PairFixture::new(true, false).await);
+        let original = f.issue().await;
+        let binding_ref = binding(&original).to_owned();
+        f.provider.blocked.store(true, Ordering::SeqCst);
+        let executing = {
+            let f = f.clone();
+            let binding_ref = binding_ref.clone();
+            tokio::spawn(async move { f.execute_bound(&binding_ref).await })
+        };
+        tokio::time::timeout(Duration::from_secs(2), f.provider.entered.notified())
+            .await
+            .expect("original admitted effect did not start");
+        let releasing = {
+            let f = f.clone();
+            let binding_ref = binding_ref.clone();
+            tokio::spawn(async move {
+                f.call(
+                    "providers.release_bound",
+                    json!({
+                        "provider":f.provider.identity.id,
+                        "root":"media",
+                        "binding_ref":binding_ref
+                    }),
+                )
+                .await
+            })
+        };
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(
+            !f.provider.closed.is_cancelled(),
+            "provider shutdown raced ahead of the original effect callback"
+        );
+        assert!(!releasing.is_finished());
+        f.provider.release.notify_one();
+        let original = tokio::time::timeout(Duration::from_secs(3), executing)
+            .await
+            .expect("original effect stalled")
+            .unwrap();
+        assert!(original.ok, "{:?}", original.error);
+        let released = tokio::time::timeout(Duration::from_secs(3), releasing)
+            .await
+            .expect("bound release stalled")
+            .unwrap();
+        assert!(released.ok, "{:?}", released.error);
+        assert!(f.provider.closed.is_cancelled());
+        assert!(f.broker.provider(&f.provider.identity.id).is_none());
     }
 
     #[tokio::test]

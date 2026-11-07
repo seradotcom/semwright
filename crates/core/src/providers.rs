@@ -560,7 +560,8 @@ impl Broker {
         Ok(revision)
     }
     pub async fn remove_provider(&self, id: &str) -> Result<u64> {
-        self.remove_provider_with_expected_lease(id, None).await
+        self.remove_provider_with_expected_lease(id, None, false)
+            .await
     }
 
     /// The bound-release path must never remove a different generation that
@@ -569,6 +570,7 @@ impl Broker {
         &self,
         id: &str,
         expected: Option<&Arc<ProviderLease>>,
+        drain_first: bool,
     ) -> Result<u64> {
         let lease = {
             let catalog = self
@@ -587,21 +589,49 @@ impl Broker {
                 ));
             }
             lease.operation_gate.close()?;
-            lease.lifetime.cancel();
+            if !drain_first {
+                lease.lifetime.cancel();
+            }
             lease
         };
-        tokio::time::timeout(Duration::from_secs(5), async {
-            tokio::try_join!(lease.shutdown(), lease.operation_gate.wait_drained())?;
-            Ok::<(), Error>(())
-        })
-        .await
-        .map_err(|_| {
-            Error::new(
-                ErrorCode::Timeout,
-                "Provider removal is pending unconfirmed owner-operation closure",
-            )
-            .uncertain()
-        })??;
+        if drain_first {
+            // No new bound owner operations may enter. Wait for the original
+            // callbacks before sending even a cooperative shutdown request.
+            // On timeout remain fail-closed: the provider stays registered,
+            // its operation gate is sealed, and no false close is reported.
+            tokio::time::timeout(Duration::from_secs(5), lease.operation_gate.wait_drained())
+                .await
+                .map_err(|_| {
+                    Error::new(
+                        ErrorCode::Timeout,
+                        "Provider bound release still has admitted owner operations",
+                    )
+                    .uncertain()
+                })??;
+            lease.lifetime.cancel();
+            tokio::time::timeout(Duration::from_secs(5), lease.shutdown())
+                .await
+                .map_err(|_| {
+                    Error::new(
+                        ErrorCode::Timeout,
+                        "Provider bound release has no confirmed driver shutdown",
+                    )
+                    .uncertain()
+                })??;
+        } else {
+            tokio::time::timeout(Duration::from_secs(5), async {
+                tokio::try_join!(lease.shutdown(), lease.operation_gate.wait_drained())?;
+                Ok::<(), Error>(())
+            })
+            .await
+            .map_err(|_| {
+                Error::new(
+                    ErrorCode::Timeout,
+                    "Provider removal is pending unconfirmed owner-operation closure",
+                )
+                .uncertain()
+            })??;
+        }
         let revision = {
             let mut catalog = self
                 .registry
