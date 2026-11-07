@@ -2023,18 +2023,12 @@ mod pair_contract_controls {
         assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
         lease.operation_gate.close().unwrap();
         assert!(lease.active());
-        denied(
-            f.call("providers.mount.observe", f.selectors()).await,
-            ErrorCode::StaleReference,
-        );
-        denied(
-            f.revalidate(binding(&observed)).await,
-            ErrorCode::StaleReference,
-        );
-        denied(
-            f.execute_bound(binding(&observed)).await,
-            ErrorCode::StaleReference,
-        );
+        // The original mutating Broker execute still holds its global
+        // execution RwLock write guard while this future is pending.
+        // A fresh read-only command would block behind that guard until the
+        // original is re-polled, which cannot occur in this test before
+        // release.notify_one(). Check the internal gate synchronously here.
+        assert!(!lease.operation_gate.accepting_admissions().unwrap());
         assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
         f.provider.release.notify_one();
         let terminal = tokio::time::timeout(Duration::from_secs(3), &mut original)
@@ -2048,6 +2042,28 @@ mod pair_contract_controls {
         assert_eq!(completed["admission_state"], "closing");
         assert_eq!(completed["binding_ref"], observed["binding_ref"]);
         assert_eq!(completed["pair"], observed["pair"]);
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
+
+        // The original writer has now relinquished the global execution
+        // guard. New commands must independently reject this closed
+        // operation gate without re-entering TestProvider::execute.
+        let mount_denial = tokio::time::timeout(
+            Duration::from_secs(5),
+            f.call("providers.mount.observe", f.selectors()),
+        )
+        .await
+        .expect("Closed gate mount observation did not return after original completion");
+        denied(mount_denial, ErrorCode::StaleReference);
+        let revalidation_denial =
+            tokio::time::timeout(Duration::from_secs(5), f.revalidate(binding(&observed)))
+                .await
+                .expect("Closed gate revalidation did not return after original completion");
+        denied(revalidation_denial, ErrorCode::StaleReference);
+        let execution_denial =
+            tokio::time::timeout(Duration::from_secs(5), f.execute_bound(binding(&observed)))
+                .await
+                .expect("Closed gate bound execution did not return after original completion");
+        denied(execution_denial, ErrorCode::StaleReference);
         assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
     }
 }
