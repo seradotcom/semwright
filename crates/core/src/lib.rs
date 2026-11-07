@@ -669,7 +669,11 @@ impl Broker {
         // Bound effects cannot be replayed as unbound commands or alongside
         // their wrappers. Reject partial recordings instead of omitting an effect.
         let bound_execution = bound.is_some() || request.command == "providers.execute_bound";
-        let record_workflow = !bound_execution && request.command != "providers.mount.observe";
+        let record_workflow = !bound_execution
+            && !matches!(
+                request.command.as_str(),
+                "providers.mount.observe" | "providers.release_bound"
+            );
         if bound_execution && let Ok(mut workflows) = self.workflows.lock() {
             workflows.invalidate(
                 &session,
@@ -1394,6 +1398,7 @@ impl Broker {
         let session = context.session.as_str();
         match command {
             "providers.mount.observe" => self.observe_provider_mount(session, args),
+            "providers.release_bound" => self.release_bound_provider(session, args).await,
             "doctor" => Ok(
                 json!({"project":"Semwright","version":env!("CARGO_PKG_VERSION"),"protocol":PROTOCOL_VERSION,"fake":self.fake,"environment":self.environment,"features":self.probe().await,"providers":self.provider_status()?,"policy":{"profile":self.policy.config().profile,"granted":self.policy.capabilities(),"apps":self.policy.config().apps,"shell":false,"external_confirmation":"foreground operator only; unavailable in user service"},"uptime_seconds":self.started.elapsed().as_secs(),"verification":"Runtime capability probes are not a live desktop acceptance certificate","unimplemented":[]}),
             ),

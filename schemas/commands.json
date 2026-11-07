@@ -20150,6 +20150,92 @@
     ]
   },
   {
+    "name": "providers.release_bound",
+    "version": "1.0",
+    "description": "Release an exact active provider generation bound by the same authenticated session mount. Reject a missing, expired, foreign or changed binding. Drain admitted operations and await actual ProviderLease shutdown; never infer child process closure or media success from this receipt.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "binding_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "provider",
+        "root",
+        "binding_ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "connection": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "provider_generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "binding_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "catalog_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lease_shutdown_completed": {
+          "const": true
+        },
+        "native_process_closure_inferred": {
+          "const": false
+        }
+      },
+      "required": [
+        "provider",
+        "connection",
+        "provider_generation",
+        "binding_ref",
+        "catalog_revision",
+        "lease_shutdown_completed",
+        "native_process_closure_inferred"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "providers.release_bound"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 15000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
     "name": "providers.mount.observe",
     "version": "1.0",
     "description": "Observe the actual DriverHost workspace instance and issue a short-lived session binding. Optional media-ro-output-rw pairs bind both native directory instances on the same live provider lease. Supplying binding_ref instead revalidates that exact original admission without renewing its TTL; provider/root must match and new pair/profile selectors are forbidden. Paths, flags and identities are facts, not local filesystem capabilities or project ACLs.",

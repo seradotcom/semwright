@@ -560,6 +560,16 @@ impl Broker {
         Ok(revision)
     }
     pub async fn remove_provider(&self, id: &str) -> Result<u64> {
+        self.remove_provider_with_expected_lease(id, None).await
+    }
+
+    /// The bound-release path must never remove a different generation that
+    /// replaced the original authenticated lease between lookup and shutdown.
+    pub(super) async fn remove_provider_with_expected_lease(
+        &self,
+        id: &str,
+        expected: Option<&Arc<ProviderLease>>,
+    ) -> Result<u64> {
         let lease = {
             let catalog = self
                 .registry
@@ -570,6 +580,12 @@ impl Broker {
                 .get(id)
                 .cloned()
                 .ok_or_else(|| Error::new(ErrorCode::NotFound, "Provider not found"))?;
+            if expected.is_some_and(|original| !Arc::ptr_eq(original, &lease)) {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Provider release refers to a replaced generation",
+                ));
+            }
             lease.operation_gate.close()?;
             lease.lifetime.cancel();
             lease

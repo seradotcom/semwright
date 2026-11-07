@@ -303,6 +303,51 @@ impl Broker {
         self.check_bound_provider_observation(session, &bound, Some(&lease))?;
         self.provider_mount_observation(session, &bound)
     }
+    /// The caller must hold a real session-scoped mount reference AND an
+    /// explicit providers.release_bound policy grant. No provider name/path
+    /// alone authorizes shutdown, and the exact lease identity survives the
+    /// await boundary in remove_provider_with_expected_lease.
+    pub(super) async fn release_bound_provider(
+        &self,
+        session: &str,
+        args: &Value,
+    ) -> Result<Value> {
+        let route = arg_str(args, "provider")?;
+        let root = arg_str(args, "root")?;
+        let reference = arg_str(args, "binding_ref")?;
+        let bound = self.resolve_bound_provider(session, reference)?;
+        if bound.admission.backend != route || bound.admission.mount != root {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Provider release does not match the original session mount",
+            ));
+        }
+        if bound.lease.identity.kind != SourceKind::Driver {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Bound provider release is restricted to external drivers",
+            ));
+        }
+        self.check_bound_provider(session, &bound, Some(&bound.lease))?;
+        self.require_mount_read_policy(root)?;
+        let provider = bound.lease.identity.id.clone();
+        let connection = bound.lease.connection.clone();
+        let generation = bound.lease.generation;
+        let binding_ref = bound.reference_id.clone();
+        let catalog_revision = self
+            .remove_provider_with_expected_lease(&provider, Some(&bound.lease))
+            .await?;
+        Ok(json!({
+            "provider": provider,
+            "connection": connection,
+            "provider_generation": generation,
+            "binding_ref": binding_ref,
+            "catalog_revision": catalog_revision,
+            "lease_shutdown_completed": true,
+            "native_process_closure_inferred": false
+        }))
+    }
+
     fn provider_mount_observation(&self, session: &str, bound: &BoundProvider) -> Result<Value> {
         let lease = &bound.lease;
         // Factual observation may report unavailable execution. All dispatch callers

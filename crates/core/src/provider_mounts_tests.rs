@@ -1467,6 +1467,13 @@ mod pair_contract_controls {
     }
     impl PairFixture {
         async fn new(identity_supported: bool, output_read_only: bool) -> Self {
+            Self::new_with_release_access(identity_supported, output_read_only, true).await
+        }
+        async fn new_with_release_access(
+            identity_supported: bool,
+            output_read_only: bool,
+            release_allowed: bool,
+        ) -> Self {
             let directory = tempfile::tempdir().unwrap();
             let identity =
                 ProviderIdentity::external(SourceKind::Driver, "pair-test", "1").unwrap();
@@ -1511,12 +1518,16 @@ mod pair_contract_controls {
             };
             let media = root("media", true, "synthetic-media-instance-1");
             let output = root("output", output_read_only, "synthetic-output-instance-1");
+            let mut allow: std::collections::BTreeSet<String> = [
+                provider.identity.id.clone(),
+                "providers.execute_bound".into(),
+            ]
+            .into();
+            if release_allowed {
+                allow.insert("providers.release_bound".into());
+            }
             let config = PolicyConfig {
-                allow: [
-                    provider.identity.id.clone(),
-                    "providers.execute_bound".into(),
-                ]
-                .into(),
+                allow,
                 filesystem: vec![
                     FilesystemGrant {
                         name: "media".into(),
@@ -1621,6 +1632,118 @@ mod pair_contract_controls {
         assert!(!terminal.ok);
         assert!(terminal.data.is_none());
         assert_eq!(terminal.error.unwrap().code, expected);
+    }
+
+    #[tokio::test]
+    async fn explicit_bound_release_drains_provider_without_reopening_lease() {
+        let f = PairFixture::new(true, false).await;
+        let original = f.issue().await;
+        let reference = binding(&original);
+        let released = f
+            .call(
+                "providers.release_bound",
+                json!({
+                    "provider": f.provider.identity.id, "root": "media",
+                    "binding_ref": reference
+                }),
+            )
+            .await;
+        assert!(released.ok, "{:?}", released.error);
+        let data = released.data.unwrap();
+        assert_eq!(data["provider"], original["provider"]);
+        assert_eq!(data["connection"], original["connection"]);
+        assert_eq!(data["provider_generation"], original["provider_generation"]);
+        assert_eq!(data["binding_ref"], original["binding_ref"]);
+        assert_eq!(data["lease_shutdown_completed"], true);
+        assert_eq!(data["native_process_closure_inferred"], false);
+        assert!(f.broker.provider(&f.provider.identity.id).is_none());
+        let denied_after = f.revalidate(reference).await;
+        assert!(!denied_after.ok);
+        let replay = f
+            .call(
+                "providers.release_bound",
+                json!({
+                    "provider": f.provider.identity.id, "root": "media",
+                    "binding_ref": reference
+                }),
+            )
+            .await;
+        assert!(!replay.ok);
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn release_bound_requires_explicit_capability_and_original_mount() {
+        let f = PairFixture::new_with_release_access(true, false, false).await;
+        let original = f.issue().await;
+        denied(
+            f.call(
+                "providers.release_bound",
+                json!({
+                    "provider": f.provider.identity.id, "root":"media",
+                    "binding_ref":binding(&original)
+                }),
+            )
+            .await,
+            ErrorCode::PolicyDenied,
+        );
+        assert!(f.broker.provider(&f.provider.identity.id).is_some());
+
+        let granted = PairFixture::new(true, false).await;
+        let mounted = granted.issue().await;
+        for (wrong_provider, wrong_root, wrong_reference) in [
+            (
+                granted.provider.identity.id.as_str(),
+                "output",
+                binding(&mounted),
+            ),
+            ("driver:unrelated", "media", binding(&mounted)),
+            (
+                granted.provider.identity.id.as_str(),
+                "media",
+                "foreign-or-missing-binding",
+            ),
+        ] {
+            let response = granted
+                .call(
+                    "providers.release_bound",
+                    json!({
+                        "provider":wrong_provider, "root":wrong_root,
+                        "binding_ref":wrong_reference
+                    }),
+                )
+                .await;
+            assert!(!response.ok);
+            assert!(
+                granted
+                    .broker
+                    .provider(&granted.provider.identity.id)
+                    .is_some()
+            );
+        }
+        let foreign = granted
+            .broker
+            .clone()
+            .execute(
+                "foreign-session".into(),
+                unique_id(),
+                ExecuteRequest {
+                    command: "providers.release_bound".into(),
+                    args: json!({"provider":granted.provider.identity.id,"root":"media",
+                             "binding_ref":binding(&mounted)}),
+                    dry_run: false,
+                    backend: None,
+                },
+                CancellationToken::new(),
+            )
+            .await;
+        assert!(!foreign.ok);
+        assert!(
+            granted
+                .broker
+                .provider(&granted.provider.identity.id)
+                .is_some()
+        );
     }
 
     #[tokio::test]
