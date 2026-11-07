@@ -228,7 +228,44 @@ function* executeInstruction(i:Instruction,nodes:Map<string,Node>,initial:Map<st
  }
 }
 const sceneRegistrations=new Map<string,{data:NativeSceneData;nodes:Map<string,Node>;draws:Map<string,DrawRecord>;rendered:Set<string>;canvas:HTMLCanvasElement|null;drawSerial:number;finished:Set<string>;captionActive:Map<string,boolean>}>();
-type DrawRecord={canvas:HTMLCanvasElement;matrix:DOMMatrix;bounds:{x:number;y:number;width:number;height:number};opacity:number;serial:number;clip:boolean};
+// This extension records native layout separately from drawable/cache bounds.
+// The public 3.17.2 Layout size signal reads computed DOM layout; it is not the
+// authored desiredSize and may differ from the intended size in the RED arm.
+type NativeNodeType='Node'|'Layout'|'Rect'|'Circle'|'Line'|'Txt'|'Code'|'Img'|'Video'|'Camera';
+type LayoutDraw={root:boolean;box:{x:number;y:number;width:number;height:number}};
+type DrawRecord={canvas:HTMLCanvasElement;matrix:DOMMatrix;bounds:{x:number;y:number;width:number;height:number};opacity:number;serial:number;clip:boolean;layout?:LayoutDraw};
+function nativeNodeType(n:Node):NativeNodeType{
+ if(n instanceof Txt)return 'Txt';if(n instanceof Code)return 'Code';
+ if(n instanceof Video)return 'Video';if(n instanceof Img)return 'Img';
+ if(n instanceof Circle)return 'Circle';if(n instanceof Line)return 'Line';
+ if(n instanceof Rect)return 'Rect';if(n instanceof Camera)return 'Camera';
+ if(n instanceof Layout)return 'Layout';return 'Node';
+}
+function readNativeLayout(n:Node):LayoutDraw|undefined{
+ if(!(n instanceof Layout))return undefined;
+ // Public getters run the native layout resolution used by Layout.drawOverlay.
+ // No position/size/layout signal is assigned by this observation.
+ const size=n.size();const width=finite(size.width,'observed layout width');
+ const height=finite(size.height,'observed layout height');
+ requireValue(width>=0&&height>=0&&width<=1e6&&height<=1e6,'observed layout size bounds');
+ const root=n.isLayoutRoot();requireValue(typeof root==='boolean','observed layout root');
+ return {root,box:{x:-width/2,y:-height/2,width,height}};
+}
+function nativeLayoutObservation(n:Node,draw:DrawRecord|undefined,coordinateKnown:boolean){
+ const native_type=known(nativeNodeType(n));
+ const layout_root:Known<boolean>=draw?.layout?known(draw.layout.root):unknown('native layout root unavailable after completed draw');
+ let screen_layout_box:Known<LayoutDraw['box']>=unknown('native layout box or output transform unavailable');
+ if(coordinateKnown&&draw?.layout){
+  try{
+   // The captured parent context includes the actual camera/ancestor transforms.
+   // Stage 3.17.2 copies the admitted scene buffer at (0,0), without rescaling.
+   const box=transformed(draw.layout.box,draw.matrix);
+   requireValue(Object.values(box).every(Number.isFinite)&&Math.abs(box.x)<=32768&&Math.abs(box.y)<=32768&&box.width>=0&&box.height>=0&&box.width<=1e6&&box.height<=1e6,'observed screen layout bounds');
+   screen_layout_box=known(box);
+  }catch{/* unavailable native geometry remains UNKNOWN */}
+ }
+ return {native_type,layout_root,screen_layout_box};
+}
 function clipAncestor(n:Node){for(let a:Node|null=n;a;a=a.parent()){if(a instanceof Layout&&a.clip())return true;}return false;}
 function instrument(n:Node,id:string,reg:ReturnType<typeof registration>){
  const render=n.render.bind(n);
@@ -242,7 +279,9 @@ function instrument(n:Node,id:string,reg:ReturnType<typeof registration>){
    try{
     const matrix=context.getTransform().multiply(n.localToParent());
     const box=n.cacheBBox();
-    reg.draws.set(id,{canvas:context.canvas,matrix,bounds:{x:box.x,y:box.y,width:box.width,height:box.height},opacity:n.absoluteOpacity(),serial:reg.drawSerial++,clip:clipAncestor(n)});
+    const draw:DrawRecord={canvas:context.canvas,matrix,bounds:{x:box.x,y:box.y,width:box.width,height:box.height},opacity:n.absoluteOpacity(),serial:reg.drawSerial++,clip:clipAncestor(n)};
+    reg.draws.set(id,draw);
+    try{const layout=readNativeLayout(n);if(layout)draw.layout=layout;}catch{/* keep the independent drawable bounds; layout remains UNKNOWN */}
    }catch{/* geometry remains UNKNOWN */}
   }
   return result;
@@ -293,7 +332,7 @@ async function probeScene(reg:ReturnType<typeof registration>,canvas:HTMLCanvasE
   const rendered=reg.rendered.has(subject.id);
   let asset_ready:Known<boolean>=known(true);
   if(c.kind==='image'||c.kind==='video')asset_ready=rendered?known(true):unknown('asset was not observed in a completed native draw');
-  output.push({id:subject.id,local_size:draw?known({width:draw.bounds.width,height:draw.bounds.height}):unknown('native layout size unavailable'),bounds:coordinateKnown?known(transformed(draw!.bounds,draw!.matrix)):unknown('not drawn in the native scene buffer or unmodeled cache transform'),transform:coordinateKnown?known([draw!.matrix.a,draw!.matrix.b,draw!.matrix.c,draw!.matrix.d,draw!.matrix.e,draw!.matrix.f]):unknown('output transform unavailable'),opacity:known(n.absoluteOpacity()),drawn:rendered,z_order:draw?known(draw.serial):unknown('no native draw order'),clip_active:known(clipAncestor(n)),pixel_visibility:unknown('draw and alpha do not prove pixel contribution after overlap'),text,asset_ready});
+  output.push({id:subject.id,...nativeLayoutObservation(n,draw,coordinateKnown),local_size:draw?known({width:draw.bounds.width,height:draw.bounds.height}):unknown('native layout size unavailable'),bounds:coordinateKnown?known(transformed(draw!.bounds,draw!.matrix)):unknown('not drawn in the native scene buffer or unmodeled cache transform'),transform:coordinateKnown?known([draw!.matrix.a,draw!.matrix.b,draw!.matrix.c,draw!.matrix.d,draw!.matrix.e,draw!.matrix.f]):unknown('output transform unavailable'),opacity:known(n.absoluteOpacity()),drawn:rendered,z_order:draw?known(draw.serial):unknown('no native draw order'),clip_active:known(clipAncestor(n)),pixel_visibility:unknown('draw and alpha do not prove pixel contribution after overlap'),text,asset_ready});
  }
  const transitions=[...new Set(reg.data.instructions.map(i=>i.invocation))].map(id=>({invocation_id:id,finished:known(reg.finished.has(id))}));
  const captions=reg.data.shots.flatMap(s=>s.captions.map(c=>{const cue=reg.data.cues[c.cue_id];return{id:c.id,active:known((reg.captionActive.get(c.id)??false)&&reg.draws.has(c.subject)&&reg.nodes.get(c.subject)!.absoluteOpacity()>0&&(reg.nodes.get(c.subject) as Txt).text()===c.text),cue_start:cue?.status==='resolved'?known(cue.start):unknown('unresolved cue'),cue_end:cue?.status==='resolved'?known(cue.end):unknown('unresolved cue')};}));

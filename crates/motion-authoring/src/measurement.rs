@@ -50,10 +50,49 @@ pub struct TextObservation {
     pub fallback_used: Known<bool>,
     pub direction: Known<String>,
 }
+/// Runtime class observed on the original native node, never the authored kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum NativeNodeType {
+    Node,
+    Layout,
+    Rect,
+    Circle,
+    Line,
+    Txt,
+    Code,
+    Img,
+    Video,
+    Camera,
+}
+impl NativeNodeType {
+    fn is_layout(self) -> bool {
+        !matches!(self, Self::Node | Self::Camera)
+    }
+}
+
+fn validate_observation_reason<T>(value: &Known<T>) -> Result<()> {
+    if let Known::Unknown { reason } = value {
+        ensure(
+            !reason.is_empty() && reason.len() <= 256,
+            "native layout unknown reason bounds",
+        )?;
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SubjectObservation {
     pub id: String,
+    /// Absent together in legacy observations. Absence is not native evidence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_type: Option<Known<NativeNodeType>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout_root: Option<Known<bool>>,
+    /// Native centered layout rectangle projected through the actual draw matrix.
+    /// This is separate from bounds, which describes drawable/cache contents.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screen_layout_box: Option<Known<Bounds>>,
     pub local_size: Known<Size>,
     pub bounds: Known<Bounds>,
     pub transform: Known<[f64; 6]>,
@@ -64,6 +103,49 @@ pub struct SubjectObservation {
     pub pixel_visibility: Known<bool>,
     pub text: Option<TextObservation>,
     pub asset_ready: Known<bool>,
+}
+impl SubjectObservation {
+    fn validate_native_layout(&self) -> Result<()> {
+        let present = [
+            self.native_type.is_some(),
+            self.layout_root.is_some(),
+            self.screen_layout_box.is_some(),
+        ]
+        .into_iter()
+        .filter(|value| *value)
+        .count();
+        ensure(
+            present == 0 || present == 3,
+            "native layout observation extension must be complete or absent",
+        )?;
+        if let (Some(kind), Some(root), Some(screen)) = (
+            &self.native_type,
+            &self.layout_root,
+            &self.screen_layout_box,
+        ) {
+            validate_observation_reason(kind)?;
+            validate_observation_reason(root)?;
+            validate_observation_reason(screen)?;
+            let native_layout = kind.value().is_some_and(|kind| kind.is_layout());
+            if root.value().is_some() {
+                ensure(
+                    self.drawn && native_layout,
+                    "layout root requires a completed native Layout draw",
+                )?;
+            }
+            if let Some(bounds) = screen.value() {
+                bounds.validate()?;
+                ensure(
+                    self.drawn
+                        && native_layout
+                        && root.value().is_some()
+                        && self.transform.value().is_some(),
+                    "screen layout box requires native layout and output transform observations",
+                )?;
+            }
+        }
+        Ok(())
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -101,6 +183,7 @@ impl FrameObservation {
         for subject in &self.subjects {
             crate::validate::id(&subject.id)?;
             ensure(seen.insert(&subject.id), "duplicate observed subject")?;
+            subject.validate_native_layout()?;
             if let Some(b) = subject.bounds.value() {
                 b.validate()?;
             }

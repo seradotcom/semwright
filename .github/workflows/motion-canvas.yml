@@ -16,6 +16,17 @@ on:
         required: false
         type: boolean
         default: false
+      layout_observation_focal:
+        description: 'Only the bounded real DOM layout observer fixture; no Driver Host or Native suite'
+        required: false
+        type: boolean
+        default: false
+      layout_case:
+        description: 'Closed real DOM case selection for causal follow-up'
+        required: false
+        type: choice
+        default: all
+        options: [all, enabled-red, enabled-green, disabled-control, transformed, camera, cached]
   workflow_call:
   push:
     branches: [feat/motion-canvas-driver]
@@ -55,6 +66,7 @@ jobs:
     outputs:
       motion: ${{ steps.scope.outputs.motion }}
       native_only: ${{ steps.scope.outputs.native_only }}
+      layout_observation_focal: ${{ steps.scope.outputs.layout_observation_focal }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -65,7 +77,18 @@ jobs:
           CERTIFY_ALL: ${{ inputs.certify_all }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           NATIVE_ONLY: ${{ inputs.native_only }}
+          LAYOUT_OBSERVATION_FOCAL: ${{ inputs.layout_observation_focal }}
         run: |
+          if [ "$LAYOUT_OBSERVATION_FOCAL" = true ]; then
+            test "$CERTIFY_ALL" != true && test "$NATIVE_ONLY" != true
+            test "$GITHUB_EVENT_NAME" = workflow_dispatch
+            [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] && test "$CANDIDATE_SHA" = "$GITHUB_SHA"
+            echo 'motion=false' >> "$GITHUB_OUTPUT"
+            echo 'native_only=false' >> "$GITHUB_OUTPUT"
+            echo 'layout_observation_focal=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo 'layout_observation_focal=false' >> "$GITHUB_OUTPUT"
           if [ "$CERTIFY_ALL" = true ] && [ "$NATIVE_ONLY" = true ]; then
             echo 'native_only and certify_all are mutually exclusive' >&2
             exit 2
@@ -392,4 +415,75 @@ jobs:
           path: |
             verification/motion-canvas-fuzz
             fuzz/artifacts
+          retention-days: 14
+
+  layout-observation-focal:
+    needs: scope
+    if: ${{ needs.scope.outputs.layout_observation_focal == 'true' }}
+    concurrency:
+      group: motion-layout-focal-${{ github.ref }}
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: '0'
+      LAYOUT_CASE: ${{ inputs.layout_case }}
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Bind exact candidate and historical producer
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          git show acc0a089e2f0e3e9936632fb2a4aa0c2fab56199:integrations/composition/motion/native.ts > "$RUNNER_TEMP/native-layout-baseline.ts"
+          python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'native-layout-baseline.ts'
+          assert hashlib.sha256(p.read_bytes()).hexdigest() == 'a400b38608e169a20e7ade099aa8632c11629152951b9e62a0fb66858b530f36'
+          assert os.environ['LAYOUT_CASE'] in ('all','enabled-red','enabled-green','disabled-control','transformed','camera','cached')
+          PY
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22.22.0'
+          cache: npm
+          cache-dependency-path: integrations/motion-canvas/runtime/package-lock.json
+      - name: Install exact existing runtime without package scripts
+        working-directory: integrations/motion-canvas/runtime
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
+      - name: Install only the existing pinned Firefox runtime
+        working-directory: integrations/motion-canvas/runtime
+        run: node node_modules/playwright/cli.js install --with-deps firefox
+      - name: Run real DOM fixture with aggregate memory and time limits
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          test "$(stat -fc %T /sys/fs/cgroup)" = cgroup2fs
+          UNIT="semwright-layout-focal-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          NODE_TOOL="$(command -v node)"
+          set +e
+          sudo systemd-run --unit="$UNIT" --uid="$(id -un)" --gid="$(id -gn)" \
+            --wait --pipe --working-directory="$PWD" \
+            --property=MemoryMax=1610612736 --property=MemorySwapMax=0 \
+            --property=TasksMax=256 --property=RuntimeMaxSec=240 \
+            --property=TimeoutStopSec=10 --property=KillMode=control-group \
+            --setenv=PLAYWRIGHT_BROWSERS_PATH=0 \
+            "$NODE_TOOL" --disable-wasm-trap-handler --max-old-space-size=384 \
+            tests/native-layout-dom-focal.mjs \
+            --baseline "$RUNNER_TEMP/native-layout-baseline.ts" \
+            --case "$LAYOUT_CASE" --output "$RUNNER_TEMP/native-layout-dom-focal"
+          rc=$?
+          set -e
+          sudo systemctl show "$UNIT" --property=Result,ExecMainStatus,MemoryMax,MemorySwapMax,TasksMax,MemoryPeak,ActiveState,SubState > "$RUNNER_TEMP/native-layout-dom-controller.original.txt"
+          cat "$RUNNER_TEMP/native-layout-dom-controller.original.txt"
+          test "$rc" -eq 0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-layout-dom-focal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/native-layout-dom-focal/*.json
+            ${{ runner.temp }}/native-layout-dom-controller.original.txt
+          if-no-files-found: error
           retention-days: 14
