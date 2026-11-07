@@ -82,6 +82,7 @@ const digest=async value=>[...new Uint8Array(await crypto.subtle.digest('SHA-256
 const matrix=m=>[m.a,m.b,m.c,m.d,m.e,m.f];
 const zero={top:0,right:0,bottom:0,left:0};
 function dataFor(name){
+ const [W,H]=name==='operation-overflow'?[640,360]:[1920,1080];
  const fixed=(x,y,w,h)=>({kind:'fixed',position:{x,y},size:{width:w,height:h}});
  const font={family:'Instrument Sans Variable',asset_digest:null,fallback:'deny',permitted_fallbacks:[]};
  const subject=(id,parent,content,layout,layer='main',clip=false)=>({id,role:'primary',parent,layer,content,layout,initially_visible:true,clip_intentional:clip});
@@ -151,6 +152,7 @@ window.runFocal=async({name,mode,arm})=>{
  globalThis.__SEMWRIGHT_TEXT_DIGEST__=text=>digest(new TextEncoder().encode(text));
  globalThis.__SEMWRIGHT_NATIVE_PROBE__=undefined;globalThis.__SEMWRIGHT_NATIVE_CONFIG__=undefined;
  const data=dataFor(name),module=modules[mode][arm],logger=new Logger();
+ const {width:W,height:H}=data;
  const playback=new PlaybackManager();playback.fps=30;playback.state=PlaybackState.Rendering;
  const webgl=new SharedWebGLContext(logger);
  const scene=new Scene2D({...module.createAuthoringScene(data,{}),name:data.id,logger,playback:new PlaybackStatus(playback),
@@ -259,7 +261,7 @@ window.runFocal=async({name,mode,arm})=>{
    completed:capture?.completed??null,restored:capture?.restored??null,operations:capture?.operations??null,
    calls_metadata_bytes:capture?.callBytes??null,subjects:capture?[...capture.subjects].map(([id,s])=>({id,visits:s.visits,completed:s.completed,calls:s.calls.length})):[]};
   const methods=['fillText','strokeText'].map(key=>[key,Object.hasOwn(context,key)]);
-  return {name,mode,arm,frame:playback.frame,width:W,height:H,input_binding:binding,
+  return {name,mode,arm,frame:playback.frame,width:canvas.width,height:canvas.height,input_binding:binding,
    pixel_sha256:await digest(pixels),post_probe_pixel_sha256:await digest(finalPixels),signals:afterSignals,probe,
    native_camera_scene_unchanged:camera.scene()===originalScene,independent_glyph_operations:independent,
    producer_getImageData_calls:producerReads,first_producer_readback_shape:firstProducerReadbackShape,producer_capture:producerCapture,semantic_draw_calls:drawCount,view_render_calls:viewDraws,scene_render_calls:1,render_elapsed_ms:renderMs,
@@ -432,6 +434,8 @@ try {
     for(const row of legacy.subjects)delete row.native_text_pixels;
     assert.deepEqual(legacy,before.probe,'prior native geometry or text observations changed');
     const text=after.probe.subjects.filter(row=>Object.hasOwn(after.independent_glyph_operations,row.id));
+    assert.deepEqual([before.width,before.height],[after.width,after.height],'observer changed actual canvas dimensions');
+    assert.deepEqual([after.width,after.height],name==='operation-overflow'?[640,360]:[1920,1080],'focal canvas dimensions differ');
     if(name==='operation-overflow'){
       assert(Object.values(after.independent_glyph_operations).reduce((n,row)=>n+row.calls.length,0)>64,'actual operation budget not exceeded');
       assert.equal(after.semantic_draw_calls,1,'overflow must occur within one native Txt.draw');
