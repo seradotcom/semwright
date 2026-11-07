@@ -1670,7 +1670,6 @@ impl App {
                 expected_sha256,
                 expected_bytes,
             )?);
-            phase = "native-conversion";
             let native = runtime.derive_audio(
                 AudioDerivativeExecution {
                     inputs: inputs.path(),
@@ -1707,6 +1706,11 @@ impl App {
             }
             // Retain a returned partial/empty candidate even when FFmpeg failed.
             // Failure to capture it must never replace the original native error.
+            // The native invocation remains the first causal error even though
+            // the separate candidate readback was attempted afterwards.
+            if native.is_err() {
+                phase = "native-conversion";
+            }
             let native = native?;
             let candidate = candidate?;
             phase = "source-revalidation";
