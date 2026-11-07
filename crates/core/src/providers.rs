@@ -609,7 +609,12 @@ impl Broker {
                     .uncertain()
                 })??;
             lease.lifetime.cancel();
-            tokio::time::timeout(Duration::from_secs(5), lease.shutdown())
+            // Protocol v9 shutdown may spend three seconds on the original
+            // acknowledgement and four more observing actual child exit.
+            // The outer owner deadline must outlive both nested physical
+            // observations; timing out at five seconds would cancel a valid
+            // cooperative close and report UNKNOWN unnecessarily.
+            tokio::time::timeout(Duration::from_secs(8), lease.shutdown())
                 .await
                 .map_err(|_| {
                     Error::new(
