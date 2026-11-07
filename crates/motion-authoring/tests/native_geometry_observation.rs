@@ -188,6 +188,47 @@ fn polygon_requires_real_draw_mapping_and_the_same_separate_aabb() {
 }
 
 #[test]
+fn native_polygon_extent_allows_only_f64_parse_roundoff() {
+    // Numeric excerpt from the actual clip-nested-green/inner DOM capture:
+    // SHA-256 af6964e3c2f17960949de5fa2e4c3e3d1a0eb3846ecc1de12c0fa968ee099543.
+    // The original pixel guard is 2 px. This is only its wire consistency test.
+    let native: Value = serde_json::from_str(
+        r#"{
+        "box":{"x":254.44627374573122,"y":121.19182029891041,
+               "width":193.4943395820544,"height":126.3842646374697},
+        "polygon":[[259.41797030916155,121.19182029891041],
+                   [447.9406133277856,132.63685174593903],
+                   [442.9689167643553,247.5760849363801],
+                   [254.44627374573122,236.1310534893515]]
+    }"#,
+    )
+    .unwrap();
+    let mut value = geometry();
+    value["subjects"][0]["screen_layout_box"] = known(native["box"].clone());
+    value["subjects"][0]["native_geometry"]["value"]["screen_layout_polygon"] =
+        known(native["polygon"].clone());
+    accepted(&value);
+    for field in ["width", "height"] {
+        for delta in [-1e-9, 1e-9] {
+            let mut changed = value.clone();
+            let original = changed["subjects"][0]["screen_layout_box"]["value"][field]
+                .as_f64()
+                .unwrap();
+            changed["subjects"][0]["screen_layout_box"]["value"][field] = json!(original + delta);
+            rejected(changed);
+        }
+    }
+    for field in ["x", "y"] {
+        let mut changed = value.clone();
+        let original = changed["subjects"][0]["screen_layout_box"]["value"][field]
+            .as_f64()
+            .unwrap();
+        changed["subjects"][0]["screen_layout_box"]["value"][field] = json!(original + 1e-12);
+        rejected(changed); // Coordinates remain exact, even below the extent bound.
+    }
+}
+
+#[test]
 fn camera_replacement_duplicate_inventory_and_unmapped_draw_remain_real_negatives() {
     let mut value = camera();
     let camera = &mut value["subjects"][0]["camera_scene"]["value"];
@@ -251,6 +292,7 @@ fn actual_dom_wire_originals_deserialize_and_validate_without_synthesizing_field
         std::env::var("SEMWRIGHT_NATIVE_GEOMETRY_DOM_CASES").expect("explicit selected cases");
     let cases: Vec<&str> = cases.split(',').collect();
     assert!(!cases.is_empty() && cases.len() <= 16);
+    let mut validation_failures = Vec::new();
     for case in cases {
         assert!(case.bytes().all(|b| b.is_ascii_lowercase() || b == b'-'));
         let path = root.join(format!("{case}.captured.original.json"));
@@ -267,7 +309,42 @@ fn actual_dom_wire_originals_deserialize_and_validate_without_synthesizing_field
         for row in rows {
             let observation: FrameObservation =
                 serde_json::from_value(row["probe"].clone()).unwrap();
-            observation.validate().unwrap();
+            if let Err(error) = observation.validate() {
+                let mut geometry_differences = Vec::new();
+                for subject in &observation.subjects {
+                    if let (Some(points), Some(bounds)) = (
+                        subject
+                            .native_geometry
+                            .as_ref()
+                            .and_then(|value| value.value())
+                            .and_then(|geometry| geometry.screen_layout_polygon.value()),
+                        subject
+                            .screen_layout_box
+                            .as_ref()
+                            .and_then(|value| value.value()),
+                    ) {
+                        let min_x = points.iter().map(|p| p[0]).fold(f64::INFINITY, f64::min);
+                        let min_y = points.iter().map(|p| p[1]).fold(f64::INFINITY, f64::min);
+                        let max_x = points
+                            .iter()
+                            .map(|p| p[0])
+                            .fold(f64::NEG_INFINITY, f64::max);
+                        let max_y = points
+                            .iter()
+                            .map(|p| p[1])
+                            .fold(f64::NEG_INFINITY, f64::max);
+                        let declared = [bounds.x, bounds.y, bounds.width, bounds.height];
+                        let recomputed = [min_x, min_y, max_x - min_x, max_y - min_y];
+                        geometry_differences.push(json!({"subject":subject.id,
+                            "declared":declared,"recomputed":recomputed,
+                            "difference":(0..4).map(|i| declared[i]-recomputed[i]).collect::<Vec<_>>(),
+                            "declared_bits":declared.map(f64::to_bits),
+                            "recomputed_bits":recomputed.map(f64::to_bits)}));
+                    }
+                }
+                validation_failures.push(json!({"case":case,"mode":row["mode"],
+                    "validation_error":format!("{error:?}"),"native_numeric_differences":geometry_differences}));
+            }
             assert!(!observation.subjects.is_empty());
             if row["mode"] == "observed" {
                 assert!(
@@ -284,4 +361,9 @@ fn actual_dom_wire_originals_deserialize_and_validate_without_synthesizing_field
             "original changed during ABI readback"
         );
     }
+    assert!(
+        validation_failures.is_empty(),
+        "{}",
+        serde_json::to_string_pretty(&validation_failures).unwrap()
+    );
 }

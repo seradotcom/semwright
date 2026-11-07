@@ -180,6 +180,18 @@ fn validate_native_polygon(polygon: &NativeScreenPolygon) -> Result<()> {
     Ok(())
 }
 
+fn native_extent_agrees(declared: f64, minimum: f64, maximum: f64) -> bool {
+    // JSON decimal parsing can move an endpoint by one f64 ULP. Subtracting
+    // the parsed endpoints then need not equal the independently serialized
+    // native width/height bit for bit. This is only a numerical consistency
+    // bound; the separate physical geometry oracle retains its pixel guard.
+    let scale = 1.0_f64
+        .max(minimum.abs())
+        .max(maximum.abs())
+        .max(declared.abs());
+    (declared - (maximum - minimum)).abs() <= 4.0 * f64::EPSILON * scale
+}
+
 impl SubjectObservation {
     fn validate_native_geometry(&self) -> Result<()> {
         let present =
@@ -239,8 +251,8 @@ impl SubjectObservation {
                 ensure(
                     bounds.x == min_x
                         && bounds.y == min_y
-                        && bounds.width == max_x - min_x
-                        && bounds.height == max_y - min_y,
+                        && native_extent_agrees(bounds.width, min_x, max_x)
+                        && native_extent_agrees(bounds.height, min_y, max_y),
                     "native polygon and AABB disagree",
                 )?;
             }
