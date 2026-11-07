@@ -14,7 +14,13 @@ REGISTRY = {command["name"]: command for command in COMMANDS}
 
 class ContractTests(unittest.TestCase):
     def test_all_command_schemas_valid(self):
-        self.assertEqual(len(COMMANDS), 159)
+        # A fixed total became stale as first-party commands were added.
+        # Validate every registered schema, and pin the new release command's
+        # privilege and non-idempotent semantics instead of a roster length.
+        release = REGISTRY["providers.release_bound"]
+        self.assertEqual(release["requires"], ["providers.release_bound"])
+        self.assertEqual(release["risk"], "mutating")
+        self.assertEqual(release["idempotency"], "non_idempotent")
         for command in COMMANDS:
             for key in ("input_schema", "output_schema"):
                 with self.subTest(command=command["name"], kind=key):
