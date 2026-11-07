@@ -227,7 +227,7 @@ function* executeInstruction(i:Instruction,nodes:Map<string,Node>,initial:Map<st
   case 'local_region':{const target=node(op.target);const overlay=node(op.overlay);requireValue(overlay instanceof Layout,'region requires Layout');overlay.absolutePosition(()=>vec(op.center).transformAsPoint(target.localToWorld()));overlay.size([op.size.width,op.size.height]);break;}
  }
 }
-const sceneRegistrations=new Map<string,{data:NativeSceneData;nodes:Map<string,Node>;draws:Map<string,DrawRecord>;rendered:Set<string>;canvas:HTMLCanvasElement|null;drawSerial:number;finished:Set<string>;captionActive:Map<string,boolean>}>();
+const sceneRegistrations=new Map<string,ReturnType<typeof registration>>();
 // This extension records native layout separately from drawable/cache bounds.
 // The public 3.17.2 Layout size signal reads computed DOM layout; it is not the
 // authored desiredSize and may differ from the intended size in the RED arm.
@@ -251,6 +251,180 @@ function readNativeLayout(n:Node):LayoutDraw|undefined{
  const root=n.isLayoutRoot();requireValue(typeof root==='boolean','observed layout root');
  return {root,box:{x:-width/2,y:-height/2,width,height}};
 }
+// Native draw observations. These records do not assign authored signals.
+type Matrix6=[number,number,number,number,number,number];
+type ScreenQuad=[[number,number],[number,number],[number,number],[number,number]];
+type NativeLineageNode={native_key:string;subject_id:string|null;native_type:NativeNodeType;
+ parent_key:string|null;local_to_parent:Matrix6;opacity:number;layout_enabled:Known<boolean>;clip:Known<boolean>};
+type NativeRectClip={native_key:string;local_box:LayoutDraw['box'];matrix:Matrix6;screen_polygon:ScreenQuad};
+type NativeOwnClip={kind:'none'}|{kind:'rect';clip:NativeRectClip};
+type NativeGeometry={native_key:string;screen_layout_polygon:Known<ScreenQuad>;
+ lineage:Known<NativeLineageNode[]>;own_clip:Known<NativeOwnClip>};
+type NativeCameraIdentity={native_key:string;subject_id:string|null};
+type NativeCameraScene={native_key:string;original_scene_key:string;current_scene_key:string;
+ current_scene_is_original:boolean;draw_scene_key:string;draw_uses_original_scene:boolean;
+ scene_transform:Known<Matrix6>;position:[number,number];rotation:number;zoom:number;
+ cameras:Known<NativeCameraIdentity[]>};
+type NativeClipRecord={canvas:HTMLCanvasElement;value:Known<NativeOwnClip>};
+type NativeSceneDraw={scene:Node;canvas:HTMLCanvasElement;matrix:Matrix6;completed:boolean};
+type NativeMethod=(this:unknown,...args:unknown[])=>unknown;
+
+function nativeKey(n:Node):string{
+ const key=n.key;requireValue(typeof key==='string'&&key.length>0&&key.length<=512&&/^[\x20-\x7e]+$/.test(key),'native node key unavailable');return key;
+}
+function nativeMatrix(m:DOMMatrix):Matrix6{
+ const a:Matrix6=[m.a,m.b,m.c,m.d,m.e,m.f];
+ requireValue(m.is2D&&a.every(v=>Number.isFinite(v)&&Math.abs(v)<=1e6),'native matrix unavailable');return a;
+}
+function nativeQuad(box:LayoutDraw['box'],m:DOMMatrix):ScreenQuad{
+ // Preserve ordered native corners before any axis-aligned reduction.
+ const points=[[box.x,box.y],[box.x+box.width,box.y],[box.x+box.width,box.y+box.height],[box.x,box.y+box.height]];
+ const result=points.map(([x,y])=>{const p=m.transformPoint({x,y});return[p.x,p.y];});
+ requireValue(result.every(p=>p.every(v=>Number.isFinite(v)&&Math.abs(v)<=2e6)),'native polygon unavailable');
+ return result as ScreenQuad;
+}
+function withNativeMethods<T>(target:object,names:string[],wrap:(name:string,original:NativeMethod)=>NativeMethod,run:()=>T):T{
+ const saved:{name:string;descriptor:PropertyDescriptor|undefined}[]=[];
+ const restore=()=>{for(const {name,descriptor}of saved.reverse()){
+  if(descriptor)Object.defineProperty(target,name,descriptor);
+  else requireValue(Reflect.deleteProperty(target,name),'native observer method restoration failed');
+ }};
+ try{
+  for(const name of names){
+   const original=Reflect.get(target,name);requireValue(typeof original==='function','native observation method unavailable');
+   const descriptor=Object.getOwnPropertyDescriptor(target,name);
+   Object.defineProperty(target,name,{configurable:true,writable:true,enumerable:descriptor?.enumerable??false,value:wrap(name,original as NativeMethod)});
+   saved.push({name,descriptor});
+  }
+ }catch{restore();return run();}
+ try{return run();}finally{restore();}
+}
+function observeRectClip<T>(n:Layout,context:CanvasRenderingContext2D,reg:ReturnType<typeof registration>,run:()=>T):T{
+ const record:NativeClipRecord={canvas:context.canvas,value:unknown('native rectangular clip call unavailable')};reg.nativeClips.set(n,record);
+ let open=false,closed=false,invalid=false,done=false;
+ let rectangle:{box:LayoutDraw['box'];matrix:Matrix6}|null=null;
+ return withNativeMethods(context,['beginPath','rect','closePath','clip'],(method,original)=>function(...args){
+  const own=this===context&&reg.renderStack[reg.renderStack.length-1]===n&&!done;
+  let matrix:Matrix6|undefined;
+  if(own&&(method==='rect'||method==='clip')){try{matrix=nativeMatrix(context.getTransform());}catch{invalid=true;}}
+  const value=original.apply(this,args); // exactly the real Canvas call
+  if(own){try{
+   if(method==='beginPath'){open=true;closed=false;invalid=false;rectangle=null;}
+   else if(method==='rect'){
+    if(!open||rectangle!==null||args.length!==4||!args.every(v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1e6)||!matrix){invalid=true;}
+    else{
+     const [x,y,width,height]=args as number[];
+     if(width<=0||height<=0||Math.abs(x)>32768||Math.abs(y)>32768)invalid=true;
+     rectangle={box:{x,y,width,height},matrix};
+    }
+   }else if(method==='closePath'){closed=true;}
+   else if(method==='clip'){
+    done=true;
+    if(!invalid&&open&&closed&&rectangle&&matrix&&args.length===0&&matrix.every((v,i)=>v===rectangle!.matrix[i])){
+     record.value=known({kind:'rect',clip:{native_key:nativeKey(n),local_box:rectangle.box,matrix,
+      screen_polygon:nativeQuad(rectangle.box,new DOMMatrix(matrix))}});
+    }
+   }
+  }catch{invalid=true;record.value=unknown('native rectangular clip observation unavailable');}}
+  return value;
+ },run);
+}
+function observeCameraDraw<T>(camera:Camera,reg:ReturnType<typeof registration>,run:()=>T):T{
+ return withNativeMethods(camera,['drawChildren'],(_method,originalCamera)=>function(...args){
+  let scene:Node;
+  try{scene=camera.scene();requireValue(scene instanceof Node,'native camera scene unavailable');}
+  catch{return originalCamera.apply(this,args);}
+  return withNativeMethods(scene,['drawChildren'],(_name,originalScene)=>function(...sceneArgs){
+   const ctx=sceneArgs[0] as CanvasRenderingContext2D;
+   const own=this===scene&&reg.renderStack[reg.renderStack.length-1]===camera;
+   let draw:NativeSceneDraw|undefined;
+   if(own){try{draw={scene,canvas:ctx.canvas,matrix:nativeMatrix(ctx.getTransform()),completed:false};}catch{/* unavailable stays UNKNOWN */}}
+   if(own){const prior=reg.cameraDraws.get(camera);reg.cameraDraws.set(camera,{count:(prior?.count??0)+1,draw:prior?.draw??draw});}
+   const value=originalScene.apply(this,sceneArgs);
+   if(draw)draw.completed=true;
+   return value;
+  },()=>originalCamera.apply(this,args));
+ },run);
+}
+function observeNativeRender<T>(n:Node,context:CanvasRenderingContext2D,reg:ReturnType<typeof registration>,run:()=>T):T{
+ reg.renderStack.push(n);
+ try{
+  if(n instanceof Camera)return observeCameraDraw(n,reg,run);
+  // Only the exact 3.17.2 Layout path has this rectangular clipping contract.
+  const draw=Reflect.get(n,'draw');
+  if(Object.getPrototypeOf(n)===Layout.prototype&&draw===Reflect.get(Layout.prototype,'draw')){
+   const layout=n as Layout;
+   if(layout.clip())return observeRectClip(layout,context,reg,run);
+   const value=run();
+   if(!layout.clip())reg.nativeClips.set(n,{canvas:context.canvas,value:known({kind:'none'})});
+   return value;
+  }
+  return run();
+ }finally{reg.renderStack.pop();}
+}
+function nativeLineage(n:Node,reg:ReturnType<typeof registration>):Known<NativeLineageNode[]>{
+ try{
+  const result:NativeLineageNode[]=[],seen=new Set<Node>();let current:Node|null=n;
+  while(current){
+   requireValue(result.length<64&&!seen.has(current),'native lineage bound or cycle');seen.add(current);
+   const parent=current.parent(),opacity=current.opacity();
+   requireValue((parent===null||parent instanceof Node)&&Number.isFinite(opacity)&&opacity>=0&&opacity<=1,'native lineage values');
+   result.push({native_key:nativeKey(current),subject_id:reg.semanticIds.get(current)??null,native_type:nativeNodeType(current),
+    parent_key:parent?nativeKey(parent):null,local_to_parent:nativeMatrix(current.localToParent()),opacity,
+    layout_enabled:current instanceof Layout?known(current.layoutEnabled()):unknown('node is not a native Layout'),
+    clip:current instanceof Layout?known(current.clip()):unknown('node is not a native Layout')});
+   current=parent;
+  }
+  return known(result);
+ }catch{return unknown('native parent lineage unavailable or ambiguous');}
+}
+function nativeCameraInventory(reg:ReturnType<typeof registration>):Known<NativeCameraIdentity[]>{
+ try{
+  requireValue(reg.nativeView instanceof Node,'native view unavailable');
+  const seen=new Set<Node>(),active=new Set<Node>(),keys=new Set<string>();
+  const stack:{node:Node;exit:boolean}[]=[{node:reg.nativeView,exit:false}],result:NativeCameraIdentity[]=[];
+  while(stack.length){
+   const {node,exit}=stack.pop()!;
+   if(exit){active.delete(node);continue;}
+   requireValue(!active.has(node),'native scene graph cycle');if(seen.has(node))continue;
+   requireValue(seen.size<4096,'native scene graph bound');seen.add(node);active.add(node);
+   const key=nativeKey(node);requireValue(!keys.has(key),'native node keys ambiguous');keys.add(key);
+   stack.push({node,exit:true});const children=node.peekChildren();
+   requireValue(Array.isArray(children)&&children.length<=1024,'native child roster bound');
+   for(const child of children){requireValue(child instanceof Node,'native child type');stack.push({node:child,exit:false});}
+   if(node instanceof Camera){
+    requireValue(result.length<64,'native camera roster bound');result.push({native_key:key,subject_id:reg.semanticIds.get(node)??null});
+    const scene=node.scene();requireValue(scene instanceof Node,'native camera scene type');stack.push({node:scene,exit:false});
+   }
+  }
+  return known(result.sort((a,b)=>a.native_key<b.native_key?-1:a.native_key>b.native_key?1:0));
+ }catch{return unknown('native camera graph inventory unavailable or ambiguous');}
+}
+function nativeGeometryObservation(n:Node,draw:DrawRecord|undefined,coordinateKnown:boolean,layoutBoxKnown:boolean,reg:ReturnType<typeof registration>):Known<NativeGeometry>{
+ try{
+  let polygon:Known<ScreenQuad>=unknown('native layout polygon or output transform unavailable');
+  if(coordinateKnown&&layoutBoxKnown&&draw?.layout){try{polygon=known(nativeQuad(draw.layout.box,draw.matrix));}catch{/* keep UNKNOWN */}}
+  const clip=reg.nativeClips.get(n);
+  return known({native_key:nativeKey(n),screen_layout_polygon:polygon,
+   lineage:draw?nativeLineage(n,reg):unknown('native node was not observed in a completed draw'),
+   own_clip:coordinateKnown&&clip&&clip.canvas===draw?.canvas?clip.value:unknown('native own clip path or output transform unavailable')});
+ }catch{return unknown('native geometry identity unavailable');}
+}
+function nativeCameraObservation(n:Node,reg:ReturnType<typeof registration>,canvas:HTMLCanvasElement,inventory:Known<NativeCameraIdentity[]>):Known<NativeCameraScene>{
+ if(!(n instanceof Camera))return unknown('node is not a native Camera');
+ try{
+  const original=reg.cameraOrigins.get(n),current=n.scene(),record=reg.cameraDraws.get(n);
+  requireValue(original instanceof Node&&current instanceof Node&&record?.count===1&&record.draw?.completed,'native original camera scene draw unavailable');
+  const draw=record.draw,position=n.position(),rotation=n.rotation(),zoom=n.zoom();
+  requireValue([position.x,position.y,rotation,zoom].every(v=>Number.isFinite(v)&&Math.abs(v)<=1e6)&&zoom>0,'native camera signals unavailable');
+  const mapped=draw.canvas===reg.canvas&&draw.canvas.width===canvas.width&&draw.canvas.height===canvas.height;
+  return known({native_key:nativeKey(n),original_scene_key:nativeKey(original),current_scene_key:nativeKey(current),
+   current_scene_is_original:current===original,draw_scene_key:nativeKey(draw.scene),draw_uses_original_scene:draw.scene===original,
+   scene_transform:mapped?known(draw.matrix):unknown('native camera scene draw has an unmodeled output transform'),
+   position:[position.x,position.y],rotation,zoom,cameras:inventory});
+ }catch{return unknown('native original Camera.scene draw or identity unavailable');}
+}
+
 function nativeLayoutObservation(n:Node,draw:DrawRecord|undefined,coordinateKnown:boolean){
  const native_type=known(nativeNodeType(n));
  const layout_root:Known<boolean>=draw?.layout?known(draw.layout.root):unknown('native layout root unavailable after completed draw');
@@ -268,9 +442,11 @@ function nativeLayoutObservation(n:Node,draw:DrawRecord|undefined,coordinateKnow
 }
 function clipAncestor(n:Node){for(let a:Node|null=n;a;a=a.parent()){if(a instanceof Layout&&a.clip())return true;}return false;}
 function instrument(n:Node,id:string,reg:ReturnType<typeof registration>){
+ reg.semanticIds.set(n,id);
+ if(n instanceof Camera){try{const original=n.scene();if(original instanceof Node)reg.cameraOrigins.set(n,original);}catch{/* unavailable scene identity stays UNKNOWN */}}
  const render=n.render.bind(n);
  n.render=(context:CanvasRenderingContext2D)=>{
-  const result=render(context);
+  const result=observeNativeRender(n,context,reg,()=>render(context));
   if(n.absoluteOpacity()>0){
    reg.rendered.add(id);
    // Layout/Txt transforms and cache bounds can require the native DOM layout
@@ -287,7 +463,9 @@ function instrument(n:Node,id:string,reg:ReturnType<typeof registration>){
   return result;
  };
 }
-function registration(data:NativeSceneData,nodes:Map<string,Node>){return {data,nodes,draws:new Map<string,DrawRecord>(),rendered:new Set<string>(),canvas:null as HTMLCanvasElement|null,drawSerial:0,finished:new Set<string>(),captionActive:new Map<string,boolean>()};}
+function registration(data:NativeSceneData,nodes:Map<string,Node>){return {data,nodes,draws:new Map<string,DrawRecord>(),rendered:new Set<string>(),canvas:null as HTMLCanvasElement|null,drawSerial:0,finished:new Set<string>(),captionActive:new Map<string,boolean>(),
+ nativeView:null as Node|null,semanticIds:new WeakMap<Node,string>(),renderStack:[] as Node[],nativeClips:new Map<Node,NativeClipRecord>(),
+ cameraOrigins:new WeakMap<Camera,Node>(),cameraDraws:new Map<Camera,{count:number;draw?:NativeSceneDraw}>()};}
 function transformed(box:DrawRecord['bounds'],m:DOMMatrix){const p=[[box.x,box.y],[box.x+box.width,box.y],[box.x,box.y+box.height],[box.x+box.width,box.y+box.height]].map(([x,y])=>m.transformPoint({x,y}));const x=Math.min(...p.map(x=>x.x)),y=Math.min(...p.map(x=>x.y));return{x,y,width:Math.max(...p.map(x=>x.x))-x,height:Math.max(...p.map(x=>x.y))-y};}
 async function textHash(text:string){const digest=globalThis.__SEMWRIGHT_TEXT_DIGEST__;requireValue(typeof digest==='function','native text digest binding unavailable');const hash=await digest(text);requireValue(/^[0-9a-f]{64}$/.test(hash),'native text digest binding returned invalid hash');return hash;}
 function hasGlyph(face:FontEvidence,cp:number){return face.codepoints.some(([a,b])=>a<=cp&&cp<=b);}
@@ -301,7 +479,7 @@ function fontMeasurement(spec:FontSpec,text:string,weight:number,evidence:FontEv
 }
 async function probeScene(reg:ReturnType<typeof registration>,canvas:HTMLCanvasElement,frame:number,binding:FrameBinding){
  requireValue(binding.native_stage_version==='3.17.2','stage compositor baseline changed');
- const output:unknown[]=[];
+ const output:unknown[]=[];const cameras=nativeCameraInventory(reg);
  for(const shot of reg.data.shots)for(const subject of shot.subjects){
   const n=reg.nodes.get(subject.id)!;const draw=reg.draws.get(subject.id);
   // 3.17.2 Stage copies same-sized current/previous buffers at (0,0). A cache
@@ -332,7 +510,8 @@ async function probeScene(reg:ReturnType<typeof registration>,canvas:HTMLCanvasE
   const rendered=reg.rendered.has(subject.id);
   let asset_ready:Known<boolean>=known(true);
   if(c.kind==='image'||c.kind==='video')asset_ready=rendered?known(true):unknown('asset was not observed in a completed native draw');
-  output.push({id:subject.id,...nativeLayoutObservation(n,draw,coordinateKnown),local_size:draw?known({width:draw.bounds.width,height:draw.bounds.height}):unknown('native layout size unavailable'),bounds:coordinateKnown?known(transformed(draw!.bounds,draw!.matrix)):unknown('not drawn in the native scene buffer or unmodeled cache transform'),transform:coordinateKnown?known([draw!.matrix.a,draw!.matrix.b,draw!.matrix.c,draw!.matrix.d,draw!.matrix.e,draw!.matrix.f]):unknown('output transform unavailable'),opacity:known(n.absoluteOpacity()),drawn:rendered,z_order:draw?known(draw.serial):unknown('no native draw order'),clip_active:known(clipAncestor(n)),pixel_visibility:unknown('draw and alpha do not prove pixel contribution after overlap'),text,asset_ready});
+  const observedLayout=nativeLayoutObservation(n,draw,coordinateKnown);
+  output.push({id:subject.id,...observedLayout,native_geometry:nativeGeometryObservation(n,draw,coordinateKnown,observedLayout.screen_layout_box.status==='known',reg),camera_scene:nativeCameraObservation(n,reg,canvas,cameras),local_size:draw?known({width:draw.bounds.width,height:draw.bounds.height}):unknown('native layout size unavailable'),bounds:coordinateKnown?known(transformed(draw!.bounds,draw!.matrix)):unknown('not drawn in the native scene buffer or unmodeled cache transform'),transform:coordinateKnown?known([draw!.matrix.a,draw!.matrix.b,draw!.matrix.c,draw!.matrix.d,draw!.matrix.e,draw!.matrix.f]):unknown('output transform unavailable'),opacity:known(n.absoluteOpacity()),drawn:rendered,z_order:draw?known(draw.serial):unknown('no native draw order'),clip_active:known(clipAncestor(n)),pixel_visibility:unknown('draw and alpha do not prove pixel contribution after overlap'),text,asset_ready});
  }
  const transitions=[...new Set(reg.data.instructions.map(i=>i.invocation))].map(id=>({invocation_id:id,finished:known(reg.finished.has(id))}));
  const captions=reg.data.shots.flatMap(s=>s.captions.map(c=>{const cue=reg.data.cues[c.cue_id];return{id:c.id,active:known((reg.captionActive.get(c.id)??false)&&reg.draws.has(c.subject)&&reg.nodes.get(c.subject)!.absoluteOpacity()>0&&(reg.nodes.get(c.subject) as Txt).text()===c.text),cue_start:cue?.status==='resolved'?known(cue.start):unknown('unresolved cue'),cue_end:cue?.status==='resolved'?known(cue.end):unknown('unresolved cue')};}));
@@ -359,8 +538,8 @@ export function createAuthoringScene(data:NativeSceneData,urls:AssetUrls){
   // Capture the stage canvas before any authored subtree is attached, then
   // instrument each subject inside createShot before parent.add/view.add can
   // prime Motion Canvas caches.
-  const originalRender=view.render.bind(view);
-  view.render=(ctx:CanvasRenderingContext2D)=>{reg.canvas=ctx.canvas;reg.draws.clear();reg.rendered.clear();reg.drawSerial=0;return originalRender(ctx);};
+  reg.nativeView=view;const originalRender=view.render.bind(view);
+  view.render=(ctx:CanvasRenderingContext2D)=>{reg.canvas=ctx.canvas;reg.draws.clear();reg.rendered.clear();reg.drawSerial=0;reg.nativeClips.clear();reg.cameraDraws.clear();reg.renderStack.length=0;return originalRender(ctx);};
   for(const shot of data.shots)view.add(createShot(shot,data,urls,nodes,reg));
   // Native dependency resolution participates in renderer startup; fonts and
   // media are awaited by native promises, never set ready from the desired model.

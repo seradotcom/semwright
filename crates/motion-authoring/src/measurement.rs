@@ -80,6 +80,324 @@ fn validate_observation_reason<T>(value: &Known<T>) -> Result<()> {
     Ok(())
 }
 
+/// Four ordered native rectangle corners (TL, TR, BR, BL), not an AABB.
+pub type NativeScreenPolygon = [[f64; 2]; 4];
+pub type NativeDrawMatrix = [f64; 6];
+
+fn required_nullable_string<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<String>::deserialize(deserializer)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeLineageNode {
+    pub native_key: String,
+    #[serde(deserialize_with = "required_nullable_string")]
+    pub subject_id: Option<String>,
+    pub native_type: NativeNodeType,
+    #[serde(deserialize_with = "required_nullable_string")]
+    pub parent_key: Option<String>,
+    pub local_to_parent: NativeDrawMatrix,
+    pub opacity: f64,
+    pub layout_enabled: Known<bool>,
+    pub clip: Known<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeRectClip {
+    pub native_key: String,
+    pub local_box: Bounds,
+    pub matrix: NativeDrawMatrix,
+    pub screen_polygon: NativeScreenPolygon,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum NativeOwnClip {
+    None,
+    Rect { clip: NativeRectClip },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeGeometryObservation {
+    pub native_key: String,
+    pub screen_layout_polygon: Known<NativeScreenPolygon>,
+    pub lineage: Known<Vec<NativeLineageNode>>,
+    pub own_clip: Known<NativeOwnClip>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeCameraIdentity {
+    pub native_key: String,
+    #[serde(deserialize_with = "required_nullable_string")]
+    pub subject_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeCameraSceneObservation {
+    pub native_key: String,
+    pub original_scene_key: String,
+    pub current_scene_key: String,
+    pub current_scene_is_original: bool,
+    pub draw_scene_key: String,
+    pub draw_uses_original_scene: bool,
+    pub scene_transform: Known<NativeDrawMatrix>,
+    pub position: [f64; 2],
+    pub rotation: f64,
+    pub zoom: f64,
+    pub cameras: Known<Vec<NativeCameraIdentity>>,
+}
+
+fn validate_native_key(key: &str) -> Result<()> {
+    ensure(
+        !key.is_empty() && key.len() <= 512 && key.bytes().all(|b| (32..=126).contains(&b)),
+        "native object key bounds",
+    )
+}
+
+fn validate_native_matrix(matrix: &NativeDrawMatrix) -> Result<()> {
+    for value in matrix {
+        crate::validate::finite(*value, -1e6, 1e6)?;
+    }
+    Ok(())
+}
+
+fn validate_native_polygon(polygon: &NativeScreenPolygon) -> Result<()> {
+    for point in polygon {
+        for value in point {
+            crate::validate::finite(*value, -2e6, 2e6)?;
+        }
+    }
+    Ok(())
+}
+
+impl SubjectObservation {
+    fn validate_native_geometry(&self) -> Result<()> {
+        let present =
+            usize::from(self.native_geometry.is_some()) + usize::from(self.camera_scene.is_some());
+        ensure(
+            present == 0 || present == 2,
+            "native geometry extension must be complete or absent",
+        )?;
+        if present == 0 {
+            return Ok(());
+        }
+        ensure(
+            self.native_type.is_some()
+                && self.layout_root.is_some()
+                && self.screen_layout_box.is_some(),
+            "native geometry requires the typed layout extension",
+        )?;
+        let kind = self.native_type.as_ref().and_then(Known::value);
+        let geometry = self.native_geometry.as_ref().unwrap();
+        let camera = self.camera_scene.as_ref().unwrap();
+        validate_observation_reason(geometry)?;
+        validate_observation_reason(camera)?;
+        if let Some(value) = geometry.value() {
+            validate_native_key(&value.native_key)?;
+            ensure(
+                kind.is_some(),
+                "native geometry identity requires observed native type",
+            )?;
+            validate_observation_reason(&value.screen_layout_polygon)?;
+            validate_observation_reason(&value.lineage)?;
+            validate_observation_reason(&value.own_clip)?;
+            if let Some(polygon) = value.screen_layout_polygon.value() {
+                validate_native_polygon(polygon)?;
+                ensure(
+                    self.drawn
+                        && kind.is_some_and(|k| k.is_layout())
+                        && self.layout_root.as_ref().and_then(Known::value).is_some()
+                        && self.transform.value().is_some(),
+                    "native polygon requires a completed mapped Layout draw",
+                )?;
+                let bounds = self.screen_layout_box.as_ref().and_then(Known::value);
+                ensure(
+                    bounds.is_some(),
+                    "native polygon requires its separately observed AABB",
+                )?;
+                let bounds = bounds.unwrap();
+                let min_x = polygon.iter().map(|p| p[0]).fold(f64::INFINITY, f64::min);
+                let min_y = polygon.iter().map(|p| p[1]).fold(f64::INFINITY, f64::min);
+                let max_x = polygon
+                    .iter()
+                    .map(|p| p[0])
+                    .fold(f64::NEG_INFINITY, f64::max);
+                let max_y = polygon
+                    .iter()
+                    .map(|p| p[1])
+                    .fold(f64::NEG_INFINITY, f64::max);
+                ensure(
+                    bounds.x == min_x
+                        && bounds.y == min_y
+                        && bounds.width == max_x - min_x
+                        && bounds.height == max_y - min_y,
+                    "native polygon and AABB disagree",
+                )?;
+            }
+            if let Some(lineage) = value.lineage.value() {
+                ensure(
+                    self.drawn && !lineage.is_empty() && lineage.len() <= 64,
+                    "native lineage draw or bounds",
+                )?;
+                let mut keys = BTreeSet::new();
+                let mut subjects = BTreeSet::new();
+                for (index, node) in lineage.iter().enumerate() {
+                    validate_native_key(&node.native_key)?;
+                    ensure(
+                        keys.insert(&node.native_key),
+                        "native lineage duplicate or cycle",
+                    )?;
+                    if let Some(subject) = &node.subject_id {
+                        crate::validate::id(subject)?;
+                        ensure(
+                            subjects.insert(subject),
+                            "native lineage semantic identity repeated",
+                        )?;
+                    }
+                    if let Some(parent) = &node.parent_key {
+                        validate_native_key(parent)?;
+                    }
+                    ensure(
+                        node.parent_key.as_deref()
+                            == lineage.get(index + 1).map(|p| p.native_key.as_str()),
+                        "native lineage parent edge incomplete",
+                    )?;
+                    validate_native_matrix(&node.local_to_parent)?;
+                    crate::validate::finite(node.opacity, 0.0, 1.0)?;
+                    validate_observation_reason(&node.layout_enabled)?;
+                    validate_observation_reason(&node.clip)?;
+                    if node.layout_enabled.value().is_some() || node.clip.value().is_some() {
+                        ensure(
+                            node.native_type.is_layout(),
+                            "native Layout signal on non-Layout ancestor",
+                        )?;
+                    }
+                }
+                ensure(
+                    lineage[0].native_key == value.native_key
+                        && lineage[0].subject_id.as_deref() == Some(self.id.as_str())
+                        && Some(&lineage[0].native_type) == kind,
+                    "native lineage does not start at its observed subject",
+                )?;
+            }
+            if let Some(clip) = value.own_clip.value() {
+                ensure(
+                    self.drawn && kind == Some(&NativeNodeType::Layout),
+                    "native rectangular clip requires exact Layout draw",
+                )?;
+                let first = value.lineage.value().and_then(|rows| rows.first());
+                match clip {
+                    NativeOwnClip::None => {
+                        if let Some(first) = first {
+                            ensure(
+                                first.clip.value() == Some(&false),
+                                "native no-clip observation contradicts signal",
+                            )?;
+                        }
+                    }
+                    NativeOwnClip::Rect { clip } => {
+                        if let Some(first) = first {
+                            ensure(
+                                first.clip.value() == Some(&true),
+                                "native rect clip observation contradicts signal",
+                            )?;
+                        }
+                        validate_native_key(&clip.native_key)?;
+                        ensure(
+                            clip.native_key == value.native_key,
+                            "native clip attributed to another node",
+                        )?;
+                        clip.local_box.validate()?;
+                        ensure(
+                            clip.local_box.width > 0.0 && clip.local_box.height > 0.0,
+                            "native clip rectangle is empty",
+                        )?;
+                        validate_native_matrix(&clip.matrix)?;
+                        validate_native_polygon(&clip.screen_polygon)?;
+                        ensure(
+                            self.transform.value().is_some(),
+                            "native clip has no admitted output transform",
+                        )?;
+                    }
+                }
+            }
+        }
+        if let Some(value) = camera.value() {
+            ensure(
+                self.drawn && kind == Some(&NativeNodeType::Camera),
+                "native camera scene requires completed Camera draw",
+            )?;
+            validate_native_key(&value.native_key)?;
+            for key in [
+                &value.original_scene_key,
+                &value.current_scene_key,
+                &value.draw_scene_key,
+            ] {
+                validate_native_key(key)?;
+            }
+            ensure(
+                geometry
+                    .value()
+                    .is_some_and(|g| g.native_key == value.native_key),
+                "native camera geometry identity differs",
+            )?;
+            if value.current_scene_is_original {
+                ensure(
+                    value.current_scene_key == value.original_scene_key,
+                    "native current Camera.scene identity contradicts keys",
+                )?;
+            }
+            if value.draw_uses_original_scene {
+                ensure(
+                    value.draw_scene_key == value.original_scene_key,
+                    "native drawn Camera.scene identity contradicts keys",
+                )?;
+            }
+            for scalar in value.position {
+                crate::validate::finite(scalar, -1e6, 1e6)?;
+            }
+            crate::validate::finite(value.rotation, -1e6, 1e6)?;
+            crate::validate::finite(value.zoom, 0.0, 1e6)?;
+            ensure(value.zoom > 0.0, "native camera zoom must be positive")?;
+            validate_observation_reason(&value.scene_transform)?;
+            if let Some(matrix) = value.scene_transform.value() {
+                validate_native_matrix(matrix)?;
+            }
+            validate_observation_reason(&value.cameras)?;
+            if let Some(cameras) = value.cameras.value() {
+                ensure(cameras.len() <= 64, "native camera inventory bound")?;
+                let mut keys = BTreeSet::new();
+                let mut subjects = BTreeSet::new();
+                for camera in cameras {
+                    validate_native_key(&camera.native_key)?;
+                    ensure(
+                        keys.insert(&camera.native_key),
+                        "native camera inventory duplicate",
+                    )?;
+                    if let Some(id) = &camera.subject_id {
+                        crate::validate::id(id)?;
+                        ensure(
+                            subjects.insert(id),
+                            "native camera semantic identity repeated",
+                        )?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SubjectObservation {
@@ -93,6 +411,11 @@ pub struct SubjectObservation {
     /// This is separate from bounds, which describes drawable/cache contents.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub screen_layout_box: Option<Known<Bounds>>,
+    /// Optional together with camera_scene; old observations remain distinguishable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_geometry: Option<Known<NativeGeometryObservation>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub camera_scene: Option<Known<NativeCameraSceneObservation>>,
     pub local_size: Known<Size>,
     pub bounds: Known<Bounds>,
     pub transform: Known<[f64; 6]>,
@@ -184,6 +507,7 @@ impl FrameObservation {
             crate::validate::id(&subject.id)?;
             ensure(seen.insert(&subject.id), "duplicate observed subject")?;
             subject.validate_native_layout()?;
+            subject.validate_native_geometry()?;
             if let Some(b) = subject.bounds.value() {
                 b.validate()?;
             }

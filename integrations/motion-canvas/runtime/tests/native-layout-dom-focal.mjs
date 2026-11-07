@@ -27,8 +27,8 @@ const HISTORICAL = {
   RED: 'dfe6c0fc226d7e9017eb718c7e745d942c4067a54f968d4483b80bbdd51b4fa8',
 };
 const OBSERVED = {
-  GREEN: '6ea8d223690da0c7f77f6b2ce4cee22857b46a0c9490093646357ccc2f4e9508',
-  RED: '629ebdec4e7dd42c3d6a9bf71c27c08997d54aa2cabe50c9daac3072e16e3bec',
+  GREEN: 'afc197bacf9d73c007833a315b253b1b901005a2c9ef7506eec57b2683aaf3c7',
+  RED: 'ac4df30d0bdeab0a93924d5841ea18a76f269ce99f2903a2cfebc38e254a3c12',
 };
 const RED = '   if(parent instanceof Camera){let scene=parent.scene();if(!scene){scene=new Node({});parent.scene(scene);}scene.add(n);}else parent.add(n);\n';
 const GREEN = `   // Fixed Txt keeps its DOM-enabled inline runs. A non-layout parent makes
@@ -315,7 +315,7 @@ try {
     assert(after.native_ink_pixels>0,'actual native ink missing: '+name);
     assert.equal(after.subject.native_type.status,'known');assert.equal(after.subject.native_type.value,'Txt');
     const legacy=structuredClone(after.probe);
-    for(const row of legacy.subjects)for(const key of ['native_type','layout_root','screen_layout_box'])delete row[key];
+    for(const row of legacy.subjects)for(const key of ['native_type','layout_root','screen_layout_box','native_geometry','camera_scene'])delete row[key];
     assert.deepEqual(legacy,before.probe,'old observations changed: '+name);
     if(name==='cached') {
       assert.equal(after.native_draw_calls.length,1,'one actual cached Txt.draw');
