@@ -1,0 +1,179 @@
+name: Selected provider and native Rust regressions
+on:
+  push:
+    branches: ['fix/a1-host-clean-exit-20261107']
+    paths: ['.github/workflows/core-provider-pair-gate-selected.yml']
+permissions:
+  contents: read
+concurrency:
+  group: selected-provider-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  VERIFIED_SOURCE_SHA: '0b2406bee57fc15280abbdf25f1b89527bd8987c'
+  VERIFIED_SOURCE_TREE: 'c1eca2a3b830c8d0716d0f75b2b94d286db74502'
+jobs:
+  selected-rust:
+    name: Selected Rust ${{ matrix.toolchain }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - toolchain: '1.98.1'
+            cache-key: ''
+          - toolchain: '1.88.0'
+            cache-key: 'msrv-1.88'
+    env:
+      RUSTUP_TOOLCHAIN: ${{ matrix.toolchain }}
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.VERIFIED_SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - name: Bind immutable source and selected compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'seradotcom/semwright'
+          test "$GITHUB_RUN_ATTEMPT" = '1'
+          test "$GITHUB_REF" = 'refs/heads/fix/a1-host-clean-exit-20261107'
+          test "$(git rev-parse HEAD)" = "$VERIFIED_SOURCE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$VERIFIED_SOURCE_TREE"
+          test -z "$(git status --porcelain=v1)"
+          evidence="$RUNNER_TEMP/provider-pair-selected"
+          mkdir "$evidence"
+          printf 'workflow_sha=%s\nsource_sha=%s\nsource_tree=%s\nrun_id=%s\nrun_attempt=%s\ntoolchain=%s\n' \
+            "$GITHUB_SHA" "$VERIFIED_SOURCE_SHA" "$VERIFIED_SOURCE_TREE" \
+            "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$RUSTUP_TOOLCHAIN" > "$evidence/context.original"
+          cat > "$evidence/source-files.sha256" <<'CHECKSUMS'
+          ec7f3946d36a3e9e0a6054173220553bd652904cfa48a17daec66ce2e549a18c  Cargo.lock
+          51f94fd4afb6e48de17d043e5447ecf7555f88b89b4cd138fd644185eaaef5a7  Cargo.toml
+          514cc690bb40758dd245033bb10754f91b006a8ec395bde8da931d1b4366bee1  crates/core/src/lib.rs
+          7e0ccc58b5500af10dddf5ad65492d7aaf5451fcdb8373b14b63ded345ce5139  crates/core/src/provider_mounts.rs
+          842734f50d99a45e8f4fcbe026d4b52a771cc5d2bdc4c62b499dff162819f03f  crates/core/src/provider_mounts_tests.rs
+          b3f8b90b64c408f3ee231d0ed120586693bbb080b9404e321a28c46457156918  crates/core/src/providers.rs
+          b0d714b7d4271df432f0da76517c8f24acbae500da767213abd5db9f403c8d23  crates/core/src/operation_permits.rs
+          0a010227a4c6d7d3c2cb82e3e1abc108228e1696eb0d857d856185367258fdf3  crates/driver-host/src/lib.rs
+          fe62a7f945025ac5990de4cb69c6d6eed38f0ffbace925c3e07b2426fa10af19  crates/driver-host/src/operation_permits.rs
+          CHECKSUMS
+          sha256sum --check --status "$evidence/source-files.sha256"
+          rustup show active-toolchain | tee "$evidence/active-toolchain.original"
+          grep -F "$RUSTUP_TOOLCHAIN-x86_64-unknown-linux-gnu" "$evidence/active-toolchain.original"
+          for tool in rustc cargo; do
+            selected="$(readlink -e "$(rustup which "$tool")")"
+            expected="$(readlink -e "$(rustup which --toolchain "$RUSTUP_TOOLCHAIN" "$tool")")"
+            test "$selected" = "$expected"
+            test -f "$selected" && test -x "$selected"
+            printf '%s=%s\n' "$tool" "$selected" >> "$evidence/tool-paths.original"
+            sha256sum "$selected" >> "$evidence/tool-binaries.sha256"
+            "$tool" --version --verbose > "$evidence/$tool-active.original"
+            "$selected" --version --verbose > "$evidence/$tool-physical.original"
+            cmp "$evidence/$tool-active.original" "$evidence/$tool-physical.original"
+          done
+          grep -Fx "release: $RUSTUP_TOOLCHAIN" "$evidence/rustc-active.original"
+          grep -Fx 'host: x86_64-unknown-linux-gnu' "$evidence/rustc-active.original"
+          grep -F "cargo $RUSTUP_TOOLCHAIN " "$evidence/cargo-active.original"
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: ${{ matrix.cache-key }}
+          cache-on-failure: true
+      - name: Install Linux media build prerequisite
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
+          pkg-config --modversion libpipewire-0.3
+      - name: Run four selected Core release tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/provider-pair-selected"
+          for name in \
+            pair_gate_closing_preserves_known_completion_but_refuses_new_admission \
+            release_bound_waits_for_original_admitted_callback_before_driver_shutdown \
+            explicit_bound_release_drains_provider_without_reopening_lease \
+            release_bound_requires_explicit_capability_and_original_mount; do
+            case_id="provider_mounts::tests::pair_contract_controls::$name"
+            printf '%s\n' "$case_id" >> "$evidence/selected-cases.original"
+            log="$evidence/$name.original.log"
+            cargo test --locked --package semwright-core --lib "$case_id" -- --exact --nocapture --test-threads=1 2>&1 | tee "$log"
+            grep -F "test $case_id ... ok" "$log"
+            grep -E '^test result: ok\. 1 passed; 0 failed; 0 ignored;' "$log"
+          done
+      - name: Run thirteen selected Host tests on MSRV
+        if: matrix.toolchain == '1.88.0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/provider-pair-selected"
+          cargo test --locked --package semwright-driver-host --lib owned_shutdown_tests:: -- --nocapture --test-threads=1 2>&1 | tee "$evidence/host-owned.original.log"
+          grep -E '^test result: ok\. 5 passed; 0 failed; 0 ignored;' "$evidence/host-owned.original.log"
+          cargo test --locked --package semwright-driver-host --lib operation_permits::tests:: -- --nocapture --test-threads=1 2>&1 | tee "$evidence/host-permits.original.log"
+          grep -E '^test result: ok\. 8 passed; 0 failed; 0 ignored;' "$evidence/host-permits.original.log"
+      - name: Run selected Motion Canvas text pixel tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/provider-pair-selected"
+          cargo test --locked --jobs 1 --package semwright-driver-motion-canvas --lib text_pixel -- --nocapture --test-threads=1 2>&1 | tee "$evidence/motion-canvas-text-pixel.original.log"
+          grep -E '^test result: ok\. 3 passed; 0 failed; 0 ignored;' "$evidence/motion-canvas-text-pixel.original.log"
+      - name: Run selected authoring observation tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/provider-pair-selected"
+          log="$evidence/authoring-observations.original.log"
+          cargo test --locked --jobs 1 --package semwright-motion-authoring \
+            --test native_layout_observation --test native_geometry_observation --test native_text_pixel_observation \
+            -- --nocapture --test-threads=1 2>&1 | tee "$log"
+          grep -E '^test result: ok\. 6 passed; 0 failed; 0 ignored;' "$log"
+          grep -E '^test result: ok\. 7 passed; 0 failed; 1 ignored;' "$log"
+          grep -E '^test result: ok\. 4 passed; 0 failed; 0 ignored;' "$log"
+          test "$(grep -c '^test result:' "$log")" -eq 3
+          # The retained-DOM case requires physical originals and remains ignored.
+          grep -F 'actual_dom_wire_originals_deserialize_and_validate_without_synthesizing_fields ... ignored' "$log"
+      - name: Run selected MLT first-cause controls
+        if: matrix.toolchain == '1.98.1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/provider-pair-selected"
+          for case_id in \
+            nonzero_terminal_stays_primary_for_reader_error_panic_or_missing_pipe \
+            custody_failure_keeps_the_original_error_object_and_unknown_flag; do
+            log="$evidence/mlt-$case_id.original.log"
+            cargo test --locked --jobs 1 --package semwright-mlt-video-driver --lib "$case_id" -- --nocapture --test-threads=1 2>&1 | tee "$log"
+            grep -F "$case_id ... ok" "$log"
+            grep -E '^test result: ok\. 1 passed; 0 failed; 0 ignored;' "$log"
+          done
+      - name: Verify source and toolchain remained unchanged
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/provider-pair-selected"
+          test "$(git rev-parse HEAD)" = "$VERIFIED_SOURCE_SHA"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$VERIFIED_SOURCE_TREE"
+          test -z "$(git status --porcelain=v1)"
+          sha256sum --check --status "$evidence/source-files.sha256"
+          sha256sum --check --status "$evidence/tool-binaries.sha256"
+          shopt -s nullglob
+          sha256sum "$evidence"/*.original "$evidence"/*.original.log > "$evidence/originals.sha256"
+      - name: Retain selected test originals
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: selected-provider-${{ matrix.toolchain }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/provider-pair-selected/
+          retention-days: 5
+          if-no-files-found: warn
