@@ -703,7 +703,7 @@ fn host_args(
 ) -> Result<(Vec<RuntimeToolArg>, Vec<u8>)> {
     security::relative_path(generated_relative)?;
     security::relative_path(output_relative)?;
-    let config = json!({
+    let mut config = json!({
         "authoring": snapshot.project.authoring.is_some(),
         "renderInputDigest": inputs.digest,
         "dependencyLockDigest": inputs.lock,
@@ -723,6 +723,9 @@ fn host_args(
         "alpha": plan.alpha,
         "timeoutMs": plan.timeout_ms,
     });
+    if !plan.text_pixel_observation_frames.is_empty() {
+        config["textPixelObservationFrames"] = json!(plan.text_pixel_observation_frames);
+    }
     let program = format!(
         "globalThis.__SEMWRIGHT_RENDER_INPUT__ = {};\n{}",
         serde_json::to_string(&config)?,
@@ -1679,5 +1682,63 @@ mod runtime_path_tests {
             Some("renderer_state_motion_core")
         );
         assert!(wire.get("failure_code").is_none());
+    }
+}
+
+#[cfg(test)]
+mod text_pixel_host_config_tests {
+    use super::*;
+
+    #[test]
+    fn text_pixel_plan_selection_reaches_the_original_host_program() {
+        let film: semwright_motion_authoring::Film = semwright_semantic_composition::strict_decode(
+            include_bytes!("../../../fixtures/composition/motion/technical.json"),
+        )
+        .unwrap();
+        let (project, _) = crate::authoring::project(&film, None).unwrap();
+        let snapshot = Snapshot {
+            source_sha256: security::sha256(&serde_json::to_vec(&project).unwrap()),
+            generated: crate::compiler::compile(&project).unwrap(),
+            project,
+            generated_dir: None,
+        };
+        // Pure serialization fixture, never a runtime admission or a receipt.
+        let inputs = RenderInputs {
+            digest: "ab".repeat(32),
+            lock: "cd".repeat(32),
+            fonts: "ef".repeat(32),
+            pins: vec![],
+            managed_fonts: vec![],
+        };
+        for selected in [vec![], vec![0, 10, 29]] {
+            let profile = RenderProfile {
+                first_frame: 0,
+                end_frame_exclusive: 30,
+                scale: crate::model::RenderScale::Full,
+                transparent: false,
+                timeout_ms: 10_000,
+                text_pixel_observation_frames: selected.clone(),
+            };
+            let plan = crate::validate::render_plan(&snapshot.project, &profile).unwrap();
+            let (_, program) =
+                host_args(&snapshot, &plan, "generated", "render-focal", &inputs).unwrap();
+            let program = String::from_utf8(program).unwrap();
+            let line = program
+                .lines()
+                .next()
+                .unwrap()
+                .strip_prefix("globalThis.__SEMWRIGHT_RENDER_INPUT__ = ")
+                .unwrap()
+                .strip_suffix(';')
+                .unwrap();
+            let actual: serde_json::Value = serde_json::from_str(line).unwrap();
+            assert_eq!(actual["renderInputDigest"], inputs.digest);
+            if selected.is_empty() {
+                assert!(actual.get("textPixelObservationFrames").is_none());
+            } else {
+                assert_eq!(actual["textPixelObservationFrames"], json!(selected));
+            }
+            assert!(program.len() <= 64 * 1024);
+        }
     }
 }

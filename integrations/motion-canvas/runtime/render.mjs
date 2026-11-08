@@ -402,7 +402,8 @@ function classifyRendererStack(error){
   return null;
 }
 project.logger.onLogged.subscribe(payload=>{const classified=classifyRendererLog(payload);if(classified){state.rendererLogClass=classified;state.rendererLogDiagnostic=boundedRendererLog(payload);}});
-if(config.authoring){globalThis.__SEMWRIGHT_NATIVE_CONFIG__={fps_num:config.fpsNum,fps_den:config.fpsDen,render_input_digest:config.renderInputDigest,native_stage_version:'3.17.2',font_evidence:config.fontEvidence??[]};}
+if(config.authoring){globalThis.__SEMWRIGHT_NATIVE_CONFIG__={fps_num:config.fpsNum,fps_den:config.fpsDen,render_input_digest:config.renderInputDigest,native_stage_version:'3.17.2',font_evidence:config.fontEvidence??[],
+ ...(config.textPixelObservationFrames?{text_pixel_observation_frames:config.textPixelObservationFrames,text_pixel_background:config.alpha?null:config.background}:{})};}
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};
 renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;state.phase='frame';});
 renderer.onFinished.subscribe(result=>{state.result=result;});
@@ -505,11 +506,28 @@ async function writeFailureReceipt(error, errorClass, selected=failureOutput, mo
   return true;
 }
 
+// BEGIN NATIVE TEXT PIXEL CONFIG V1 (pure guard; no render or file operations).
+function validateTextPixelObservationConfig(config) {
+  const frames=config.textPixelObservationFrames;
+  if(frames===undefined)return;
+  if(!Array.isArray(frames)||frames.length===0||frames.length>7||config.authoring!==true
+      ||!Number.isSafeInteger(config.width)||!Number.isSafeInteger(config.height)
+      ||config.width<1||config.height<1||config.width>4096||config.height>4096
+      ||config.width*config.height>1920*1080
+      ||!Number.isSafeInteger(config.firstFrame)||!Number.isSafeInteger(config.endFrameExclusive)
+      ||frames.some((frame,index)=>!Number.isSafeInteger(frame)||frame<config.firstFrame
+        ||frame>=config.endFrameExclusive||(index>0&&frames[index-1]>=frame))) {
+    fail('native text pixel sample roster differs from admitted authoring profile');
+  }
+}
+// END NATIVE TEXT PIXEL CONFIG V1.
+
 async function main() {
   failurePhase = 'arguments';
   const a = args();
   const config = globalThis.__SEMWRIGHT_RENDER_INPUT__;
   if(!config||config.renderInputDigest!==a.config||!/^[a-f0-9]{64}$/.test(a.config))fail('render input binding absent or changed');
+  validateTextPixelObservationConfig(config);
   const {root: outputRoot,target: output} = await childOf(a['output-root'], a['output-relative'], 'output');
   if (!/^render-[a-f0-9]{32}$/.test(a['output-relative'])
       || output !== path.join(outputRoot,a['output-relative'])

@@ -765,6 +765,8 @@ pub struct RenderPlan {
     pub first_frame: u64,
     pub end_frame_exclusive: u64,
     pub frame_count: u64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub text_pixel_observation_frames: Vec<u64>,
     pub project_duration_ms: u64,
     pub alpha: bool,
     pub color_space: ColorSpace,
@@ -798,6 +800,21 @@ pub fn render_plan(project: &Project, profile: &RenderProfile) -> Result<RenderP
             "Authoring renders must replay from frame zero until checkpoint/seek equivalence is independently proven",
         )?;
     }
+    if !profile.text_pixel_observation_frames.is_empty() {
+        ensure(
+            project.authoring.is_some()
+                && u64::from(width) * u64::from(height) <= 1920 * 1080
+                && profile.text_pixel_observation_frames.len() <= 7
+                && profile.text_pixel_observation_frames.iter().all(|frame| {
+                    (profile.first_frame..profile.end_frame_exclusive).contains(frame)
+                })
+                && profile
+                    .text_pixel_observation_frames
+                    .windows(2)
+                    .all(|pair| pair[0] < pair[1]),
+            "Native text pixel sample roster requires bounded authoring frames",
+        )?;
+    }
     ensure(
         (1000..=300_000).contains(&profile.timeout_ms),
         "Render timeout exceeds bounds",
@@ -811,6 +828,7 @@ pub fn render_plan(project: &Project, profile: &RenderProfile) -> Result<RenderP
         first_frame: profile.first_frame,
         end_frame_exclusive: profile.end_frame_exclusive,
         frame_count: profile.end_frame_exclusive - profile.first_frame,
+        text_pixel_observation_frames: profile.text_pixel_observation_frames.clone(),
         project_duration_ms: project.duration_ms(),
         alpha: profile.transparent || project.settings.background.is_none(),
         color_space: project.settings.color_space,

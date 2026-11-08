@@ -16,6 +16,17 @@ on:
         required: false
         type: boolean
         default: false
+      layout_observation_focal:
+        description: 'Only the bounded real DOM layout observer fixture; no Driver Host or Native suite'
+        required: false
+        type: boolean
+        default: false
+      layout_case:
+        description: 'Closed real DOM case selection for causal follow-up'
+        required: false
+        type: choice
+        default: all
+        options: [all, enabled-red, enabled-green, disabled-control, transformed, camera, cached, camera-and-cached, geometry-all, clip-rotated-red, clip-rotated-green, clip-nested-green, clip-rounded-green, clip-cached-green, camera-original-red, camera-original-green, camera-replaced-green, camera-duplicate-green, camera-cached-green, text-pixels-all, text-pixels-other-eight, text-pixels-overflow-and-inactive, pixels-paint-red, pixels-paint-green, pixels-absent-profile, pixels-unselected-frame, pixels-cached, pixels-unsupported-effects, pixels-same-color, pixels-operation-overflow, pixels-inactive-second]
   workflow_call:
   push:
     branches: [feat/motion-canvas-driver]
@@ -55,6 +66,7 @@ jobs:
     outputs:
       motion: ${{ steps.scope.outputs.motion }}
       native_only: ${{ steps.scope.outputs.native_only }}
+      layout_observation_focal: ${{ steps.scope.outputs.layout_observation_focal }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -65,7 +77,18 @@ jobs:
           CERTIFY_ALL: ${{ inputs.certify_all }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           NATIVE_ONLY: ${{ inputs.native_only }}
+          LAYOUT_OBSERVATION_FOCAL: ${{ inputs.layout_observation_focal }}
         run: |
+          if [ "$LAYOUT_OBSERVATION_FOCAL" = true ]; then
+            test "$CERTIFY_ALL" != true && test "$NATIVE_ONLY" != true
+            test "$GITHUB_EVENT_NAME" = workflow_dispatch
+            [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] && test "$CANDIDATE_SHA" = "$GITHUB_SHA"
+            echo 'motion=false' >> "$GITHUB_OUTPUT"
+            echo 'native_only=false' >> "$GITHUB_OUTPUT"
+            echo 'layout_observation_focal=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo 'layout_observation_focal=false' >> "$GITHUB_OUTPUT"
           if [ "$CERTIFY_ALL" = true ] && [ "$NATIVE_ONLY" = true ]; then
             echo 'native_only and certify_all are mutually exclusive' >&2
             exit 2
@@ -392,4 +415,122 @@ jobs:
           path: |
             verification/motion-canvas-fuzz
             fuzz/artifacts
+          retention-days: 14
+
+  layout-observation-focal:
+    needs: scope
+    if: ${{ needs.scope.outputs.layout_observation_focal == 'true' }}
+    concurrency:
+      group: motion-layout-focal-${{ github.ref }}
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: '0'
+      LAYOUT_CASE: ${{ inputs.layout_case }}
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Bind exact candidate and independently frozen observer baseline
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          python3 - <<'PY'
+          import hashlib, os, subprocess
+          from pathlib import Path
+          legacy={'all','enabled-red','enabled-green','disabled-control','transformed','camera','cached','camera-and-cached'}
+          geometry={'clip-rotated-red','clip-rotated-green','clip-nested-green','clip-rounded-green','clip-cached-green','camera-original-red','camera-original-green','camera-replaced-green','camera-duplicate-green','camera-cached-green'}
+          pixels={'pixels-absent-profile','pixels-cached','pixels-inactive-second','pixels-operation-overflow','pixels-paint-green','pixels-paint-red','pixels-same-color','pixels-unselected-frame','pixels-unsupported-effects'}
+          selected=os.environ['LAYOUT_CASE']
+          assert selected in legacy | geometry | pixels | {'geometry-all','text-pixels-all','text-pixels-other-eight','text-pixels-overflow-and-inactive'}
+          pixel=selected in pixels or selected in {'text-pixels-all','text-pixels-other-eight','text-pixels-overflow-and-inactive'}
+          extended=selected in geometry or selected=='geometry-all'
+          baseline='ec546358dd330ecb2b2abf058145eb3e0aeb11d0' if pixel else ('2c87455b5b587d7aa3b3018529c8670730e1eb91' if extended else 'acc0a089e2f0e3e9936632fb2a4aa0c2fab56199')
+          if subprocess.run(['git','cat-file','-e',baseline+'^{commit}'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode:
+              subprocess.run(['git','fetch','--no-tags','--depth=1','origin',baseline],check=True,timeout=60)
+          raw=subprocess.run(['git','show',baseline+':integrations/composition/motion/native.ts'],check=True,capture_output=True,timeout=15).stdout
+          expected='afc197bacf9d73c007833a315b253b1b901005a2c9ef7506eec57b2683aaf3c7' if pixel else ('6ea8d223690da0c7f77f6b2ce4cee22857b46a0c9490093646357ccc2f4e9508' if extended else 'a400b38608e169a20e7ade099aa8632c11629152951b9e62a0fb66858b530f36')
+          assert hashlib.sha256(raw).hexdigest()==expected
+          with (Path(os.environ['RUNNER_TEMP'])/'native-layout-baseline.ts').open('xb') as stream:stream.write(raw)
+          script='tests/native-text-pixels-dom-focal.mjs' if pixel else ('tests/native-geometry-dom-focal.mjs' if extended else 'tests/native-layout-dom-focal.mjs')
+          case='overflow-and-inactive' if selected=='text-pixels-overflow-and-inactive' else ('other-eight' if selected=='text-pixels-other-eight' else ('all' if selected in {'geometry-all','text-pixels-all'} else (selected.removeprefix('pixels-') if pixel else selected)))
+          with open(os.environ['GITHUB_ENV'],'a') as stream:stream.write('FOCAL_SCRIPT='+script+'\nFOCAL_CASE='+case+'\n')
+          PY
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        if: ${{ inputs.layout_case == 'text-pixels-all' }}
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        if: ${{ inputs.layout_case == 'text-pixels-all' }}
+        with:
+          key: motion-canvas-domain
+      - name: Run only three new pure profile and Host serialization regressions
+        if: ${{ inputs.layout_case == 'text-pixels-all' }}
+        run: |
+          test "$(stat -fc %T /sys/fs/cgroup)" = cgroup2fs
+          UNIT="semwright-text-pixel-host-focal-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          CARGO_TOOL="$(command -v cargo)"
+          PYTHON_TOOL="$(command -v python3)"
+          set +e
+          sudo systemd-run --unit="$UNIT" --uid="$(id -un)" --gid="$(id -gn)" \
+            --wait --pipe --working-directory="$PWD" \
+            --property=MemoryMax=1543503872 --property=MemoryHigh=1476395008 --property=MemorySwapMax=0 \
+            --property=TasksMax=256 --property=RuntimeMaxSec=300 \
+            --property=TimeoutStopSec=10 --property=KillMode=control-group \
+            --setenv=PATH="$PATH" --setenv=CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}" \
+            --setenv=RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup}" \
+            --setenv=RUNNER_TEMP="$RUNNER_TEMP" --setenv=CANDIDATE_SHA="$CANDIDATE_SHA" \
+            --setenv=GITHUB_RUN_ID="$GITHUB_RUN_ID" --setenv=GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
+            "$PYTHON_TOOL" -B integrations/motion-canvas/runtime/tests/native-text-pixels-host-focal.py \
+            "$RUNNER_TEMP/native-text-pixels-host-focal" "$CARGO_TOOL"
+          rc=$?
+          set -e
+          sudo systemctl show "$UNIT" --property=Result,ExecMainStatus,MemoryMax,MemoryHigh,MemorySwapMax,TasksMax,MemoryPeak,ActiveState,SubState > "$RUNNER_TEMP/native-text-pixels-host-controller.original.txt"
+          cat "$RUNNER_TEMP/native-text-pixels-host-controller.original.txt"
+          test "$rc" -eq 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22.22.0'
+          cache: npm
+          cache-dependency-path: integrations/motion-canvas/runtime/package-lock.json
+      - name: Install exact existing runtime without package scripts
+        working-directory: integrations/motion-canvas/runtime
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
+      - name: Install only the existing pinned Firefox runtime
+        working-directory: integrations/motion-canvas/runtime
+        run: node node_modules/playwright/cli.js install --with-deps firefox
+      - name: Run real DOM fixture with aggregate memory and time limits
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          test "$(stat -fc %T /sys/fs/cgroup)" = cgroup2fs
+          UNIT="semwright-layout-focal-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          NODE_TOOL="$(command -v node)"
+          set +e
+          sudo systemd-run --unit="$UNIT" --uid="$(id -un)" --gid="$(id -gn)" \
+            --wait --pipe --working-directory="$PWD" \
+            --property=MemoryMax=1610612736 --property=MemorySwapMax=0 \
+            --property=TasksMax=256 --property=RuntimeMaxSec=240 \
+            --property=TimeoutStopSec=10 --property=KillMode=control-group \
+            --setenv=PLAYWRIGHT_BROWSERS_PATH=0 \
+            "$NODE_TOOL" --disable-wasm-trap-handler --max-old-space-size=384 \
+            "$FOCAL_SCRIPT" \
+            --baseline "$RUNNER_TEMP/native-layout-baseline.ts" \
+            --case "$FOCAL_CASE" --output "$RUNNER_TEMP/native-layout-dom-focal"
+          rc=$?
+          set -e
+          sudo systemctl show "$UNIT" --property=Result,ExecMainStatus,MemoryMax,MemorySwapMax,TasksMax,MemoryPeak,ActiveState,SubState > "$RUNNER_TEMP/native-layout-dom-controller.original.txt"
+          cat "$RUNNER_TEMP/native-layout-dom-controller.original.txt"
+          test "$rc" -eq 0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-layout-dom-focal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/native-layout-dom-focal/*.json
+            ${{ runner.temp }}/native-layout-dom-controller.original.txt
+            ${{ runner.temp }}/native-text-pixels-host-focal/*
+            ${{ runner.temp }}/native-text-pixels-host-controller.original.txt
+          if-no-files-found: error
           retention-days: 14

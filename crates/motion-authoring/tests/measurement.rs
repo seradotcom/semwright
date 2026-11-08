@@ -52,6 +52,12 @@ fn unknown<T>(reason: &str) -> Known<T> {
 fn subject(id: &str, bounds: Bounds) -> SubjectObservation {
     SubjectObservation {
         id: id.into(),
+        native_type: None,
+        layout_root: None,
+        screen_layout_box: None,
+        native_geometry: None,
+        camera_scene: None,
+        native_text_pixels: None,
         local_size: Known::Known {
             value: Size {
                 width: bounds.width,
