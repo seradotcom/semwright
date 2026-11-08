@@ -34,19 +34,17 @@ class BoundShutdownWindowTests(unittest.TestCase):
             r"tokio::time::timeout\(Duration::from_secs\((\d+)\),\s*"
             r"lease\.shutdown\(\)\)",
             bound, "bound shutdown")
-        shutdown_start = host.index("    async fn shutdown(&self) -> Result<()> {")
-        strict = host[shutdown_start:host.index("impl Drop for DriverProvider", shutdown_start)]
-        strict = strict[strict.index("if self.manifest.protocol >= 9 {"):]
-        # The legacy protocol branch also sends Shutdown. Only the v9 branch
-        # controls provider release after the original owned child has exited.
-        strict = strict[:strict.index("        if self.closed.is_cancelled() {\n            return Ok(())")]
+        shutdown_start = host.index("async fn shutdown_owned_driver(")
+        # The strict private helper is the protocol >=9 production path.
+        # Its exit waiter also requires the matched ACK and complete raw EOF.
+        strict = host[shutdown_start:host.index("\nfn provider_interfaces(", shutdown_start)]
         acknowledgement = only_number(
             r"Request::Shutdown\s*\{\s*id: id\.clone\(\)\s*\}\s*,"
             r"\s*&id,\s*Duration::from_secs\((\d+)\)",
             strict, "strict driver shutdown acknowledgement")
         physical_exit = only_number(
             r"tokio::time::timeout\(\s*Duration::from_secs\((\d+)\),"
-            r"\s*self\._owner_operations\.wait_physical_exit\(\)",
+            r"\s*owner\.wait_graceful_shutdown\(\)",
             strict, "strict physical exit observation")
         self.assertGreater(outer, acknowledgement + physical_exit)
         command = next(item for item in

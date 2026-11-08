@@ -24,6 +24,8 @@ struct State {
     // Process disappearance discharges native holds, but only a zero exit
     // without forced termination can support a graceful provider release.
     clean_process_exit: Option<bool>,
+    shutdown_acknowledged: bool,
+    clean_shutdown_eof: Option<bool>,
     held: BTreeMap<String, Held>,
     // Dropping transport wrappers cannot invent matched release or physical proof.
     quarantine: Option<Arc<OwnerOperations>>,
@@ -32,6 +34,7 @@ struct State {
 pub(super) struct OwnerOperations {
     state: StdMutex<State>,
     physical_exit: CancellationToken,
+    shutdown_stream_closed: CancellationToken,
 }
 pub(super) fn valid_id(value: &str) -> bool {
     !value.is_empty() && value.len() <= 256 && !value.chars().any(char::is_control)
@@ -132,6 +135,45 @@ impl OwnerOperations {
             Err(Error::new(
                 ErrorCode::BackendFailed,
                 "Owned driver physically exited without a confirmed clean status",
+            )
+            .uncertain())
+        }
+    }
+    pub(super) fn confirm_shutdown_acknowledgement(&self) -> Result<()> {
+        self.state
+            .lock()
+            .map_err(|_| denied())?
+            .shutdown_acknowledged = true;
+        Ok(())
+    }
+    pub(super) fn shutdown_acknowledged(&self) -> Result<bool> {
+        Ok(self
+            .state
+            .lock()
+            .map_err(|_| denied())?
+            .shutdown_acknowledged)
+    }
+    pub(super) fn finish_shutdown_stream(&self, clean_eof: bool) -> Result<()> {
+        {
+            let mut state = self.state.lock().map_err(|_| denied())?;
+            state.clean_shutdown_eof = Some(state.clean_shutdown_eof.unwrap_or(true) && clean_eof);
+        }
+        self.shutdown_stream_closed.cancel();
+        Ok(())
+    }
+    pub(super) async fn wait_graceful_shutdown(&self) -> Result<()> {
+        let (exit, ()) = tokio::join!(
+            self.wait_graceful_exit(),
+            self.shutdown_stream_closed.cancelled()
+        );
+        exit?;
+        let state = self.state.lock().map_err(|_| denied())?;
+        if state.shutdown_acknowledged && state.clean_shutdown_eof == Some(true) {
+            Ok(())
+        } else {
+            Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Owned driver did not acknowledge and complete its shutdown stream",
             )
             .uncertain())
         }

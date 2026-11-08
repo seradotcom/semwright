@@ -1952,6 +1952,7 @@ struct Io {
 
 struct PendingResponse {
     sender: oneshot::Sender<Response>,
+    expects_shutdown: bool,
     allows_host_tools: bool,
     owner_scope: Option<Arc<dyn OwnerOperationAuthority>>,
     session: Option<String>,
@@ -2016,6 +2017,7 @@ impl V2Io {
                 id.to_owned(),
                 PendingResponse {
                     sender,
+                    expects_shutdown: matches!(request, Request::Shutdown { id: request_id } if request_id == id),
                     allows_host_tools,
                     owner_scope,
                     session,
@@ -2055,6 +2057,89 @@ impl V2Io {
             }
         }
     }
+}
+
+async fn observe_owned_process_exit(
+    child: &mut SandboxProcess,
+    terminate: &CancellationToken,
+    owner: &operation_permits::OwnerOperations,
+) {
+    let natural = tokio::select! {
+        biased;
+        result = child.wait_exit_code() => Some(result),
+        _ = terminate.cancelled() => None,
+    };
+    let clean = match natural {
+        // A normal wait can return a nonzero code or None (signal/unknown).
+        // It is already reaped; never attempt a second kill in this branch.
+        Some(Ok(code)) => Some(code == Some(0)),
+        _ => {
+            // Failed emergency cleanup still permits a bounded OS wait.
+            // Only a confirmed wait discharges custody, never clean authority.
+            tokio::time::timeout(Duration::from_secs(4), async {
+                let _ = tokio::time::timeout(Duration::from_secs(2), child.kill()).await;
+                child.wait_exit_code().await
+            })
+            .await
+            .ok()
+            .and_then(Result::ok)
+            .map(|_| false)
+        }
+    };
+    if let Some(clean) = clean {
+        let _ = owner.confirmed_physical_exit(clean);
+    }
+}
+
+async fn shutdown_owned_driver(
+    io: &V2Io,
+    owner: &operation_permits::OwnerOperations,
+    closed: &CancellationToken,
+    terminate: &CancellationToken,
+) -> Result<()> {
+    let graceful = async {
+        // Preserve the owner contract: an already-closed provider cannot
+        // acknowledge this new release, even when its OS exit was clean.
+        if closed.is_cancelled() {
+            return Err(Error::new(
+                ErrorCode::Unavailable,
+                "Owned driver exited before authenticated shutdown",
+            )
+            .uncertain());
+        }
+        let id = unique_id();
+        let response = io
+            .request(
+                &Request::Shutdown { id: id.clone() },
+                &id,
+                Duration::from_secs(3),
+            )
+            .await?;
+        if !matches!(response, Response::Shutdown { id: response_id } if response_id == id)
+            || !owner.shutdown_acknowledged()?
+        {
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Owned driver shutdown acknowledgement mismatch",
+            )
+            .uncertain());
+        }
+        tokio::time::timeout(Duration::from_secs(4), owner.wait_graceful_shutdown())
+            .await
+            .map_err(|_| {
+                Error::new(
+                    ErrorCode::Timeout,
+                    "Owned driver did not complete graceful shutdown",
+                )
+                .uncertain()
+            })?
+    }
+    .await;
+    if graceful.is_err() {
+        // Emergency cleanup never upgrades this original failed result.
+        terminate.cancel();
+    }
+    graceful.map_err(Error::uncertain)
 }
 
 fn provider_interfaces(interfaces: DriverInterfaces) -> ProviderInterfaces {
@@ -2156,8 +2241,22 @@ fn spawn_v2_reader(
     let host_tool_jobs = Arc::new(Mutex::new(BTreeMap::<String, HostToolJobEntry>::new()));
     let host_tool_sessions = Arc::new(Mutex::new(BTreeMap::<String, HostToolSessionEntry>::new()));
     tokio::spawn(async move {
+        let mut clean_shutdown_eof = false;
         loop {
-            let response = match read_frame::<_, Response>(&mut output).await {
+            // Only EOF before a new frame is a clean stream end. Reuse the
+            // bounded parser for the first byte and the rest of each frame.
+            let mut first = [0u8; 1];
+            match output.read(&mut first).await {
+                Ok(0) => {
+                    clean_shutdown_eof =
+                        protocol >= 9 && owner_operations.shutdown_acknowledged().unwrap_or(false);
+                    break;
+                }
+                Ok(_) => {}
+                Err(_) => break,
+            }
+            let mut framed = first.as_slice().chain(&mut output);
+            let response = match read_frame::<_, Response>(&mut framed).await {
                 Ok(response) => response,
                 Err(_) => {
                     break;
@@ -3342,12 +3441,30 @@ fn spawn_v2_reader(
                         closed.cancel();
                         break;
                     };
+                    if protocol >= 9
+                        && pending_response.expects_shutdown
+                        && matches!(&other, Response::Shutdown { id: response_id } if response_id == &id)
+                        && owner_operations.confirm_shutdown_acknowledgement().is_err()
+                    {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
                     pending_response.cancellation.cancel();
                     let _ = pending_response.sender.send(other);
                 }
             }
         }
-        terminate.cancel();
+        if protocol >= 9
+            && owner_operations
+                .finish_shutdown_stream(clean_shutdown_eof)
+                .is_err()
+        {
+            clean_shutdown_eof = false;
+        }
+        if !clean_shutdown_eof {
+            terminate.cancel();
+        }
         closed.cancel();
         let pending_responses = {
             let mut pending = pending.lock().await;
@@ -4079,28 +4196,12 @@ impl DriverProvider {
             let strict_owner_lifecycle = manifest.protocol >= 9;
             tokio::spawn(async move {
                 if strict_owner_lifecycle {
-                    // SandboxProcess::wait() reports Ok even when the child
-                    // exits with a nonzero code. Record the actual exit code
-                    // separately from the fact that it was reaped.
-                    let waited = tokio::select! {
-                        _ = monitor_terminate.cancelled() => false,
-                        result = child.wait() => result.is_ok(),
-                    };
-                    let clean = waited && child.exit_code() == Some(0);
-                    let terminal = tokio::time::timeout(Duration::from_secs(4), async {
-                        if !waited {
-                            child.kill().await?;
-                            child.wait().await?;
-                        }
-                        Ok::<(), Error>(())
-                    })
+                    observe_owned_process_exit(
+                        &mut child,
+                        &monitor_terminate,
+                        &monitor_owner_operations,
+                    )
                     .await;
-                    if matches!(terminal, Ok(Ok(()))) {
-                        // Emergency cleanup still discharges the physical
-                        // reservation; it can never confer clean shutdown.
-                        let _ = monitor_owner_operations.confirmed_physical_exit(clean);
-                    }
-                    // Failure retains quarantine; no universal descendant closure claim.
                 } else {
                     tokio::select! {
                         _ = monitor_terminate.cancelled() => {
@@ -4468,28 +4569,12 @@ impl DriverProvider {
             let strict_owner_lifecycle = manifest.protocol >= 9;
             tokio::spawn(async move {
                 if strict_owner_lifecycle {
-                    // SandboxProcess::wait() reports Ok even when the child
-                    // exits with a nonzero code. Record the actual exit code
-                    // separately from the fact that it was reaped.
-                    let waited = tokio::select! {
-                        _ = monitor_terminate.cancelled() => false,
-                        result = child.wait() => result.is_ok(),
-                    };
-                    let clean = waited && child.exit_code() == Some(0);
-                    let terminal = tokio::time::timeout(Duration::from_secs(4), async {
-                        if !waited {
-                            child.kill().await?;
-                            child.wait().await?;
-                        }
-                        Ok::<(), Error>(())
-                    })
+                    observe_owned_process_exit(
+                        &mut child,
+                        &monitor_terminate,
+                        &monitor_owner_operations,
+                    )
                     .await;
-                    if matches!(terminal, Ok(Ok(()))) {
-                        // Emergency cleanup still discharges the physical
-                        // reservation; it can never confer clean shutdown.
-                        let _ = monitor_owner_operations.confirmed_physical_exit(clean);
-                    }
-                    // Failure retains quarantine; no universal descendant closure claim.
                 } else {
                     tokio::select! {
                         _ = monitor_terminate.cancelled() => {
@@ -5014,56 +5099,20 @@ impl Provider for DriverProvider {
     }
     async fn shutdown(&self) -> Result<()> {
         if self.manifest.protocol >= 9 {
-            // A clean provider-only release must ask the actual SDK driver to
-            // leave first, not kill its process and then claim SQLite closure.
-            // Owner process custody still requires actual physical exit.
-            let graceful = async {
-                // A child that exited before the authenticated Shutdown
-                // exchange has NOT acknowledged this release, even if the
-                // monitor already observed all of its file descriptors gone.
-                if self.closed.is_cancelled() {
-                    return Err(Error::new(
-                        ErrorCode::Unavailable,
-                        "Owned driver exited before authenticated shutdown",
-                    )
-                    .uncertain());
-                }
-                let id = unique_id();
-                let response = self
-                    .exchange(
-                        Request::Shutdown { id: id.clone() },
-                        &id,
-                        Duration::from_secs(3),
-                    )
-                    .await?;
-                if !matches!(response, Response::Shutdown { id: response_id } if response_id == id)
-                {
-                    return Err(Error::new(
-                        ErrorCode::ProtocolMismatch,
-                        "Owned driver shutdown acknowledgement mismatch",
-                    )
-                    .uncertain());
-                }
-                tokio::time::timeout(
-                    Duration::from_secs(4),
-                    self._owner_operations.wait_graceful_exit(),
+            let ProtocolIo::V2(io) = &self.io else {
+                return Err(Error::new(
+                    ErrorCode::ProtocolMismatch,
+                    "Owned driver shutdown requires protocol v2 transport",
                 )
-                .await
-                .map_err(|_| {
-                    Error::new(
-                        ErrorCode::Timeout,
-                        "Owned driver process did not exit after graceful shutdown",
-                    )
-                    .uncertain()
-                })?
-            }
+                .uncertain());
+            };
+            return shutdown_owned_driver(
+                io,
+                &self._owner_operations,
+                &self.closed,
+                &self.terminate,
+            )
             .await;
-            if graceful.is_err() {
-                // Clean shutdown was not proven; emergency cleanup must never
-                // become a successful provider-only release receipt.
-                self.terminate.cancel();
-            }
-            return graceful;
         }
         if self.closed.is_cancelled() {
             return Ok(());
@@ -5177,6 +5226,195 @@ pub async fn conformance(
     })
 }
 
+#[cfg(all(test, target_os = "linux"))]
+mod owned_shutdown_tests {
+    use super::*;
+    use std::process::Stdio;
+
+    // Real child/process and the production Host transport; this intentionally
+    // makes no claim about a sandbox, SDK negotiation or an application Store.
+    const CHILD: &str = r#"
+import json, os, signal, struct, sys, time
+mode = sys.argv[1]
+if mode.startswith("before-ack-"):
+    sys.exit(int(mode.rsplit("-", 1)[1]))
+header = sys.stdin.buffer.read(4)
+assert len(header) == 4
+size = struct.unpack(">I", header)[0]
+assert 0 < size < 4096
+request = json.loads(sys.stdin.buffer.read(size))
+assert request["type"] == "shutdown"
+reply = {"type": "shutdown", "id": "wrong-id" if mode == "wrong-ack" else request["id"]}
+raw = json.dumps(reply).encode()
+sys.stdout.buffer.write(struct.pack(">I", len(raw)) + raw)
+sys.stdout.buffer.flush()
+if mode == "truncated-header":
+    sys.stdout.buffer.write(b"\x00")
+elif mode == "truncated-body":
+    sys.stdout.buffer.write(struct.pack(">I", 20) + b"{")
+elif mode == "malformed-body":
+    sys.stdout.buffer.write(struct.pack(">I", 1) + b"{")
+sys.stdout.buffer.flush()
+if mode == "signal":
+    os.kill(os.getpid(), signal.SIGTERM)
+if mode == "stall":
+    time.sleep(30)
+sys.exit(23 if mode == "nonzero" else 0)
+"#;
+
+    struct ChildFixture {
+        io: V2Io,
+        owner: Arc<operation_permits::OwnerOperations>,
+        closed: CancellationToken,
+        terminate: CancellationToken,
+        monitor: tokio::task::JoinHandle<()>,
+    }
+
+    impl ChildFixture {
+        fn spawn(mode: &str) -> Self {
+            let child = Command::new("/usr/bin/python3")
+                .args(["-c", CHILD, mode])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .kill_on_drop(true)
+                .spawn()
+                .expect("real bounded shutdown child");
+            let mut child = SandboxProcess::from_tokio_child(child).unwrap();
+            let input = Arc::new(Mutex::new(child.take_stdin().unwrap()));
+            let output = child.take_stdout().unwrap();
+            let pending = Arc::new(Mutex::new(BTreeMap::new()));
+            let owner = Arc::new(operation_permits::OwnerOperations::default());
+            let closed = CancellationToken::new();
+            let terminate = CancellationToken::new();
+            let (signals, _) = broadcast::channel(8);
+            spawn_v2_reader(
+                output,
+                input.clone(),
+                pending.clone(),
+                signals,
+                V2ReaderProtocol {
+                    interfaces: DriverInterfaces::default(),
+                    version: 9,
+                },
+                None,
+                None,
+                owner.clone(),
+                closed.clone(),
+                terminate.clone(),
+            );
+            let monitor_owner = owner.clone();
+            let monitor_closed = closed.clone();
+            let monitor_terminate = terminate.clone();
+            let monitor = tokio::spawn(async move {
+                observe_owned_process_exit(&mut child, &monitor_terminate, &monitor_owner).await;
+                monitor_closed.cancel();
+            });
+            Self {
+                io: V2Io { input, pending },
+                owner,
+                closed,
+                terminate,
+                monitor,
+            }
+        }
+
+        async fn shutdown(&self) -> Result<()> {
+            tokio::time::timeout(
+                Duration::from_secs(9),
+                shutdown_owned_driver(&self.io, &self.owner, &self.closed, &self.terminate),
+            )
+            .await
+            .expect("bounded production shutdown")
+        }
+
+        async fn reaped(&mut self) {
+            tokio::time::timeout(Duration::from_secs(5), &mut self.monitor)
+                .await
+                .expect("bounded child monitor")
+                .unwrap();
+            tokio::time::timeout(Duration::from_secs(1), self.owner.wait_physical_exit())
+                .await
+                .expect("actual child exit retained independently of graceful outcome");
+        }
+    }
+
+    impl Drop for ChildFixture {
+        fn drop(&mut self) {
+            self.terminate.cancel();
+        }
+    }
+
+    #[tokio::test]
+    async fn real_child_ack_eof_zero_exit_is_graceful() {
+        let mut child = ChildFixture::spawn("zero");
+        child.shutdown().await.unwrap();
+        assert!(child.owner.shutdown_acknowledged().unwrap());
+        assert!(
+            !child.terminate.is_cancelled(),
+            "clean EOF must not force a kill"
+        );
+        child.reaped().await;
+    }
+
+    #[tokio::test]
+    async fn real_child_exit_without_ack_is_not_graceful() {
+        for mode in ["before-ack-0", "before-ack-23"] {
+            let mut child = ChildFixture::spawn(mode);
+            child.reaped().await;
+            let error = child.shutdown().await.unwrap_err();
+            assert!(!error.outcome_known, "{mode}: {error:?}");
+            assert!(!child.owner.shutdown_acknowledged().unwrap());
+        }
+    }
+
+    #[tokio::test]
+    async fn real_child_nonzero_or_signal_after_ack_is_not_graceful() {
+        for mode in ["nonzero", "signal"] {
+            let mut child = ChildFixture::spawn(mode);
+            let error = child.shutdown().await.unwrap_err();
+            assert!(!error.outcome_known, "{mode}: {error:?}");
+            assert!(child.owner.shutdown_acknowledged().unwrap(), "{mode}");
+            child.reaped().await;
+        }
+    }
+
+    #[tokio::test]
+    async fn real_child_wrong_ack_or_truncated_frame_is_not_graceful() {
+        for mode in [
+            "wrong-ack",
+            "truncated-header",
+            "truncated-body",
+            "malformed-body",
+        ] {
+            let mut child = ChildFixture::spawn(mode);
+            let error = child.shutdown().await.unwrap_err();
+            assert!(!error.outcome_known, "{mode}: {error:?}");
+            assert_eq!(
+                child.owner.shutdown_acknowledged().unwrap(),
+                mode != "wrong-ack"
+            );
+            child.reaped().await;
+        }
+    }
+
+    #[tokio::test]
+    async fn real_child_ack_without_exit_requires_emergency_cleanup() {
+        let mut child = ChildFixture::spawn("stall");
+        let error = child.shutdown().await.unwrap_err();
+        assert_eq!(error.code, ErrorCode::Timeout);
+        assert!(!error.outcome_known);
+        assert!(child.owner.shutdown_acknowledged().unwrap());
+        assert!(child.terminate.is_cancelled());
+        child.reaped().await;
+        let after_cleanup = child.shutdown().await.unwrap_err();
+        assert!(
+            !after_cleanup.outcome_known,
+            "cleanup cannot upgrade the failed shutdown"
+        );
+    }
+}
+
 #[cfg(test)]
 mod host_tool_protocol_tests {
     use super::*;
@@ -5185,6 +5423,7 @@ mod host_tool_protocol_tests {
         let (sender, _receiver) = oneshot::channel();
         PendingResponse {
             sender,
+            expects_shutdown: false,
             allows_host_tools,
             owner_scope: None,
             session: allows_host_tools.then(|| "session-a".into()),
