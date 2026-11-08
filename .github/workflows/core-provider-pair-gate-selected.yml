@@ -153,7 +153,9 @@ jobs:
             custody_failure_keeps_the_original_error_object_and_unknown_flag; do
             log="$evidence/mlt-$case_id.original.log"
             cargo test --locked --jobs 1 --package semwright-mlt-video-driver --lib "$case_id" -- --nocapture --test-threads=1 2>&1 | tee "$log"
-            grep -F "$case_id ... ok" "$log"
+            # --nocapture interleaves controlled reader-panic diagnostics before the final ok.
+            # The exact one-test Cargo result below proves completion; match the original test identity here.
+            grep -F "test runtime::audio_derivative_tests::$case_id ..." "$log"
             grep -E '^test result: ok\. 1 passed; 0 failed; 0 ignored;' "$log"
           done
       - name: Verify source and toolchain remained unchanged
