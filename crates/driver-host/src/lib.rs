@@ -4079,10 +4079,14 @@ impl DriverProvider {
             let strict_owner_lifecycle = manifest.protocol >= 9;
             tokio::spawn(async move {
                 if strict_owner_lifecycle {
+                    // SandboxProcess::wait() reports Ok even when the child
+                    // exits with a nonzero code. Record the actual exit code
+                    // separately from the fact that it was reaped.
                     let waited = tokio::select! {
                         _ = monitor_terminate.cancelled() => false,
                         result = child.wait() => result.is_ok(),
                     };
+                    let clean = waited && child.exit_code() == Some(0);
                     let terminal = tokio::time::timeout(Duration::from_secs(4), async {
                         if !waited {
                             child.kill().await?;
@@ -4092,7 +4096,9 @@ impl DriverProvider {
                     })
                     .await;
                     if matches!(terminal, Ok(Ok(()))) {
-                        let _ = monitor_owner_operations.confirmed_physical_exit();
+                        // Emergency cleanup still discharges the physical
+                        // reservation; it can never confer clean shutdown.
+                        let _ = monitor_owner_operations.confirmed_physical_exit(clean);
                     }
                     // Failure retains quarantine; no universal descendant closure claim.
                 } else {
@@ -4462,10 +4468,14 @@ impl DriverProvider {
             let strict_owner_lifecycle = manifest.protocol >= 9;
             tokio::spawn(async move {
                 if strict_owner_lifecycle {
+                    // SandboxProcess::wait() reports Ok even when the child
+                    // exits with a nonzero code. Record the actual exit code
+                    // separately from the fact that it was reaped.
                     let waited = tokio::select! {
                         _ = monitor_terminate.cancelled() => false,
                         result = child.wait() => result.is_ok(),
                     };
+                    let clean = waited && child.exit_code() == Some(0);
                     let terminal = tokio::time::timeout(Duration::from_secs(4), async {
                         if !waited {
                             child.kill().await?;
@@ -4475,7 +4485,9 @@ impl DriverProvider {
                     })
                     .await;
                     if matches!(terminal, Ok(Ok(()))) {
-                        let _ = monitor_owner_operations.confirmed_physical_exit();
+                        // Emergency cleanup still discharges the physical
+                        // reservation; it can never confer clean shutdown.
+                        let _ = monitor_owner_operations.confirmed_physical_exit(clean);
                     }
                     // Failure retains quarantine; no universal descendant closure claim.
                 } else {
@@ -5006,26 +5018,35 @@ impl Provider for DriverProvider {
             // leave first, not kill its process and then claim SQLite closure.
             // Owner process custody still requires actual physical exit.
             let graceful = async {
-                if !self.closed.is_cancelled() {
-                    let id = unique_id();
-                    let response = self
-                        .exchange(
-                            Request::Shutdown { id: id.clone() },
-                            &id,
-                            Duration::from_secs(3),
-                        )
-                        .await?;
-                    if !matches!(response, Response::Shutdown { id: response_id } if response_id == id) {
-                        return Err(Error::new(
-                            ErrorCode::ProtocolMismatch,
-                            "Owned driver shutdown acknowledgement mismatch",
-                        )
-                        .uncertain());
-                    }
+                // A child that exited before the authenticated Shutdown
+                // exchange has NOT acknowledged this release, even if the
+                // monitor already observed all of its file descriptors gone.
+                if self.closed.is_cancelled() {
+                    return Err(Error::new(
+                        ErrorCode::Unavailable,
+                        "Owned driver exited before authenticated shutdown",
+                    )
+                    .uncertain());
+                }
+                let id = unique_id();
+                let response = self
+                    .exchange(
+                        Request::Shutdown { id: id.clone() },
+                        &id,
+                        Duration::from_secs(3),
+                    )
+                    .await?;
+                if !matches!(response, Response::Shutdown { id: response_id } if response_id == id)
+                {
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Owned driver shutdown acknowledgement mismatch",
+                    )
+                    .uncertain());
                 }
                 tokio::time::timeout(
                     Duration::from_secs(4),
-                    self._owner_operations.wait_physical_exit(),
+                    self._owner_operations.wait_graceful_exit(),
                 )
                 .await
                 .map_err(|_| {
@@ -5034,7 +5055,7 @@ impl Provider for DriverProvider {
                         "Owned driver process did not exit after graceful shutdown",
                     )
                     .uncertain()
-                })
+                })?
             }
             .await;
             if graceful.is_err() {

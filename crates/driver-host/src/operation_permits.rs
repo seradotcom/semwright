@@ -21,6 +21,9 @@ struct Held {
 #[derive(Default)]
 struct State {
     physically_closed: bool,
+    // Process disappearance discharges native holds, but only a zero exit
+    // without forced termination can support a graceful provider release.
+    clean_process_exit: Option<bool>,
     held: BTreeMap<String, Held>,
     // Dropping transport wrappers cannot invent matched release or physical proof.
     quarantine: Option<Arc<OwnerOperations>>,
@@ -96,9 +99,14 @@ impl OwnerOperations {
         drop(quarantine);
         Ok(())
     }
-    pub(super) fn confirmed_physical_exit(&self) -> Result<()> {
+    pub(super) fn confirmed_physical_exit(&self, clean: bool) -> Result<()> {
         let (held, quarantine) = {
             let mut state = self.state.lock().map_err(|_| denied())?;
+            // The first actual exit observation is final. An unrelated later
+            // cleanup cannot upgrade an abnormal terminal to a clean close.
+            if !state.physically_closed {
+                state.clean_process_exit = Some(clean);
+            }
             state.physically_closed = true;
             (std::mem::take(&mut state.held), state.quarantine.take())
         };
@@ -112,6 +120,21 @@ impl OwnerOperations {
     }
     pub(super) async fn wait_physical_exit(&self) {
         self.physical_exit.cancelled().await;
+    }
+    pub(super) async fn wait_graceful_exit(&self) -> Result<()> {
+        // The OS process is gone, yet abnormal/signal/forced exit is never a
+        // successful cooperative Driver shutdown or Graph Store release.
+        self.wait_physical_exit().await;
+        let state = self.state.lock().map_err(|_| denied())?;
+        if state.clean_process_exit == Some(true) {
+            Ok(())
+        } else {
+            Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Owned driver physically exited without a confirmed clean status",
+            )
+            .uncertain())
+        }
     }
     fn contains(&self, parent: &str, permit: &str) -> bool {
         self.state.lock().ok().is_some_and(|state| {
@@ -300,7 +323,7 @@ mod tests {
         let (a, _, _, ar) = owner.retain("a", lease(&drops)).unwrap();
         let (_, _, _, br) = owner.retain("b", lease(&drops)).unwrap();
         assert!(!owner.physical_exit.is_cancelled());
-        owner.confirmed_physical_exit().unwrap();
+        owner.confirmed_physical_exit(true).unwrap();
         tokio::time::timeout(Duration::from_secs(1), owner.wait_physical_exit())
             .await
             .unwrap();
@@ -308,11 +331,49 @@ mod tests {
         assert!(ar.is_cancelled() && br.is_cancelled());
         assert!(!owner.contains("a", &a));
         owner.release("a", &a).unwrap();
-        owner.confirmed_physical_exit().unwrap();
+        owner.confirmed_physical_exit(true).unwrap();
         assert_eq!(drops.load(Ordering::SeqCst), 2);
         assert!(owner.retain("new", lease(&drops)).is_err());
         assert_eq!(drops.load(Ordering::SeqCst), 3);
+        owner.wait_graceful_exit().await.unwrap();
     }
+
+    #[tokio::test]
+    async fn abnormal_driver_exit_discharges_physical_holds_without_graceful_authority() {
+        // This models the monitor's verified physical reap of a nonzero/signal
+        // child. A later cleanup cannot rewrite its first observed exit status.
+        let owner = Arc::new(OwnerOperations::default());
+        let drops = Arc::new(AtomicUsize::new(0));
+        let (permit, _, _, released) = owner.retain("native", lease(&drops)).unwrap();
+        owner.confirmed_physical_exit(false).unwrap();
+        tokio::time::timeout(Duration::from_secs(1), owner.wait_physical_exit())
+            .await
+            .unwrap();
+        assert!(released.is_cancelled());
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+        assert!(!owner.contains("native", &permit));
+        let rejected = owner.wait_graceful_exit().await.unwrap_err();
+        assert_eq!(rejected.code, ErrorCode::BackendFailed);
+        assert!(!rejected.outcome_known);
+        owner.confirmed_physical_exit(true).unwrap();
+        assert!(owner.wait_graceful_exit().await.is_err());
+        assert!(owner.retain("new", lease(&drops)).is_err());
+        assert_eq!(drops.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn clean_process_exit_is_distinct_from_an_unobserved_process() {
+        let owner = Arc::new(OwnerOperations::default());
+        assert!(!owner.physical_exit.is_cancelled());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(10), owner.wait_graceful_exit(),)
+                .await
+                .is_err()
+        );
+        owner.confirmed_physical_exit(true).unwrap();
+        owner.wait_graceful_exit().await.unwrap();
+    }
+
     #[test]
     fn retained_unknown_holds_keep_their_shared_capacity_budget() {
         let owner = Arc::new(OwnerOperations::default());
@@ -323,7 +384,7 @@ mod tests {
         let extra = owner.retain("over-budget", lease(&drops));
         assert!(matches!(extra, Err(ref e) if e.code == ErrorCode::ResourceExhausted));
         assert_eq!(drops.load(Ordering::SeqCst), 1);
-        owner.confirmed_physical_exit().unwrap();
+        owner.confirmed_physical_exit(true).unwrap();
         assert_eq!(drops.load(Ordering::SeqCst), MAX_OWNER_PERMITS + 1);
     }
 
