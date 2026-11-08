@@ -1,8 +1,11 @@
 name: Bounded semwright-core source library regression
+# This branch is a source-verification donor. Edits to this CI contract
+# must not recompile the same pinned Core source just to turn a wrapper green.
 on:
+  workflow_dispatch:
   push:
     branches: ['verify/a6-core-lib-6f-20261107']
-    paths: ['.github/workflows/core-lib-source-selected.yml']
+    paths: ['crates/core/src/**']
 permissions:
   contents: read
 concurrency:
@@ -22,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 2
+          fetch-depth: 3
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
         with:
@@ -34,8 +37,8 @@ jobs:
           test "$GITHUB_REPOSITORY" = 'seradotcom/semwright'
           test "$GITHUB_RUN_ATTEMPT" = '1'
           test "$GITHUB_REF" = 'refs/heads/verify/a6-core-lib-6f-20261107'
-          test "$(git rev-parse HEAD^)" = '6f053e257a94b1969fc9e42b675a8b6992500e28'
-          test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/core-lib-source-selected.yml'
+          test "$(git rev-parse HEAD^^)" = '6f053e257a94b1969fc9e42b675a8b6992500e28'
+          test "$(git diff --name-only HEAD^^ HEAD)" = '.github/workflows/core-lib-source-selected.yml'
           {
             printf '%s  %s\n' 'ec7f3946d36a3e9e0a6054173220553bd652904cfa48a17daec66ce2e549a18c' 'Cargo.lock'
             printf '%s  %s\n' '842734f50d99a45e8f4fcbe026d4b52a771cc5d2bdc4c62b499dff162819f03f' 'crates/core/src/provider_mounts_tests.rs'
@@ -55,10 +58,24 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/core-lib-source"
           printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/core-lib-source/source-sha.original"
-          printf '%s\n' 'semwright-core --lib 82 original unit tests, no workspace' > "$RUNNER_TEMP/core-lib-source/scope.original"
+          printf '%s\n' 'semwright-core --lib: 82 catalogued, 55 source unit PASS, 27 ignored physical Native (NOT_RUN); no workspace' > "$RUNNER_TEMP/core-lib-source/scope.original"
           cargo test --locked --package semwright-core --lib -- --test-threads=1 2>&1 | tee "$RUNNER_TEMP/core-lib-source/roster.original.log"
-          grep -Fx 'running 82 tests' "$RUNNER_TEMP/core-lib-source/roster.original.log"
-          grep -E '^test result: ok\. 82 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out;' "$RUNNER_TEMP/core-lib-source/roster.original.log"
+          # Cargo catalogs 82, but 27 are real Host9/Bubblewrap #[ignore]
+          # physical integration tests. Never report those 27 as unit passes.
+          python3 - "$RUNNER_TEMP/core-lib-source/roster.original.log" <<'PY'
+          import pathlib, re, sys
+          log = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+          catalog = re.findall(r"^running (\d+) tests$", log, re.MULTILINE)
+          scope = re.findall(
+              r"^test result: ok\. (\d+) passed; 0 failed; (\d+) ignored; "
+              r"0 measured; 0 filtered out; finished in [0-9.]+s$",
+              log, re.MULTILINE,
+          )
+          assert catalog == ["82"], f"Unexpected Core test roster: {catalog!r}"
+          assert scope == [("55", "27")], f"Wrong Core scope: {scope!r}"
+          assert sum(map(int, scope[0])) == int(catalog[0])
+          print("SOURCE_ONLY_CORE_OK: 55 executed PASS, 27 physical NOT_RUN, 0 failed")
+          PY
           sha256sum "$RUNNER_TEMP/core-lib-source/roster.original.log" > "$RUNNER_TEMP/core-lib-source/roster.sha256"
       - name: Retain original source group results even on failure
         if: always()
