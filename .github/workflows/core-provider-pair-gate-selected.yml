@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 3
+          fetch-depth: 4
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
         with:
@@ -34,14 +34,21 @@ jobs:
           test "$GITHUB_REPOSITORY" = 'seradotcom/semwright'
           test "$GITHUB_RUN_ATTEMPT" = '1'
           test "$GITHUB_REF" = 'refs/heads/verify/a6-pairgate-6f-onecase-20261107'
-          test "$(git rev-parse HEAD~2)" = '6f053e257a94b1969fc9e42b675a8b6992500e28'
-          test "$(git diff --name-only HEAD~2 HEAD)" = '.github/workflows/core-provider-pair-gate-selected.yml'
+          test "$(git rev-parse HEAD~3)" = '6f053e257a94b1969fc9e42b675a8b6992500e28'
+          test "$(git diff --name-only HEAD~3 HEAD)" = '.github/workflows/core-provider-pair-gate-selected.yml'
           {
             printf '%s  %s\n' 'ec7f3946d36a3e9e0a6054173220553bd652904cfa48a17daec66ce2e549a18c' 'Cargo.lock'
             printf '%s  %s\n' '842734f50d99a45e8f4fcbe026d4b52a771cc5d2bdc4c62b499dff162819f03f' 'crates/core/src/provider_mounts_tests.rs'
             printf '%s  %s\n' 'b0d714b7d4271df432f0da76517c8f24acbae500da767213abd5db9f403c8d23' 'crates/core/src/operation_permits.rs'
           } | sha256sum --check --status
           test -z "$(git status --porcelain=v1)"
+      - name: Install exact PipeWire build prerequisite for libspa-sys
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
+          pkg-config --modversion libpipewire-0.3
       - name: Compile and run one selected original core test
         shell: bash
         run: |
