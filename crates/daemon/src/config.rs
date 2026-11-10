@@ -179,16 +179,68 @@ pub fn directory_filesystem_grants(
     Ok(grants)
 }
 
+fn canonical_filesystem_path(path: &Path) -> Result<PathBuf> {
+    let canonical = std::fs::canonicalize(path)?;
+    #[cfg(target_os = "windows")]
+    {
+        use std::path::{Component, Prefix};
+
+        // canonicalize returns a verbatim drive prefix; scoped Windows roots use
+        // ordinary drive paths. Normalize the resolved path, never the owner input.
+        let mut components = canonical.components();
+        let Some(Component::Prefix(prefix)) = components.next() else {
+            return Err(Error::invalid("Windows filesystem path requires a drive"));
+        };
+        let Prefix::VerbatimDisk(drive) = prefix.kind() else {
+            return Err(Error::invalid(
+                "Windows filesystem grants require local drive paths",
+            ));
+        };
+        if components.next() != Some(Component::RootDir) {
+            return Err(Error::invalid("Windows filesystem path must be absolute"));
+        }
+        let mut normalized = PathBuf::from(format!("{}:\\", char::from(drive)));
+        normalized.extend(components);
+        Ok(normalized)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(canonical)
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn reject_reparse_grant(path: &Path) -> Result<()> {
+    use std::os::windows::fs::MetadataExt;
+
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    // Checking every ancestor also rejects a junction that resolves back to the
+    // same spelling. The filesystem backend still enforces handle-relative I/O.
+    for ancestor in path.ancestors() {
+        if std::fs::symlink_metadata(ancestor)?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT
+            != 0
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Filesystem grant paths cannot contain reparse points",
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub fn confine_grants(config: &Config, protected: &[PathBuf]) -> Result<()> {
     for grant in &config.policy.filesystem {
-        let root = std::fs::canonicalize(&grant.path)?;
+        #[cfg(target_os = "windows")]
+        reject_reparse_grant(&grant.path)?;
+        let root = canonical_filesystem_path(&grant.path)?;
         if root != grant.path {
             return Err(Error::invalid(
                 "Filesystem grant must be canonical; links in its path are not accepted",
             ));
         }
         for private in protected {
-            let private = std::fs::canonicalize(private)?;
+            let private = canonical_filesystem_path(private)?;
             if root.starts_with(&private) || private.starts_with(&root) {
                 return Err(Error::new(
                     ErrorCode::PolicyDenied,

@@ -1,0 +1,72 @@
+name: Windows workspace connection
+
+on:
+  push:
+    branches: [fix/windows-workspace-roots]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-workspace-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  workspace:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.98.1
+          components: rustfmt
+      - name: Check affected Rust formatting
+        run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/tests/windows_workspace.rs
+      - name: Workspace configuration and native confinement
+        run: |
+          cargo test --locked -p semwright-daemon --test windows_workspace
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-platform-windows-sys --lib filesystem::tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build local interfaces
+        run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp --bins
+      - name: Real broker and MCP workspace roundtrip
+        run: python scripts/windows/workspace-smoke.py --bin-dir target/debug --output verification/windows-workspace
+      - name: Bind binary hashes to source
+        if: success()
+        run: |
+          $paths = @('semwright.exe', 'semwrightd.exe', 'semwright-mcp.exe')
+          $binaries = @($paths | ForEach-Object {
+            $file = Join-Path 'target/debug' $_
+            @{ name = $_; sha256 = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLowerInvariant() }
+          })
+          @{ source = '${{ github.sha }}'; runner = 'windows-2025'; binaries = $binaries } |
+            ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 verification/windows-workspace/binaries.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: windows-workspace-evidence
+          path: verification/windows-workspace/
+          retention-days: 14
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: success()
+        with:
+          name: windows-workspace-binaries
+          path: |
+            target/debug/semwright.exe
+            target/debug/semwrightd.exe
+            target/debug/semwright-mcp.exe
+            verification/windows-workspace/binaries.json
+          retention-days: 7

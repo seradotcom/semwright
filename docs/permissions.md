@@ -35,6 +35,8 @@ Named filesystem grants use `[[policy.filesystem]]`, with `name`, canonical abso
 `/proc`, `/sys`, `/dev` or `/run`. A root must not be `/`. The Linux implementation uses
 FD-relative resolution and atomic writes; it does not merely compare string prefixes.
 See [security](security.md) for trusted-root and application-path limitations.
+For ordinary drive paths, reparse-point restrictions and a focused connection check,
+see [Windows filesystem workspaces](windows/workspace.md).
 
 Risk classes `destructive`, `secret_access`, `code_execution` and `privilege_sensitive`
 always need human approval after capability checks. `confirm_mutations=true` adds a gate

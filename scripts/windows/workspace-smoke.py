@@ -1,0 +1,251 @@
+"""Windows real-broker/MCP workspace smoke; uses only disposable project data.
+
+Run with binaries built from this source. This is protocol/backend evidence,
+not acceptance in a third-party agent host or an interactive desktop.
+"""
+from __future__ import annotations
+
+import argparse
+import difflib
+import json
+import os
+from pathlib import Path
+import queue
+import subprocess
+import tempfile
+import threading
+import time
+import uuid
+
+
+class McpClient:
+    def __init__(self, binary: Path, endpoint: str, ticket: Path, stderr):
+        self.process = subprocess.Popen(
+            [str(binary), "--socket", endpoint, "--session-file", str(ticket)],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr,
+            text=True, encoding="utf-8",
+        )
+        self.messages = queue.Queue()
+        self.sequence = 0
+        self.reader = threading.Thread(target=self._read, daemon=True)
+        self.reader.start()
+        try:
+            self.request("initialize", {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "semwright-workspace-smoke", "version": "1"},
+            })
+            self.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        except BaseException:
+            self.close()
+            raise
+
+    def _read(self):
+        try:
+            for line in self.process.stdout:
+                self.messages.put(json.loads(line))
+        except Exception as error:
+            self.messages.put(error)
+        finally:
+            self.messages.put(EOFError("MCP process closed stdout"))
+
+    def send(self, message):
+        self.process.stdin.write(json.dumps(message) + "\n")
+        self.process.stdin.flush()
+
+    def request(self, method, params):
+        self.sequence += 1
+        request_id = self.sequence
+        self.send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params})
+        deadline = time.monotonic() + 20
+        while True:
+            message = self.messages.get(timeout=max(0.01, deadline - time.monotonic()))
+            if isinstance(message, Exception):
+                raise message
+            if message.get("method") == "ping" and "id" in message:
+                self.send({"jsonrpc": "2.0", "id": message["id"], "result": {}})
+            elif message.get("id") == request_id and "method" not in message:
+                if "error" in message:
+                    raise AssertionError(message["error"])
+                return message["result"]
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"MCP request timed out: {method}")
+
+    def execute(self, command, args):
+        result = self.request("tools/call", {
+            "name": "semwright_execute",
+            "arguments": {"command": command, "args": args},
+        })
+        envelope = result["structuredContent"]
+        assert result.get("isError", False) == (not envelope["ok"]), result
+        return envelope
+
+    def close(self):
+        if self.process.poll() is None:
+            self.process.stdin.close()
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.terminate()
+                self.process.wait(timeout=5)
+        self.reader.join(timeout=2)
+        self.process.stdout.close()
+
+
+def check_ok(envelope):
+    assert envelope["ok"], envelope
+    assert envelope["execution"]["backend"] == "filesystem", envelope
+    assert not envelope["execution"]["dry_run"], envelope
+    return envelope["data"]
+
+
+def check_denied(envelope):
+    assert not envelope["ok"], envelope
+    assert envelope["error"]["outcome_known"], envelope
+    assert envelope["error"]["code"] in {
+        "PolicyDenied", "PermissionDenied", "InvalidArgument",
+    }, envelope
+
+
+def run(binary_dir: Path, output: Path):
+    if os.name != "nt":
+        raise RuntimeError("This smoke requires native Windows binaries")
+    binary_dir = binary_dir.resolve()
+    output = output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    for name in ("semwright", "semwrightd", "semwright-mcp"):
+        if not (binary_dir / f"{name}.exe").is_file():
+            raise FileNotFoundError(name)
+    with tempfile.TemporaryDirectory(prefix="workspace-smoke-", dir=output) as temporary:
+        base = Path(temporary)
+        workspace = base / "workspace"
+        outside = base / "outside"
+        workspace.mkdir()
+        outside.mkdir()
+        sentinel = outside / "secret.txt"
+        sentinel.write_text("outside must stay unchanged\n", encoding="utf-8")
+        data = workspace / "settings.json"
+        before = '{"enabled": false}\n'
+        data.write_text(before, encoding="utf-8")
+        config = base / "daemon.toml"
+        ticket = base / "client.session"
+        endpoint = "\\\\.\\pipe\\semwright-workspace-" + uuid.uuid4().hex
+        junction = workspace / "escape"
+        subprocess.run(
+            ["cmd", "/C", "mklink", "/J", str(junction), str(outside)],
+            check=True, capture_output=True, timeout=10,
+        )
+        daemon = None
+        client = None
+
+        def write_config(writable):
+            config.write_text(
+                '[policy]\nprofile = "observe"\n'
+                '[[policy.filesystem]]\nname = "workspace"\n'
+                f"path = '{workspace}'\nread = true\nwrite = {str(writable).lower()}\n",
+                encoding="utf-8",
+            )
+
+        with (output / "daemon.log").open("w", encoding="utf-8") as daemon_log, (
+            output / "mcp.log"
+        ).open("w", encoding="utf-8") as mcp_log:
+            def start_broker():
+                process = subprocess.Popen(
+                    [str(binary_dir / "semwrightd.exe"), "--config", str(config),
+                     "--socket", endpoint],
+                    stdin=subprocess.DEVNULL, stdout=daemon_log, stderr=daemon_log,
+                )
+                deadline = time.monotonic() + 20
+                try:
+                    while time.monotonic() < deadline:
+                        if process.poll() is not None:
+                            raise RuntimeError("Broker exited; inspect daemon.log")
+                        result = subprocess.run(
+                            [str(binary_dir / "semwright.exe"), "--socket", endpoint,
+                             "--session-file", str(base / "doctor.session"), "--json", "doctor"],
+                            capture_output=True, text=True, encoding="utf-8", timeout=8,
+                        )
+                        if result.returncode == 0:
+                            report = json.loads(result.stdout)
+                            assert report["ok"] and report["data"]["fake"] is False, report
+                            return process
+                        time.sleep(0.1)
+                    raise TimeoutError("Broker did not become ready; inspect daemon.log")
+                except BaseException:
+                    if process.poll() is None:
+                        process.terminate()
+                    process.wait(timeout=5)
+                    raise
+
+            try:
+                write_config(True)
+                daemon = start_broker()
+                client = McpClient(binary_dir / "semwright-mcp.exe", endpoint, ticket, mcp_log)
+                tools = client.request("tools/list", {})["tools"]
+                assert any(tool["name"] == "semwright_execute" for tool in tools)
+                args = {"root": "workspace", "path": "settings.json"}
+                assert check_ok(client.execute("filesystem.read", args))["text"] == before
+                first = '{"enabled": true}\n'
+                check_ok(client.execute("filesystem.write", dict(args, text=first)))
+                assert check_ok(client.execute("filesystem.read", args))["text"] == first
+                assert data.read_text(encoding="utf-8") == first
+                diff = "".join(difflib.unified_diff(
+                    before.splitlines(True), first.splitlines(True),
+                    fromfile="settings.json (before)", tofile="settings.json (after)",
+                ))
+                assert '-{"enabled": false}' in diff and '+{"enabled": true}' in diff
+                (output / "workspace.diff").write_text(diff, encoding="utf-8")
+                for denied in (
+                    {"root": "unknown", "path": "settings.json"},
+                    {"root": "workspace", "path": "../outside/secret.txt"},
+                    {"root": "workspace", "path": str(sentinel)},
+                    {"root": "workspace", "path": "escape/secret.txt"},
+                ):
+                    check_denied(client.execute("filesystem.read", denied))
+                    check_denied(client.execute("filesystem.write", dict(denied, text="forbidden")))
+                assert sentinel.read_text(encoding="utf-8") == "outside must stay unchanged\n"
+                client.close()
+                client = McpClient(binary_dir / "semwright-mcp.exe", endpoint, ticket, mcp_log)
+                second = '{"enabled": true, "second_task": true}\n'
+                check_ok(client.execute("filesystem.write", dict(args, text=second)))
+                assert check_ok(client.execute("filesystem.read", args))["text"] == second
+                assert data.read_text(encoding="utf-8") == second
+                daemon.terminate()
+                daemon.wait(timeout=5)
+                write_config(False)
+                daemon = start_broker()
+                # The MCP process still holds its old session. Refreshing that handshake
+                # must not restore the old grant or redispatch either completed write.
+                check_denied(client.execute("filesystem.write", dict(args, text="revoked")))
+                assert check_ok(client.execute("filesystem.read", args))["text"] == second
+                assert data.read_text(encoding="utf-8") == second
+                report = {
+                    "evidence": "hosted-native-broker-mcp",
+                    "fake": False,
+                    "read_write_readback": True,
+                    "diff": True,
+                    "outside_and_junction_denied": True,
+                    "second_task_after_reconnect": True,
+                    "write_revoked_after_broker_restart": True,
+                    "external_agent_host_accepted": False,
+                    "interactive_desktop_accepted": False,
+                }
+                (output / "workspace.json").write_text(
+                    json.dumps(report, indent=2) + "\n", encoding="utf-8",
+                )
+                print(json.dumps(report))
+            finally:
+                if client is not None:
+                    client.close()
+                if daemon is not None and daemon.poll() is None:
+                    daemon.terminate()
+                    daemon.wait(timeout=5)
+                junction.rmdir()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bin-dir", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    options = parser.parse_args()
+    run(options.bin_dir, options.output)
