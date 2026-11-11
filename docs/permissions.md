@@ -29,6 +29,10 @@ An application scope is exact, not fuzzy. Discover actual app IDs before configu
 No app list means no per-app restriction, not a magical automatic selection. Browser
 commands use `org.semwright.Chromium`; Blender uses `org.blender.Blender` in this model.
 Some native window managers expose class identifiers rather than desktop-file IDs.
+On Windows, native window and UIA references use the process-scoped application
+identity pid:<PID> (not stable across process restarts). The window/app lists emit
+the same app identity so allowlists filter observations consistently; a process
+restarted under a new PID requires a newly authorized scope.
 
 Named filesystem grants use `[[policy.filesystem]]`, with `name`, canonical absolute
 `path`, `read` and `write`. Roots may not overlap daemon runtime, state, configuration,

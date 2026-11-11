@@ -196,12 +196,44 @@ pub fn close(hwnd: HWND) -> Result<()> {
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "WM_CLOSE could not be posted"))
 }
 
+pub fn app_id(pid: u32) -> String {
+    format!("pid:{pid}")
+}
+
 pub fn to_json(w: &NativeWindow) -> Value {
     json!({
         "pid": w.pid,
+        "app": app_id(w.pid),
         "title": w.title,
         "image": w.image,
         "bounds": { "x": w.rect.left, "y": w.rect.top,
                     "width": w.rect.right - w.rect.left, "height": w.rect.bottom - w.rect.top }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn window_metadata_has_the_same_app_scope_as_native_refs() {
+        let window = NativeWindow {
+            hwnd: HWND(std::ptr::null_mut()),
+            pid: 4242,
+            title: "Owned UIA fixture".into(),
+            image: None,
+            rect: RECT {
+                left: 10,
+                top: 20,
+                right: 130,
+                bottom: 100,
+            },
+        };
+        let value = to_json(&window);
+        assert_eq!(value["pid"], 4242);
+        assert_eq!(value["app"], "pid:4242");
+        assert_eq!(value["title"], "Owned UIA fixture");
+        assert_eq!(value["bounds"]["width"], 120);
+        assert_eq!(value["bounds"]["height"], 80);
+    }
 }

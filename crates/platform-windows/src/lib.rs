@@ -156,7 +156,7 @@ impl Windows {
             identity: id.clone(),
             revision,
             fingerprint: id.trim_start_matches("win:").into(),
-            app: format!("pid:{}", w.pid),
+            app: window::app_id(w.pid),
         })
     }
 
@@ -216,7 +216,7 @@ impl Windows {
                 .map(|p| p.to_string_lossy().into_owned())
                 .unwrap_or_default();
             apps.entry((w.pid, image.clone()))
-                .or_insert_with(|| json!({"pid":w.pid,"image":image}));
+                .or_insert_with(|| json!({"pid":w.pid,"app":window::app_id(w.pid),"image":image}));
         }
         Ok(json!({"apps":apps.into_values().collect::<Vec<_>>() }))
     }
