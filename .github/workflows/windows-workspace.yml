@@ -15,6 +15,10 @@ on:
       - 'scripts/windows/workspace-smoke.py'
       - 'scripts/windows/run-interactive-certification.ps1'
       - 'scripts/windows/validate-interactive-certification.ps1'
+      - 'packaging/portable/**'
+      - 'scripts/release/portable_package.py'
+      - 'scripts/release/bundle_contract.py'
+      - 'scripts/release/certify_install.py'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/windows-workspace.yml'
@@ -82,6 +86,8 @@ jobs:
           } | ConvertTo-Json | Set-Content -Encoding utf8 verification/windows-uia/manifest.json
       - name: Real broker and MCP workspace roundtrip
         run: python scripts/windows/workspace-smoke.py --bin-dir target/debug --output verification/windows-workspace
+      - name: Package Windows delivery and check install lifecycle
+        run: python scripts/release/portable_package.py --bin-dir target/debug --platform windows --arch x86_64 --output dist/windows-workspace --report verification/windows-workspace/package.json
       - name: Bind binary hashes to source
         if: success()
         run: |
@@ -117,6 +123,12 @@ jobs:
           path: |
             verification/windows-uia/uia-native-fixture.exe
             verification/windows-uia/manifest.json
+          retention-days: 7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: success()
+        with:
+          name: windows-workspace-portable
+          path: dist/windows-workspace/
           retention-days: 7
 
   unix-setup:

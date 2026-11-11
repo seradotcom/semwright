@@ -85,6 +85,17 @@ ZIPs, not MSI/MSIX or Authenticode-signed applications. SmartScreen and script e
 not bypassed. Where unsigned scripts are prohibited, stop and use an organization-approved
 evaluation/distribution method. No reputation or signing claim is made.
 
+A verified extracted bundle can also be used in place from an ordinary directory on another
+local drive. Keep all five commands together in its `bin` directory, invoke them by their full
+paths, and select a dedicated `SEMWRIGHT_DATA_DIR` as described below. This route creates no
+installation receipt; the install/uninstall helpers retain their user-profile scope. Preserve
+configuration, state and projects when removing an extracted bundle.
+
+The Windows workspace connection workflow produces a `windows-workspace-portable` development
+artifact from its tested binaries, with an external checksum and an install/uninstall report in
+`windows-workspace-evidence`. These are development-profile binaries for local validation. An
+Actions artifact is not a release, signing claim or release-admission result.
+
 ### macOS — Apple Silicon or Intel
 
 Use `macos-arm64` for Apple Silicon and `macos-x86_64` for Intel:
