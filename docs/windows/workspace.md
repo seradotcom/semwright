@@ -78,6 +78,17 @@ checks trusted ACLs and each file digest, verifies the exact sealed Blender
 executable, and returns a runtime inventory. Cancellation and existing
 destinations fail without treating the operation as an application launch.
 
+The platform now also has a Windows-only, Host-mediated closed launch mode.
+It accepts exactly the pinned Blender executable under the immutable runtime,
+a fixed headless/bootstrap argument list, one write-enabled workspace mount,
+one read-only bootstrap mount, one read-only executable runtime mount, no
+network or GPU, native x64 and a one-process Job limit. It injects only
+first-party Blender runtime environment values and registryRead (read-only)
+to allow Windows application initialization. The initial process must
+already pass exact Job, owner SID, AppContainer, LPAC and capability attestation
+before resume. Executable validation uses the already separate 512 MiB
+application limit, without widening the 64 MiB generic sealed-driver limit.
+
 This platform primitive alone does not enable driver.blender.* on Windows.
 Driver manifests can now express the closed windows_native_profile request for
 blender_5_2_1_initial on their exact blender sealed tool. The request accepts

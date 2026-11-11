@@ -213,6 +213,17 @@ pub fn windows_native_paths_overlap(left: &Path, right: &Path) -> Result<bool> {
     semwright_platform_windows_sys::launch::windows_native_paths_overlap(left, right)
 }
 
+/// Windows-only first-party launch entry; manifest-level requests do not reach
+/// here without the separate Driver Host owner-authority checks.
+#[cfg(target_os = "windows")]
+pub fn sandbox_spawn_blender52_initial(
+    spec: &semwright_platform_api::launch::SandboxSpec,
+    runtime: &Path,
+    digest: &str,
+) -> Result<semwright_platform_api::launch::SandboxProcess> {
+    semwright_platform_windows_sys::launch::sandbox_spawn_blender52_initial(spec, runtime, digest)
+}
+
 pub fn sandbox_command(
     s: &semwright_platform_api::launch::SandboxSpec,
 ) -> Result<tokio::process::Command> {

@@ -84,6 +84,8 @@ jobs:
           cargo test --locked -p semwright-core --test project_graph windows_native_project_asset_observes_human_edits_but_not_file_replacement
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-core --test project_graph windows_project_reopen_preserves_owner_and_reconciles_offline_edit
+      - name: Closed Windows native Blender launch refuses authority drift
+        run: cargo test --locked -p semwright-platform-windows-sys --lib closed_blender_initial_launch_tests
       - name: Verify real Windows initial-process identity before resume
         run: |
           cargo test --locked -p semwright-platform-windows-sys --lib initial_attestation

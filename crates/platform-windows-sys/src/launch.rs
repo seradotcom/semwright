@@ -2036,6 +2036,7 @@ fn environment_block(
     profile: &AppContainerProfile,
     mount_table: Option<&str>,
     tool_table: Option<&str>,
+    mode: &WindowsLaunchMode,
 ) -> Result<Vec<u16>> {
     let mut entries = spec
         .environment
@@ -2077,6 +2078,51 @@ fn environment_block(
     entries.push(("LOCALAPPDATA".into(), profile.local_app_data.clone()));
     entries.push(("TEMP".into(), temp.to_string_lossy().into_owned()));
     entries.push(("TMP".into(), temp.to_string_lossy().into_owned()));
+    if let WindowsLaunchMode::Blender521Initial { runtime } = mode {
+        let resources = runtime.join("5.2");
+        let user = Path::new(&profile.local_app_data).join("BlenderUser");
+        std::fs::create_dir(&user)?;
+        let system =
+            std::env::var_os("SystemRoot").ok_or_else(|| Error::invalid("SystemRoot required"))?;
+        let search = std::env::join_paths([
+            runtime.clone(),
+            runtime.join("blender.shared"),
+            runtime.join("blender.crt"),
+            std::path::PathBuf::from(system).join("System32"),
+        ])
+        .map_err(|_| Error::invalid("Native runtime DLL search path"))?;
+        entries.extend([
+            ("PATH".into(), search.to_string_lossy().into_owned()),
+            ("USERPROFILE".into(), profile.local_app_data.clone()),
+            ("APPDATA".into(), profile.local_app_data.clone()),
+            (
+                "BLENDER_USER_RESOURCES".into(),
+                user.to_string_lossy().into_owned(),
+            ),
+            (
+                "BLENDER_SYSTEM_RESOURCES".into(),
+                resources.to_string_lossy().into_owned(),
+            ),
+            (
+                "BLENDER_SYSTEM_SCRIPTS".into(),
+                resources.join("scripts").to_string_lossy().into_owned(),
+            ),
+            (
+                "BLENDER_SYSTEM_EXTENSIONS".into(),
+                resources.join("extensions").to_string_lossy().into_owned(),
+            ),
+            (
+                "BLENDER_SYSTEM_DATAFILES".into(),
+                resources.join("datafiles").to_string_lossy().into_owned(),
+            ),
+            (
+                "BLENDER_SYSTEM_PYTHON".into(),
+                resources.join("python").to_string_lossy().into_owned(),
+            ),
+            ("PYTHONNOUSERSITE".into(), "1".into()),
+            ("PYTHONIOENCODING".into(), "utf-8".into()),
+        ]);
+    }
     entries.sort_by_key(|(name, _)| name.to_ascii_uppercase());
     let mut out = Vec::new();
     for (name, value) in entries {
@@ -2414,18 +2460,165 @@ fn host_tool_cross_arch(spec: &SandboxSpec) -> Result<bool> {
 /// inherited-handle list are attached at creation, the process starts suspended, enters a
 /// kill-on-close Job Object, and is resumed only after that boundary exists.
 pub struct WindowsSandbox;
-impl SandboxLauncher for WindowsSandbox {
-    fn command(&self, spec: &SandboxSpec) -> Result<Command> {
-        spec.validate()?;
-        Err(Error::new(
-            ErrorCode::SandboxDenied,
-            "Windows sandbox creation is only available through platform-owned spawn",
-        ))
+
+/// Native Windows sandbox launch retains a separate, closed authority mode.
+#[derive(Clone)]
+enum WindowsLaunchMode {
+    Default,
+    Blender521Initial { runtime: std::path::PathBuf },
+}
+
+impl WindowsLaunchMode {
+    fn registry_read_capability(&self) -> bool {
+        matches!(self, Self::Blender521Initial { .. })
     }
 
-    fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
+    fn validate(&self, spec: &SandboxSpec, cross_arch_host_tool: bool) -> Result<()> {
+        match self {
+            Self::Default => Ok(()),
+            Self::Blender521Initial { runtime } => {
+                // Native-only, one process, no external network or GPU.
+                if spec.network
+                    || spec
+                        .limits
+                        .as_ref()
+                        .is_none_or(|limits| limits.processes != 1)
+                    || !cfg!(target_arch = "x86_64")
+                    || cross_arch_host_tool
+                {
+                    return Err(Error::new(
+                        ErrorCode::SandboxDenied,
+                        "Native Blender initial launch requires CPU-only x64, no network or emulation, and one process",
+                    ));
+                }
+                validate_blender52_initial_spec(spec, runtime)
+            }
+        }
+    }
+}
+
+fn validate_blender52_initial_spec(spec: &SandboxSpec, runtime: &Path) -> Result<()> {
+    use semwright_platform_api::launch::{HostToolArgRef, SandboxKind, encode_host_tool_arg_ref};
+    let flags = [
+        "--background",
+        "--factory-startup",
+        "--disable-autoexec",
+        "--offline-mode",
+        "-q",
+        "--python-exit-code",
+        "1",
+        "--python",
+        "bootstrap.py",
+        "--",
+    ];
+    if spec.kind != SandboxKind::Driver
+        || spec.nvidia_gpu
+        || !spec.sealed_tools.is_empty()
+        || spec.staged_executable != runtime.join("blender.exe")
+        || spec.args.len() != 14
+        || !spec.args[..10].iter().zip(flags).all(|(a, b)| a == b)
+        || spec.mounts.len() != 3
+        || spec.environment.len() != 3
+        || !spec
+            .environment
+            .iter()
+            .any(|(name, value)| name == SANDBOX_HOST_TOOL_CHILD_ENV && value == "1")
+        || !spec
+            .environment
+            .iter()
+            .any(|(name, value)| name == SANDBOX_HOST_TOOL_TYPED_ARGS_ENV && value == "1")
+    {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Closed Windows Blender initial launch contract required",
+        ));
+    }
+    let nonce = spec.args[10].strip_prefix("stdio:").unwrap_or("");
+    if nonce.len() != 32
+        || !nonce
+            .bytes()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+    {
+        return Err(Error::invalid("Host native nonce required"));
+    }
+    for (index, name, read_only, execute) in [
+        (11, "workspace", false, false),
+        (12, "native-bootstrap", true, false),
+        (13, "blender-runtime", true, true),
+    ] {
+        let mount = spec
+            .mounts
+            .iter()
+            .find(|m| m.logical_name == name)
+            .ok_or_else(|| Error::new(ErrorCode::SandboxDenied, "Native mount role missing"))?;
+        if mount.class != MountClass::Workspace
+            || mount.read_only != read_only
+            || mount.execute != execute
+        {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Native mount authority mismatch",
+            ));
+        }
+        let arg = encode_host_tool_arg_ref(&HostToolArgRef::MountPath {
+            mount: name.into(),
+            relative: String::new(),
+        })?;
+        if spec.args[index] != arg || (name == "blender-runtime" && mount.source != runtime) {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Native typed mount argument mismatch",
+            ));
+        }
+        if name == "native-bootstrap"
+            && !spec
+                .environment
+                .iter()
+                .any(|(k, v)| k == SANDBOX_HOST_TOOL_CWD_ENV && Path::new(v) == mount.source)
+        {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Native code CWD must be the read-only bootstrap",
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Production entry for the independently owner-granted, closed Blender 5.2.1 profile.
+pub fn sandbox_spawn_blender52_initial(
+    spec: &SandboxSpec,
+    runtime: &Path,
+    digest: &str,
+) -> Result<SandboxProcess> {
+    // Prove the exact closed launch request BEFORE opening or hashing any
+    // executable. A malformed Host request cannot use this function as a
+    // generic executable probe or fall through to a normal driver launch.
+    spec.validate()?;
+    let mode = WindowsLaunchMode::Blender521Initial {
+        runtime: runtime.to_path_buf(),
+    };
+    mode.validate(spec, host_tool_cross_arch(spec)?)?;
+    verify_application_executable(&spec.staged_executable, digest)?;
+    eprintln!(
+        "{}",
+        serde_json::json!({"component":"platform-windows",
+        "phase":"blender_5_2_1_initial_requested","profile":"blender_5_2_1_initial",
+        "executable_sha256":digest,"requested_capabilities":["registryRead"],
+        "network":false,"application_startup_verified":false,"test_only":false})
+    );
+    WindowsSandbox.spawn_with_mode(spec, mode)
+}
+
+impl WindowsSandbox {
+    fn spawn_with_mode(
+        &self,
+        spec: &SandboxSpec,
+        mode: WindowsLaunchMode,
+    ) -> Result<SandboxProcess> {
         spec.validate()?;
         let cross_arch_host_tool = host_tool_cross_arch(spec)?;
+        mode.validate(spec, cross_arch_host_tool)?;
         let typed_host_tool = spec
             .environment
             .iter()
@@ -2456,8 +2649,7 @@ impl SandboxLauncher for WindowsSandbox {
         // documented LPAC registryRead capability only when ambient network was explicitly
         // owner-authorized. This remains process-scoped and does not change filesystem mounts,
         // loopback policy, or the AppContainer profile's network capability declaration.
-        let network_registry_sid = spec
-            .network
+        let network_registry_sid = (spec.network || mode.registry_read_capability())
             .then(|| named_capability_sid("registryRead"))
             .transpose()?;
         if let Some(sid) = network_registry_sid.as_ref() {
@@ -2602,6 +2794,7 @@ impl SandboxLauncher for WindowsSandbox {
             &profile,
             mount_table.as_deref(),
             tool_table.as_deref(),
+            &mode,
         )?;
         let mut process_info = PROCESS_INFORMATION::default();
         let flags = CREATE_SUSPENDED
@@ -2740,6 +2933,20 @@ impl SandboxLauncher for WindowsSandbox {
             }),
             cpu_accounting,
         ))
+    }
+}
+
+impl SandboxLauncher for WindowsSandbox {
+    fn command(&self, spec: &SandboxSpec) -> Result<Command> {
+        spec.validate()?;
+        Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sandbox creation is only available through platform-owned spawn",
+        ))
+    }
+
+    fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
+        self.spawn_with_mode(spec, WindowsLaunchMode::Default)
     }
 
     fn available(&self, _helper: &Path) -> bool {
@@ -2908,5 +3115,158 @@ mod verifier_tests {
                 .expect("verify inherited workspace revocation"),
             "revocation must remove inherited AppContainer authority from existing children"
         );
+    }
+}
+
+#[cfg(test)]
+mod closed_blender_initial_launch_tests {
+    use super::*;
+    use semwright_platform_api::launch::{
+        HostToolArgRef, ResourceLimits, SandboxKind, encode_host_tool_arg_ref,
+    };
+
+    fn native_fixture() -> (SandboxSpec, std::path::PathBuf) {
+        let runtime = std::path::PathBuf::from(r"C:\semwright-private\runtime");
+        let code = std::path::PathBuf::from(r"C:\semwright-private\bootstrap");
+        let mounts = vec![
+            Mount {
+                source: std::path::PathBuf::from(r"C:\owner-approved\workspace"),
+                class: MountClass::Workspace,
+                logical_name: "workspace".into(),
+                read_only: false,
+                execute: false,
+            },
+            Mount {
+                source: code.clone(),
+                class: MountClass::Workspace,
+                logical_name: "native-bootstrap".into(),
+                read_only: true,
+                execute: false,
+            },
+            Mount {
+                source: runtime.clone(),
+                class: MountClass::Workspace,
+                logical_name: "blender-runtime".into(),
+                read_only: true,
+                execute: true,
+            },
+        ];
+        let mut args = [
+            "--background",
+            "--factory-startup",
+            "--disable-autoexec",
+            "--offline-mode",
+            "-q",
+            "--python-exit-code",
+            "1",
+            "--python",
+            "bootstrap.py",
+            "--",
+        ]
+        .iter()
+        .map(|value| (*value).to_string())
+        .collect::<Vec<_>>();
+        args.push(format!("stdio:{}", "a".repeat(32)));
+        for name in ["workspace", "native-bootstrap", "blender-runtime"] {
+            args.push(
+                encode_host_tool_arg_ref(&HostToolArgRef::MountPath {
+                    mount: name.into(),
+                    relative: String::new(),
+                })
+                .unwrap(),
+            );
+        }
+        (
+            SandboxSpec {
+                kind: SandboxKind::Driver,
+                staged_executable: runtime.join("blender.exe"),
+                helper: std::path::PathBuf::from(r"C:\semwright-private\sandbox.exe"),
+                mounts,
+                args,
+                environment: vec![
+                    (SANDBOX_HOST_TOOL_CHILD_ENV.into(), "1".into()),
+                    (SANDBOX_HOST_TOOL_TYPED_ARGS_ENV.into(), "1".into()),
+                    (
+                        SANDBOX_HOST_TOOL_CWD_ENV.into(),
+                        code.to_string_lossy().into_owned(),
+                    ),
+                ],
+                sealed_tools: vec![],
+                network: false,
+                nvidia_gpu: false,
+                limits: Some(ResourceLimits {
+                    open_files: 128,
+                    processes: 1,
+                    cpu_seconds: 30,
+                    address_space_bytes: 1_073_741_824,
+                    file_size_bytes: 1_073_741_824,
+                }),
+            },
+            runtime,
+        )
+    }
+
+    fn check(spec: &SandboxSpec, runtime: &Path) -> Result<()> {
+        spec.validate()?;
+        WindowsLaunchMode::Blender521Initial {
+            runtime: runtime.to_path_buf(),
+        }
+        .validate(spec, false)
+    }
+
+    #[test]
+    fn closed_native_blender_contract_accepts_only_the_host_shape() {
+        let (spec, runtime) = native_fixture();
+        check(&spec, &runtime).unwrap();
+        assert!(!WindowsLaunchMode::Default.registry_read_capability());
+        assert!(WindowsLaunchMode::Blender521Initial { runtime }.registry_read_capability());
+    }
+
+    #[test]
+    fn native_launch_rejects_extra_arguments_mounts_capabilities_and_network() {
+        let (original, runtime) = native_fixture();
+        for variant in 0..13 {
+            let mut spec = original.clone();
+            match variant {
+                0 => spec.network = true,
+                1 => spec.nvidia_gpu = true,
+                2 => spec.limits.as_mut().unwrap().processes = 2,
+                3 => spec.args[3] = "--enable-autoexec".into(),
+                4 => spec.args[10] = "stdio:".to_owned() + &"z".repeat(32),
+                5 => spec.args[10] = "stdio:".to_owned() + &"A".repeat(32),
+                6 => spec.args.push("extra".into()),
+                7 => spec.mounts[0].read_only = true,
+                8 => spec.mounts[1].execute = true,
+                9 => spec.mounts[2].read_only = false,
+                10 => spec.mounts[2].source.push("other"),
+                11 => spec.environment[2].1 = r"C:\different-bootstrap".into(),
+                _ => spec.kind = SandboxKind::ExternalMcp,
+            }
+            assert!(
+                check(&spec, &runtime).is_err(),
+                "variant {variant} admitted"
+            );
+        }
+        let (spec, runtime) = native_fixture();
+        assert!(
+            WindowsLaunchMode::Blender521Initial { runtime }
+                .validate(&spec, true)
+                .is_err(),
+            "Cross-architecture tool emulation must not be admitted"
+        );
+    }
+
+    #[test]
+    fn no_native_request_is_accepted_as_a_generic_mode_selector() {
+        let (mut spec, runtime) = native_fixture();
+        spec.environment.clear();
+        assert!(
+            WindowsLaunchMode::Blender521Initial { runtime }
+                .validate(&spec, false)
+                .is_err()
+        );
+        // Generic launch uses its existing method and never selects registryRead
+        // solely because the caller supplied Blender-style arguments.
+        assert!(!WindowsLaunchMode::Default.registry_read_capability());
     }
 }
