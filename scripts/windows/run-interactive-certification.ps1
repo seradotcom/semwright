@@ -1,7 +1,8 @@
 param(
     [ValidateSet("Skip", "Select", "Cancel", "Both")]
     [string]$CaptureMode = "Skip",
-    [string]$EvidenceRoot = ""
+    [string]$EvidenceRoot = "",
+    [string]$PrebuiltUiaDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,6 +50,27 @@ if ($dirty) {
 }
 $sha = (git rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0) { throw "git rev-parse failed" }
+$prebuiltUia = $null
+$verifiedBinaryHash = $null
+if ($PrebuiltUiaDirectory) {
+    if ($CaptureMode -ne "Skip") {
+        throw "Prebuilt UIA mode runs only the semantic UIA case; capture must remain Skip."
+    }
+    $prebuiltUia = (Resolve-Path -LiteralPath (Join-Path $PrebuiltUiaDirectory "uia-native-fixture.exe")).Path
+    $manifestPath = Join-Path $PrebuiltUiaDirectory "manifest.json"
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    if ($manifest.source -ne $sha -or $manifest.name -ne "uia-native-fixture.exe") {
+        throw "Prebuilt UIA manifest does not match this source and executable."
+    }
+    $verifiedBinaryHash = (Get-FileHash -LiteralPath $prebuiltUia -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($manifest.sha256 -notmatch '^[a-f0-9]{64}$' -or $verifiedBinaryHash -ne $manifest.sha256) {
+        throw "Prebuilt UIA binary hash mismatch."
+    }
+    if ((Test-Path -LiteralPath $EvidenceRoot) -and
+        @(Get-ChildItem -LiteralPath $EvidenceRoot -Force).Count -gt 0) {
+        throw "Prebuilt UIA evidence directory must be empty."
+    }
+}
 New-Item -ItemType Directory -Force -Path $EvidenceRoot | Out-Null
 $env:SEMWRIGHT_WINDOWS_INTERACTIVE = "1"
 $Rows = [ordered]@{}
@@ -93,59 +115,114 @@ function Invoke-CargoRow {
     $Rows[$RowId].status = "PASS_WINDOWS_INTERACTIVE"
 }
 
-$failure = $null
-try {
-    Invoke-CargoRow "uia_semantic" @(
-        "test", "--locked", "-p", "semwright-platform-windows",
-        "--test", "uia_native_fixture",
-        "real_win32_fixture_exercises_uia_without_pixel_fallback",
-        "--", "--nocapture", "--test-threads=1"
-    )
-    Invoke-CargoRow "input_pointer_clipboard" @(
-        "test", "--locked", "-p", "semwright-platform-windows",
-        "--test", "uia_native_fixture",
-        "interactive_windows_input_pointer_clipboard_and_focus_drift",
-        "--", "--ignored", "--nocapture", "--test-threads=1"
-    )
-
-    $authorityLog = Join-Path $EvidenceRoot "secure_spawn_authority.log"
-    $Rows["secure_spawn_authority"].log = (Split-Path $authorityLog -Leaf)
-    $Rows["secure_spawn_authority"].status = "RUNNING"
-    $authorityCommands = @(
-        @("test","--locked","-p","semwright-platform-windows-sys","--test","secure_spawn","--","--nocapture","--test-threads=1"),
-        @("test","--locked","-p","semwright-driver-host","--test","windows_secure_host","--","--nocapture","--test-threads=1"),
-        @("test","--locked","-p","semwright-plugin-host","--features","test-tools","--test","windows_secure_host","--","--nocapture","--test-threads=1"),
-        @("test","--locked","-p","semwright-federation","--test","windows_secure_stdio","--","--nocapture","--test-threads=1")
-    )
-    foreach ($cargoArgs in $authorityCommands) {
-        "COMMAND: cargo $($cargoArgs -join ' ')" | Tee-Object -FilePath $authorityLog -Append
-        & cargo @cargoArgs 2>&1 | Tee-Object -FilePath $authorityLog -Append
-        if ($LASTEXITCODE -ne 0) {
-            $Rows["secure_spawn_authority"].exit_code = $LASTEXITCODE
-            $Rows["secure_spawn_authority"].status = "FAIL"
-            throw "Secure-spawn authority certification failed."
+function Invoke-PrebuiltUiaRow {
+    $row = $Rows["uia_semantic"]
+    $log = Join-Path $EvidenceRoot "uia_semantic.log"
+    $stderrLog = Join-Path $EvidenceRoot "uia_semantic.stderr.log"
+    $row.log = (Split-Path $log -Leaf)
+    $row.status = "RUNNING"
+    $testName = "real_win32_fixture_exercises_uia_without_pixel_fallback"
+    $process = $null
+    try {
+        $start = @{
+            FilePath = $prebuiltUia
+            ArgumentList = @("--exact", $testName, "--nocapture", "--test-threads=1")
+            WorkingDirectory = $Root
+            NoNewWindow = $true
+            PassThru = $true
+            RedirectStandardOutput = $log
+            RedirectStandardError = $stderrLog
+        }
+        $process = Start-Process @start
+        # Retain the process handle so Windows PowerShell can read its exit status.
+        $null = $process.Handle
+        if (-not $process.WaitForExit(45000)) {
+            $process.Kill()
+            [void]$process.WaitForExit(5000)
+            throw "Prebuilt UIA case exceeded its 45-second physical-test budget."
+        }
+        $process.WaitForExit()
+        $row.exit_code = $process.ExitCode
+        $output = Get-Content -LiteralPath $log -Raw
+        if ($row.exit_code -ne 0 -or
+            $output -notmatch 'test result: ok\. 1 passed; 0 failed; 0 ignored;') {
+            throw "Prebuilt UIA case failed or did not execute exactly one test; inspect its logs."
+        }
+        $row.status = "PASS_WINDOWS_INTERACTIVE"
+        Write-Host $output
+    }
+    catch {
+        $row.status = "FAIL"
+        throw
+    }
+    finally {
+        if ($null -ne $process) {
+            if (-not $process.HasExited) {
+                $process.Kill()
+                [void]$process.WaitForExit(5000)
+            }
+            $process.Dispose()
         }
     }
-    $Rows["secure_spawn_authority"].exit_code = 0
-    $Rows["secure_spawn_authority"].status = "PASS_WINDOWS_INTERACTIVE"
+}
 
-    if ($CaptureMode -in @("Select", "Both")) {
-        Write-Host "ACTION REQUIRED: select a non-sensitive window in the Windows capture picker."
-        Invoke-CargoRow "capture_select" @(
+$failure = $null
+try {
+    if ($prebuiltUia) {
+        Invoke-PrebuiltUiaRow
+    } else {
+        Invoke-CargoRow "uia_semantic" @(
             "test", "--locked", "-p", "semwright-platform-windows",
-            "--test", "capture_interactive",
-            "interactive_capture_picker_selects_bounded_png",
+            "--test", "uia_native_fixture",
+            "real_win32_fixture_exercises_uia_without_pixel_fallback",
+            "--", "--nocapture", "--test-threads=1"
+        )
+        Invoke-CargoRow "input_pointer_clipboard" @(
+            "test", "--locked", "-p", "semwright-platform-windows",
+            "--test", "uia_native_fixture",
+            "interactive_windows_input_pointer_clipboard_and_focus_drift",
             "--", "--ignored", "--nocapture", "--test-threads=1"
         )
-    }
-    if ($CaptureMode -in @("Cancel", "Both")) {
-        Write-Host "ACTION REQUIRED: cancel the Windows capture picker."
-        Invoke-CargoRow "capture_cancel" @(
-            "test", "--locked", "-p", "semwright-platform-windows",
-            "--test", "capture_interactive",
-            "interactive_capture_picker_user_cancel_is_cancelled",
-            "--", "--ignored", "--nocapture", "--test-threads=1"
+
+        $authorityLog = Join-Path $EvidenceRoot "secure_spawn_authority.log"
+        $Rows["secure_spawn_authority"].log = (Split-Path $authorityLog -Leaf)
+        $Rows["secure_spawn_authority"].status = "RUNNING"
+        $authorityCommands = @(
+            @("test","--locked","-p","semwright-platform-windows-sys","--test","secure_spawn","--","--nocapture","--test-threads=1"),
+            @("test","--locked","-p","semwright-driver-host","--test","windows_secure_host","--","--nocapture","--test-threads=1"),
+            @("test","--locked","-p","semwright-plugin-host","--features","test-tools","--test","windows_secure_host","--","--nocapture","--test-threads=1"),
+            @("test","--locked","-p","semwright-federation","--test","windows_secure_stdio","--","--nocapture","--test-threads=1")
         )
+        foreach ($cargoArgs in $authorityCommands) {
+            "COMMAND: cargo $($cargoArgs -join ' ')" | Tee-Object -FilePath $authorityLog -Append
+            & cargo @cargoArgs 2>&1 | Tee-Object -FilePath $authorityLog -Append
+            if ($LASTEXITCODE -ne 0) {
+                $Rows["secure_spawn_authority"].exit_code = $LASTEXITCODE
+                $Rows["secure_spawn_authority"].status = "FAIL"
+                throw "Secure-spawn authority certification failed."
+            }
+        }
+        $Rows["secure_spawn_authority"].exit_code = 0
+        $Rows["secure_spawn_authority"].status = "PASS_WINDOWS_INTERACTIVE"
+
+        if ($CaptureMode -in @("Select", "Both")) {
+            Write-Host "ACTION REQUIRED: select a non-sensitive window in the Windows capture picker."
+            Invoke-CargoRow "capture_select" @(
+                "test", "--locked", "-p", "semwright-platform-windows",
+                "--test", "capture_interactive",
+                "interactive_capture_picker_selects_bounded_png",
+                "--", "--ignored", "--nocapture", "--test-threads=1"
+            )
+        }
+        if ($CaptureMode -in @("Cancel", "Both")) {
+            Write-Host "ACTION REQUIRED: cancel the Windows capture picker."
+            Invoke-CargoRow "capture_cancel" @(
+                "test", "--locked", "-p", "semwright-platform-windows",
+                "--test", "capture_interactive",
+                "interactive_capture_picker_user_cancel_is_cancelled",
+                "--", "--ignored", "--nocapture", "--test-threads=1"
+            )
+        }
     }
 }
 catch {
@@ -161,6 +238,8 @@ finally {
         github_actions = $env:GITHUB_ACTIONS
         runner_environment = $env:RUNNER_ENVIRONMENT
         capture_mode = $CaptureMode
+        mode = $(if ($prebuiltUia) { "prebuilt-uia-only" } else { "cargo-certification" })
+        binary_sha256 = $verifiedBinaryHash
     }
     $hashes = @()
     Get-ChildItem $EvidenceRoot -Filter "*.log" -File | ForEach-Object {
@@ -169,7 +248,7 @@ finally {
     }
     $failed = @($Rows.Values | Where-Object { $_.status -eq "FAIL" })
     $pending = @($Rows.Values | Where-Object { $_.status -eq "WINDOWS_INTERACTIVE_PENDING" })
-    $classification = if ($failed.Count -gt 0) {
+    $classification = if ($failure -or $failed.Count -gt 0) {
         "FAIL"
     } elseif ($pending.Count -gt 0) {
         "WINDOWS_INTERACTIVE_PENDING"
