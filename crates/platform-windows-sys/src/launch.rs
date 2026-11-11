@@ -335,6 +335,29 @@ fn sid_matches(sid: PSID, expected: &[u8]) -> bool {
     unsafe { EqualSid(sid, PSID(expected.as_ptr().cast_mut().cast())).is_ok() }
 }
 
+/// The Windows FILE_GENERIC_WRITE preset also contains READ_CONTROL and
+/// SYNCHRONIZE, which are shared with FILE_GENERIC_READ/EXECUTE. Testing an
+/// allow ACE by intersection with that composite falsely interprets normal
+/// untrusted read/execute access on a vendor-installed application as write
+/// authority. Test ONLY actual mutation and unmapped generic write bits.
+fn untrusted_acl_restricted_mask(private_data: bool) -> u32 {
+    let mutation = FILE_WRITE_DATA.0
+        | FILE_APPEND_DATA.0
+        | FILE_WRITE_EA.0
+        | FILE_WRITE_ATTRIBUTES.0
+        | DELETE.0
+        | WRITE_DAC.0
+        | WRITE_OWNER.0
+        | GENERIC_WRITE.0
+        | GENERIC_ALL.0;
+    let confidential = FILE_READ_DATA.0 | FILE_GENERIC_READ.0 | GENERIC_READ.0 | GENERIC_ALL.0;
+    if private_data {
+        mutation | confidential
+    } else {
+        mutation
+    }
+}
+
 fn verify_trusted_file_acl(file: &File, kind: &str, private_data: bool) -> Result<()> {
     let mut owner = PSID::default();
     let mut dacl: *mut ACL = std::ptr::null_mut();
@@ -403,22 +426,7 @@ fn verify_trusted_file_acl(file: &File, kind: &str, private_data: bool) -> Resul
         ));
     }
 
-    let mutation = FILE_WRITE_DATA.0
-        | FILE_APPEND_DATA.0
-        | FILE_WRITE_EA.0
-        | FILE_WRITE_ATTRIBUTES.0
-        | DELETE.0
-        | WRITE_DAC.0
-        | WRITE_OWNER.0
-        | FILE_GENERIC_WRITE.0
-        | GENERIC_WRITE.0
-        | GENERIC_ALL.0;
-    let confidential = FILE_READ_DATA.0 | FILE_GENERIC_READ.0 | GENERIC_READ.0 | GENERIC_ALL.0;
-    let restricted = if private_data {
-        mutation | confidential
-    } else {
-        mutation
-    };
+    let restricted = untrusted_acl_restricted_mask(private_data);
 
     for index in 0..acl_info.AceCount {
         let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
@@ -3009,6 +3017,94 @@ mod verifier_tests {
             .verify(&path, &digest)
             .expect("hardened staged Windows executable should satisfy trust policy");
         assert_eq!(verified, bytes);
+    }
+
+    #[test]
+    fn executable_acl_allows_untrusted_read_execute_but_never_write_authority() {
+        let readonly = FILE_GENERIC_READ.0 | FILE_GENERIC_EXECUTE.0;
+        let executable_mask = untrusted_acl_restricted_mask(false);
+        assert_eq!(
+            readonly & executable_mask,
+            0,
+            "Read/execute rights (including shared READ_CONTROL and SYNCHRONIZE) are not mutation"
+        );
+        assert_ne!(
+            readonly & untrusted_acl_restricted_mask(true),
+            0,
+            "Owner-private data must still reject untrusted read access"
+        );
+        for write in [
+            FILE_WRITE_DATA.0,
+            FILE_APPEND_DATA.0,
+            FILE_WRITE_EA.0,
+            FILE_WRITE_ATTRIBUTES.0,
+            DELETE.0,
+            WRITE_DAC.0,
+            WRITE_OWNER.0,
+            FILE_GENERIC_WRITE.0,
+            GENERIC_WRITE.0,
+            GENERIC_ALL.0,
+        ] {
+            assert_ne!(
+                write & executable_mask,
+                0,
+                "Write bit {write:#x} escaped ACL rejection"
+            );
+        }
+    }
+
+    #[test]
+    fn executable_acl_real_untrusted_rx_allows_read_but_denies_mutation() {
+        let directory = tempfile::tempdir().expect("Windows ACL test directory");
+        let file_path = directory.path().join("native-vendor-acl-fixture.bin");
+        std::fs::write(&file_path, b"pinned-read-only-vendor-bytes").unwrap();
+        let user = std::env::var("USERNAME").expect("Windows USERNAME");
+        let owner = match std::env::var("USERDOMAIN") {
+            Ok(domain) if !domain.is_empty() => format!(r"{domain}\{user}"),
+            _ => user,
+        };
+        let harden = std::process::Command::new("icacls")
+            .arg(&file_path)
+            .arg("/inheritance:r")
+            .arg("/grant:r")
+            .arg(format!("{owner}:(F)"))
+            .status()
+            .expect("harden owner-only test source");
+        assert!(harden.success());
+        // BUILTIN\Users is intentionally *not* trusted to mutate. Its
+        // read/execute ACE is expected on vendor-installed Windows binaries.
+        let rx = std::process::Command::new("icacls")
+            .arg(&file_path)
+            .arg("/grant")
+            .arg("*S-1-5-32-545:(RX)")
+            .status()
+            .expect("grant read/execute only to Windows Users");
+        assert!(rx.success());
+        let file = File::open(&file_path).unwrap();
+        verify_trusted_file_acl(&file, "executable", false)
+            .expect("Untrusted read/execute is not executable mutation");
+        assert!(
+            verify_trusted_file_acl(&file, "private data", true).is_err(),
+            "Private data must still reject the same untrusted RX authority"
+        );
+        drop(file);
+
+        // Replacing RX with Modify must fail closed. Never grant a
+        // broader path permission to make an installed application pass.
+        let modified = std::process::Command::new("icacls")
+            .arg(&file_path)
+            .arg("/grant:r")
+            .arg("*S-1-5-32-545:(M)")
+            .status()
+            .expect("change synthetic test ACE only");
+        assert!(modified.success());
+        let file = File::open(&file_path).unwrap();
+        assert_eq!(
+            verify_trusted_file_acl(&file, "executable", false)
+                .unwrap_err()
+                .code,
+            ErrorCode::PermissionDenied
+        );
     }
 
     #[test]
