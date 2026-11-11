@@ -1564,7 +1564,11 @@ mod setup_tests {
     #[test]
     fn setup_explicit_directory_is_dry_run_safe_and_non_overwriting() {
         let parent = tempdir().unwrap();
-        let directory = parent.path().join("owner-config");
+        let parent_path = parent.path().to_path_buf();
+        // Unix temporary directories can have system-owned symbolic-link ancestors.
+        #[cfg(unix)]
+        let parent_path = parent_path.canonicalize().unwrap();
+        let directory = parent_path.join("owner-config");
         let mut cli = Cli::try_parse_from(["semwright", "--json", "--dry-run", "setup"]).unwrap();
         let dry = setup_result(&cli, Some(&directory)).unwrap();
         assert_eq!(dry["config"]["status"], "would-create");
