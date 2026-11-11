@@ -608,7 +608,10 @@ async fn windows_native_project_asset_observes_human_edits_but_not_file_replacem
 #[cfg(target_os = "windows")]
 #[tokio::test]
 async fn windows_project_reopen_preserves_owner_and_reconciles_offline_edit() {
-    let (_temp, root, state) = fixture();
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("workspace");
+    std::fs::create_dir(&root).unwrap();
+    let state = temp.path().join("project-state");
     let path = root.join("offline.bin");
     std::fs::write(&path, b"first-version").unwrap();
     let principal = "os-user-v1:fixture:stable-restart";
