@@ -127,6 +127,7 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
                 system_config: vec!["libreoffice-config".into(), "font-config".into()],
                 dependencies: vec!["soffice-bin".into(), "python3".into()],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
             DriverToolMount {
@@ -137,6 +138,7 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
                 system_config: vec![],
                 dependencies: vec![],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
             DriverToolMount {
@@ -147,6 +149,7 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
                 system_config: vec![],
                 dependencies: vec![],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
         ],

@@ -1756,6 +1756,54 @@ fn validate_secret_source(path: &Path) -> Result<()> {
     }
 }
 
+fn validate_windows_native_profile(manifest: &Manifest, owner_granted: bool) -> Result<()> {
+    let requested = manifest
+        .tools
+        .iter()
+        .any(|tool| tool.windows_native_profile.is_some());
+    if !requested {
+        return Ok(());
+    }
+    if manifest.tools.iter().any(|tool| {
+        tool.dependencies.iter().any(|dependency| {
+            manifest
+                .tools
+                .iter()
+                .any(|target| target.name == *dependency && target.windows_native_profile.is_some())
+        })
+    }) {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Windows profiled native tools cannot be generic dependencies",
+        ));
+    }
+    if !owner_granted {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Windows Blender initial profile requires explicit owner opt-in",
+        ));
+    }
+    if !cfg!(target_os = "windows") {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Windows Blender initial profile is Windows-only",
+        ));
+    }
+    if manifest.id != "blender" {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Windows Blender profile is first-party Blender-only",
+        ));
+    }
+    // The typed request and runtime snapshot exist, but the Host-owned
+    // initial process, its Job/LPAC attestation and protocol session are
+    // NOT integrated here. Never fall back to the generic tool launcher.
+    Err(Error::new(
+        ErrorCode::Unsupported,
+        "Windows Blender native Host session is not yet enabled",
+    ))
+}
+
 fn validate_nvidia_gpu_permission(manifest: &Manifest, allow_nvidia_gpu: bool) -> Result<()> {
     if manifest.nvidia_gpu && !allow_nvidia_gpu {
         return Err(Error::new(
@@ -3544,6 +3592,30 @@ impl DriverProvider {
         allow_network: bool,
         allow_nvidia_gpu: bool,
     ) -> Result<Arc<Self>> {
+        Self::connect_with_native_profiles(
+            manifest,
+            state,
+            helper,
+            roots,
+            allow_network,
+            allow_nvidia_gpu,
+            false,
+        )
+        .await
+    }
+
+    /// Independently gated owner request. A native-profile manifest can
+    /// never select the generic Host-tool execution path.
+    pub async fn connect_with_native_profiles(
+        manifest: Manifest,
+        state: &Path,
+        helper: &Path,
+        roots: &[FilesystemGrant],
+        allow_network: bool,
+        allow_nvidia_gpu: bool,
+        allow_windows_blender52_initial: bool,
+    ) -> Result<Arc<Self>> {
+        validate_windows_native_profile(&manifest, allow_windows_blender52_initial)?;
         validate_owner_permissions(&manifest, roots, allow_network)?;
         validate_nvidia_gpu_permission(&manifest, allow_nvidia_gpu)?;
         #[cfg(target_os = "windows")]
@@ -4906,6 +4978,7 @@ mod tests {
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: true,
+            windows_native_profile: None,
             resources: Some(resources),
         };
         assert!(apply_linux_gpu_tool_resources(&mut spec, &contract).is_err());
@@ -5224,5 +5297,119 @@ mod tests {
         assert!(verify_owned_executable(&path, &hex::encode(Sha256::digest(body))).is_err());
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
         assert!(verify_owned_executable(&path, &"0".repeat(64)).is_err());
+    }
+}
+
+#[cfg(test)]
+mod windows_native_profile_tests {
+    use super::*;
+    use semwright_driver_sdk::WindowsNativeProfile;
+
+    #[test]
+    fn manifest_request_cannot_launch_before_host_profile_is_implemented() {
+        let mut candidate: Manifest = serde_json::from_str(include_str!(
+            "../../driver-blender/driver.manifest.example.json"
+        ))
+        .unwrap();
+        let tool = semwright_driver_sdk::DriverToolMount {
+            root: "blender-executable".into(),
+            name: "blender".into(),
+            sha256: "a".repeat(64),
+            mounts: vec!["workspace".into(), "blender-runtime".into()],
+            system_config: vec![],
+            dependencies: vec![],
+            nvidia_gpu: false,
+            windows_native_profile: Some(WindowsNativeProfile::Blender521Initial),
+            resources: None,
+        };
+        assert!(validate_windows_native_profile(&candidate, false).is_ok());
+        candidate.tools = vec![tool];
+        assert_eq!(
+            validate_windows_native_profile(&candidate, false)
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        let permitted = validate_windows_native_profile(&candidate, true).unwrap_err();
+        assert_eq!(permitted.code, ErrorCode::Unsupported);
+        assert!(permitted.outcome_known);
+        candidate.tools[0].windows_native_profile = None;
+        assert!(validate_windows_native_profile(&candidate, false).is_ok());
+    }
+
+    #[tokio::test]
+    async fn native_profile_cannot_sneak_into_legacy_host_connection() {
+        let mut manifest: Manifest = serde_json::from_str(include_str!(
+            "../../driver-blender/driver.manifest.example.json"
+        ))
+        .unwrap();
+        manifest.tools = vec![semwright_driver_sdk::DriverToolMount {
+            root: "blender-executable".into(),
+            name: "blender".into(),
+            sha256: "a".repeat(64),
+            mounts: vec!["workspace".into(), "blender-runtime".into()],
+            system_config: vec![],
+            dependencies: vec![],
+            nvidia_gpu: false,
+            windows_native_profile: Some(WindowsNativeProfile::Blender521Initial),
+            resources: None,
+        }];
+        let state = Path::new("nonexistent-private-state");
+        let helper = Path::new("nonexistent-launcher");
+        // Both routes must fail prior to any executable verification, state
+        // creation, child spawn or generic tool materialization.
+        match DriverProvider::connect_with_gpu(manifest.clone(), state, helper, &[], false, false)
+            .await
+        {
+            Ok(_) => panic!("native profile reached generic Host connection"),
+            Err(error) => assert_eq!(error.code, ErrorCode::PolicyDenied),
+        }
+        match DriverProvider::connect_with_native_profiles(
+            manifest,
+            state,
+            helper,
+            &[],
+            false,
+            false,
+            true,
+        )
+        .await
+        {
+            Ok(_) => panic!("unimplemented native Host session launched"),
+            Err(error) => assert_eq!(error.code, ErrorCode::Unsupported),
+        }
+        assert!(!state.exists(), "native denial must not create state");
+    }
+
+    #[test]
+    fn native_profile_cannot_be_a_generic_tool_dependency() {
+        let mut candidate: Manifest = serde_json::from_str(include_str!(
+            "../../driver-blender/driver.manifest.example.json"
+        ))
+        .unwrap();
+        let native = semwright_driver_sdk::DriverToolMount {
+            root: "blender-executable".into(),
+            name: "blender".into(),
+            sha256: "a".repeat(64),
+            mounts: vec!["workspace".into(), "blender-runtime".into()],
+            system_config: vec![],
+            dependencies: vec![],
+            nvidia_gpu: false,
+            windows_native_profile: Some(WindowsNativeProfile::Blender521Initial),
+            resources: None,
+        };
+        let mut generic = native.clone();
+        generic.name = "generic".into();
+        generic.root = "generic-executable".into();
+        generic.windows_native_profile = None;
+        generic.mounts.clear();
+        generic.dependencies.push("blender".into());
+        candidate.tools = vec![native, generic];
+        assert_eq!(
+            validate_windows_native_profile(&candidate, true)
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
     }
 }

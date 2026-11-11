@@ -42,6 +42,11 @@ pub struct Config {
     /// Owner opt-in; manifests cannot grant NVIDIA device authority on their own.
     #[serde(default)]
     pub driver_nvidia_gpu: bool,
+    /// This is an independent owner opt-in, not authority granted by a
+    /// driver manifest. It remains inoperable until the native Host
+    /// initial-process path is fully implemented and accepted.
+    #[serde(default)]
+    pub driver_windows_blender52_initial: bool,
     #[serde(default)]
     pub plugin_network: bool,
     #[serde(default)]
@@ -70,6 +75,7 @@ impl Default for Config {
             driver_network: false,
             driver_recovery: false,
             driver_nvidia_gpu: false,
+            driver_windows_blender52_initial: false,
             plugin_network: false,
             mcp_network: false,
             audit_max_bytes: audit_bytes(),
@@ -359,6 +365,20 @@ trust_driver_everything = true
         assert!(!opted_in.driver_network);
         assert!(!opted_in.plugin_network);
         assert!(!opted_in.mcp_network);
+    }
+
+    #[test]
+    fn windows_blender_native_owner_opt_in_defaults_off_and_is_independent() {
+        assert!(!Config::default().driver_windows_blender52_initial);
+        let baseline: Config = toml::from_str("").unwrap();
+        assert!(!baseline.driver_windows_blender52_initial);
+        let opted: Config = toml::from_str("driver_windows_blender52_initial = true").unwrap();
+        assert!(opted.driver_windows_blender52_initial);
+        assert!(!opted.driver_nvidia_gpu);
+        assert!(!opted.driver_network);
+        assert!(!opted.plugin_network);
+        assert!(!opted.mcp_network);
+        assert!(!opted.driver_recovery);
     }
 
     #[test]

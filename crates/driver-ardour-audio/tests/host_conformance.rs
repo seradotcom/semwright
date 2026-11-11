@@ -244,6 +244,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 system_config: vec![],
                 dependencies: vec![],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
             DriverToolMount {
@@ -255,6 +256,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 system_config: vec![],
                 dependencies: vec![],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
             DriverToolMount {
@@ -266,6 +268,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 system_config: vec![],
                 dependencies: vec![],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
             DriverToolMount {
@@ -277,6 +280,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 system_config: vec![],
                 dependencies: vec![],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
         ],

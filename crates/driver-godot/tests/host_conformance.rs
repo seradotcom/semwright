@@ -87,6 +87,7 @@ fn manifest(
                 system_config: vec![],
                 dependencies: vec![],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             })
             .into_iter()

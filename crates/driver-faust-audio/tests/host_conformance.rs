@@ -390,6 +390,7 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
         }],
         network: false,

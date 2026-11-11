@@ -164,6 +164,7 @@ async fn broker_host_meter_measures_digest_bound_wav_and_rejects_substitution() 
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
         }],
         network: false,

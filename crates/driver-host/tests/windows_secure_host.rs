@@ -318,6 +318,7 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
         system_config: vec![],
         dependencies: vec![],
         nvidia_gpu: false,
+        windows_native_profile: None,
         resources: None,
     }];
     let roots = vec![FilesystemGrant {
@@ -428,6 +429,7 @@ async fn secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts() {
         system_config: vec![],
         dependencies: vec![],
         nvidia_gpu: false,
+        windows_native_profile: None,
         resources: None,
     }];
     let roots = vec![
@@ -554,6 +556,7 @@ async fn secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped() 
             system_config: vec![],
             dependencies: vec!["helper".into()],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
         },
         DriverToolMount {
@@ -564,6 +567,7 @@ async fn secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped() 
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
         },
     ];
@@ -707,6 +711,7 @@ async fn secure_windows_v8_runtime_tool_receives_only_declared_system_config() {
         system_config: vec!["tool-config-root".into()],
         dependencies: vec![],
         nvidia_gpu: false,
+        windows_native_profile: None,
         resources: None,
     }];
     let roots = vec![
@@ -818,6 +823,7 @@ async fn secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancell
         system_config: vec![],
         dependencies: vec![],
         nvidia_gpu: false,
+        windows_native_profile: None,
         resources: None,
     }];
     let roots = vec![
@@ -1032,6 +1038,7 @@ async fn secure_windows_v8_runtime_tool_sessions_are_provider_scoped_and_reaped(
         system_config: vec!["tool-config-root".into()],
         dependencies: vec![],
         nvidia_gpu: false,
+        windows_native_profile: None,
         resources: None,
     }];
     let roots = vec![
@@ -1247,6 +1254,7 @@ async fn secure_windows_driver_sealed_tool_rejects_digest_mismatch() {
         system_config: vec![],
         dependencies: vec![],
         nvidia_gpu: false,
+        windows_native_profile: None,
         resources: None,
     }];
     let roots = vec![FilesystemGrant {

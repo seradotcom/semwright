@@ -70,6 +70,7 @@ fn manifest(executable: PathBuf, tool_digest: String, protocol: u32) -> Manifest
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
         }],
         network: false,
@@ -108,6 +109,7 @@ fn manifest_v7(executable: PathBuf, probe_digest: String, helper_digest: String)
         system_config: vec![],
         dependencies: vec![],
         nvidia_gpu: false,
+        windows_native_profile: None,
         resources: None,
     });
     candidate

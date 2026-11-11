@@ -153,6 +153,7 @@ impl NativeFixture {
                     system_config: vec![],
                     dependencies: vec!["blender".into()],
                     nvidia_gpu: false,
+                    windows_native_profile: None,
                     resources: None,
                 },
                 DriverToolMount {
@@ -164,6 +165,7 @@ impl NativeFixture {
                     system_config: vec![],
                     dependencies: vec![],
                     nvidia_gpu: false,
+                    windows_native_profile: None,
                     resources: None,
                 },
             ],

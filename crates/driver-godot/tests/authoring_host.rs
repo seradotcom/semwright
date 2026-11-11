@@ -228,6 +228,7 @@ fn manifest(executable: PathBuf, runtime_sha256: String) -> Manifest {
                 system_config: vec![],
                 dependencies: vec![],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
             DriverToolMount {
@@ -238,6 +239,7 @@ fn manifest(executable: PathBuf, runtime_sha256: String) -> Manifest {
                 system_config: vec![],
                 dependencies: vec!["godot".into()],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
         ],

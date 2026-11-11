@@ -460,6 +460,14 @@ impl SystemConfigMount {
     }
 }
 
+/// Closed, first-party Windows application profile. This is a manifest
+/// request, NOT an owner grant or authorization to execute a native tool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WindowsNativeProfile {
+    #[serde(rename = "blender_5_2_1_initial")]
+    Blender521Initial,
+}
+
 /// Owner-granted executable verified and staged immutably by Driver Host.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -480,6 +488,10 @@ pub struct DriverToolMount {
     /// Linux-only compute authority for the Blender session runner. Owner policy must also grant it.
     #[serde(default, skip_serializing_if = "is_false")]
     pub nvidia_gpu: bool,
+    /// Windows native Blender 5.2.1 requires its own owner-approved Host path.
+    /// The manifest cannot grant that authority itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub windows_native_profile: Option<WindowsNativeProfile>,
     /// GPU-only native-tool override. All fields except address space must
     /// equal the enclosing driver resources; the driver keeps its own limits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -487,6 +499,25 @@ pub struct DriverToolMount {
 }
 impl DriverToolMount {
     fn validate(&self) -> Result<()> {
+        if self.windows_native_profile.is_some()
+            && (self.name != "blender"
+                || self.nvidia_gpu
+                || self.resources.is_some()
+                || !self.dependencies.is_empty()
+                || !self.system_config.is_empty()
+                || self.mounts.len() != 2
+                || self
+                    .mounts
+                    .iter()
+                    .map(String::as_str)
+                    .collect::<BTreeSet<_>>()
+                    != BTreeSet::from(["workspace", "blender-runtime"]))
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Windows Blender initial profile requires exact mount roles and zero additional tool authority",
+            ));
+        }
         if let Some(resources) = &self.resources {
             if !self.nvidia_gpu || self.name != "blender-session-runner" {
                 return Err(Error::new(
@@ -3095,6 +3126,7 @@ mod tests {
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: true,
+            windows_native_profile: None,
             resources: None,
         }];
         candidate.validate().unwrap();
@@ -3132,6 +3164,7 @@ mod tests {
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: true,
+            windows_native_profile: None,
             resources: Some(native),
         }];
         candidate.validate().unwrap();
@@ -3316,6 +3349,7 @@ mod tests {
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
         }];
         valid.validate().unwrap();
@@ -3338,6 +3372,7 @@ mod tests {
                 system_config: vec![],
                 dependencies: vec![],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
             DriverToolMount {
@@ -3348,6 +3383,7 @@ mod tests {
                 system_config: vec![],
                 dependencies: vec![],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
         ];
@@ -3362,6 +3398,7 @@ mod tests {
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
         }];
         assert!(bad_digest.validate().is_err());
@@ -3385,6 +3422,7 @@ mod tests {
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
         }];
         candidate.validate().unwrap();
@@ -3434,6 +3472,7 @@ mod tests {
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
         }];
         candidate.validate().unwrap();
@@ -3568,6 +3607,7 @@ mod tests {
                 system_config: vec![],
                 dependencies: vec!["helper".into()],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
             DriverToolMount {
@@ -3578,6 +3618,7 @@ mod tests {
                 system_config: vec![],
                 dependencies: vec![],
                 nvidia_gpu: false,
+                windows_native_profile: None,
                 resources: None,
             },
         ];
@@ -4066,6 +4107,7 @@ mod tests {
             system_config: vec!["font-config".into()],
             dependencies: vec![],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
         }];
         candidate.validate().unwrap();
@@ -4295,5 +4337,69 @@ mod materialized_lifecycle_tests {
         .await
         .unwrap_err();
         assert_eq!(error.code, ErrorCode::InvalidArgument);
+    }
+}
+
+#[cfg(test)]
+mod windows_native_profile_tests {
+    use super::*;
+
+    fn request() -> DriverToolMount {
+        DriverToolMount {
+            root: "blender-executable".into(),
+            name: "blender".into(),
+            sha256: "a".repeat(64),
+            mounts: vec!["workspace".into(), "blender-runtime".into()],
+            system_config: vec![],
+            dependencies: vec![],
+            nvidia_gpu: false,
+            windows_native_profile: Some(WindowsNativeProfile::Blender521Initial),
+            resources: None,
+        }
+    }
+
+    #[test]
+    fn closed_native_profile_is_explicit_and_cannot_extend_tool_authority() {
+        assert!(request().validate().is_ok());
+        for case in 0..7 {
+            let mut tool = request();
+            match case {
+                0 => tool.name = "other".into(),
+                1 => tool.nvidia_gpu = true,
+                2 => tool.resources = Some(DriverResources::default()),
+                3 => tool.dependencies.push("helper".into()),
+                4 => tool.system_config.push("font-config".into()),
+                5 => tool.mounts.push("extra".into()),
+                _ => tool.mounts[1] = "workspace".into(),
+            }
+            assert_eq!(tool.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        }
+        let mut manifest: Manifest = serde_json::from_str(include_str!(
+            "../../driver-blender/driver.manifest.example.json"
+        ))
+        .unwrap();
+        manifest.tools = vec![request()];
+        manifest
+            .validate()
+            .expect("manifest can express a closed request, not authority");
+
+        let legacy = serde_json::to_value(DriverToolMount {
+            windows_native_profile: None,
+            ..request()
+        })
+        .unwrap();
+        assert!(legacy.get("windows_native_profile").is_none());
+        let requested = serde_json::to_value(request()).unwrap();
+        assert_eq!(requested["windows_native_profile"], "blender_5_2_1_initial");
+        assert!(
+            serde_json::from_value::<DriverToolMount>(serde_json::json!({
+                "root":"blender-executable",
+                "name":"blender",
+                "sha256":"a".repeat(64),
+                "mounts":["workspace","blender-runtime"],
+                "windows_native_profile":"unrecognized-native-profile"
+            }))
+            .is_err()
+        );
     }
 }

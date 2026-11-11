@@ -68,9 +68,17 @@ executable, and returns a runtime inventory. Cancellation and existing
 destinations fail without treating the operation as an application launch.
 
 This platform primitive alone does not enable driver.blender.* on Windows.
-A broker-authorized Driver Host profile, its initial-process attestation, native
-session/protocol, scene save/reopen and an exact installed Blender runtime still
-require independent acceptance. The Linux Blender 4.5.14 LTS profile retains
+Driver manifests can now express the closed windows_native_profile request for
+blender_5_2_1_initial on their exact blender sealed tool. The request accepts
+only workspace and blender-runtime mounts, without dependencies, system config,
+NVIDIA, or per-tool resources. It does not grant permission.
+
+The owner config driver_windows_blender52_initial defaults false, independent of
+network, recovery and GPU settings. Driver Host denies requests without the
+owner grant; even with explicit opt-in, it currently reports Unsupported rather
+than falling back to its generic launcher. Host-owned initial-process
+attestation, the native session protocol, scene save/fresh reopen and an exact
+installed Blender runtime still require independent acceptance. The Linux Blender 4.5.14 LTS profile retains
 its own evidence and is not qualified by these Windows preparation tests.
 
 Requests outside the root, nested junction escapes, alternate data streams and

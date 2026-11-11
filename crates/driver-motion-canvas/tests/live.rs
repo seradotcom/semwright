@@ -129,6 +129,7 @@ fn manifest(executable: PathBuf, node_sha256: String) -> Manifest {
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
         }],
         network: false,

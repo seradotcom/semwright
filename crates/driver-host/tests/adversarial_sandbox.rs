@@ -140,6 +140,7 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
             system_config: vec![],
             dependencies: vec![],
             nvidia_gpu: false,
+            windows_native_profile: None,
             resources: None,
             sha256: tool_digest,
         }],
