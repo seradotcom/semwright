@@ -8,3 +8,7 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 Cargo.lock text eol=lf
+# The first-party Blender native bootstrap is compiled with include_str!
+# and pinned by SHA-256. Prevent Windows autocrlf from altering its bytes.
+crates/driver-host/src/windows_blender52_bootstrap.py text eol=lf
+crates/driver-host/src/windows_blender52_runtime/*.py text eol=lf
