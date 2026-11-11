@@ -1,5 +1,6 @@
 use semwright_platform_api::filesystem::{
-    Confinement, MAX_SCOPED_BINARY_BYTES, ScopedFilesystem, ScopedRoot, validate_relative_path,
+    Confinement, MAX_SCOPED_BINARY_BYTES, ScopedFileObservation, ScopedFilesystem, ScopedRoot,
+    validate_relative_path,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use std::{
@@ -33,10 +34,12 @@ use windows::{
         Storage::FileSystem::{
             BY_HANDLE_FILE_INFORMATION, DELETE, FILE_ACCESS_RIGHTS, FILE_ADD_FILE,
             FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
-            FILE_DISPOSITION_INFO, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
-            FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE,
-            FILE_SHARE_MODE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE, FileDispositionInfo,
-            GetFileInformationByHandle, SYNCHRONIZE, SetFileInformationByHandle,
+            FILE_BASIC_INFO, FILE_DISPOSITION_INFO, FILE_FLAG_BACKUP_SEMANTICS,
+            FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_READ, FILE_GENERIC_WRITE,
+            FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_MODE, FILE_SHARE_READ,
+            FILE_SHARE_WRITE, FILE_TRAVERSE, FileBasicInfo, FileDispositionInfo,
+            GetFileInformationByHandle, GetFileInformationByHandleEx, SYNCHRONIZE,
+            SetFileInformationByHandle,
         },
         System::IO::IO_STATUS_BLOCK,
     },
@@ -72,6 +75,60 @@ fn identity(info: &BY_HANDLE_FILE_INFORMATION) -> FileIdentity {
         volume: info.dwVolumeSerialNumber,
         index: ((info.nFileIndexHigh as u64) << 32) | info.nFileIndexLow as u64,
     }
+}
+
+/// Evidence on a pinned file handle, not a compare-and-swap reservation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct FileObservationStamp {
+    identity: FileIdentity,
+    created: i64,
+    modified: i64,
+    changed: i64,
+    size: u64,
+    links: u32,
+    attributes: u32,
+}
+
+fn observation_stamp(file: &File, root_volume: u32) -> Result<FileObservationStamp> {
+    let info = validate_regular_file(file, root_volume, true)?;
+    let identity = identity(&info);
+    if identity.index == 0 {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Windows file instance index is unavailable",
+        ));
+    }
+    let mut basic = FILE_BASIC_INFO::default();
+    // SAFETY: handle is live; basic is a writable correctly-sized query buffer.
+    unsafe {
+        GetFileInformationByHandleEx(
+            handle(file),
+            FileBasicInfo,
+            (&mut basic as *mut FILE_BASIC_INFO).cast(),
+            size_of::<FILE_BASIC_INFO>() as u32,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::Unsupported,
+            "Windows file change-time evidence is unavailable",
+        )
+    })?;
+    if basic.CreationTime <= 0 || basic.LastWriteTime <= 0 || basic.ChangeTime <= 0 {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Windows file creation/change-time evidence is unavailable",
+        ));
+    }
+    Ok(FileObservationStamp {
+        identity,
+        created: basic.CreationTime,
+        modified: basic.LastWriteTime,
+        changed: basic.ChangeTime,
+        size: ((info.nFileSizeHigh as u64) << 32) | info.nFileSizeLow as u64,
+        links: info.nNumberOfLinks,
+        attributes: basic.FileAttributes,
+    })
 }
 
 pub(crate) fn safe_root_syntax(path: &Path) -> Result<()> {
@@ -555,6 +612,63 @@ impl Root {
         Ok(bytes)
     }
 
+    fn observe_inner(&self, path: &Path, limit: usize) -> Result<ScopedFileObservation> {
+        if !self.readable {
+            return Err(Error::new(ErrorCode::PolicyDenied, "Root is not readable"));
+        }
+        if limit == 0 || limit > MAX_SCOPED_BINARY_BYTES {
+            return Err(Error::invalid("Observation exceeds scoped binary budget"));
+        }
+        self.root_still_pinned()?;
+        let (parent, basename) = self.open_parent(path, false)?;
+        let (mut file, _) = self.open_existing_file(&parent, &basename, true)?;
+        let before = observation_stamp(&file, self.root_identity.volume)?;
+        if before.size > limit as u64 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Observation exceeds read budget",
+            ));
+        }
+        let mut bytes = Vec::with_capacity((before.size as usize).min(limit));
+        Read::by_ref(&mut file)
+            .take(limit as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        if bytes.len() > limit {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "File grew beyond observation budget",
+            ));
+        }
+        let after = observation_stamp(&file, self.root_identity.volume)?;
+        // Reopen through the same pinned parent, not a caller-supplied absolute path.
+        let (current, _) = self
+            .open_existing_file(&parent, &basename, true)
+            .map_err(|error| {
+                if error.code == ErrorCode::NotFound {
+                    Error::new(ErrorCode::Conflict, "Observed file was removed during read")
+                } else {
+                    error
+                }
+            })?;
+        let named = observation_stamp(&current, self.root_identity.volume)?;
+        self.root_still_pinned()?;
+        if before != after || after != named || bytes.len() as u64 != after.size {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Windows file changed during bounded observation",
+            ));
+        }
+        Ok(ScopedFileObservation {
+            bytes,
+            instance_identity: format!(
+                "windows-file-instance-v1:{}:{}:{}",
+                before.identity.volume, before.identity.index, before.created
+            ),
+            method: "nt-handle-file-basic-read-revalidate",
+            method_version: 1,
+        })
+    }
+
     fn write_inner(&self, path: &Path, bytes: &[u8], no_replace: bool) -> Result<()> {
         if !self.writable {
             return Err(Error::new(ErrorCode::PolicyDenied, "Root is not writable"));
@@ -636,6 +750,10 @@ impl Root {
 }
 
 impl ScopedRoot for Root {
+    fn observe_file(&self, path: &Path, limit: usize) -> Result<ScopedFileObservation> {
+        self.observe_inner(path, limit)
+    }
+
     fn confinement(&self) -> Confinement {
         Confinement::WindowsHandleRelativeNoReparse
     }
@@ -814,6 +932,67 @@ mod tests {
     }
 
     #[test]
+    fn instance_observation_detects_in_place_changes_and_replacement() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("asset.bin");
+        std::fs::write(&path, b"original-data").unwrap();
+        let root = Root::open(directory.path(), true, false).unwrap();
+        let original = root.observe_file(Path::new("asset.bin"), 64).unwrap();
+        assert_eq!(original.bytes, b"original-data");
+        assert_eq!(original.method, "nt-handle-file-basic-read-revalidate");
+        assert_eq!(original.method_version, 1);
+        assert!(
+            original
+                .instance_identity
+                .starts_with("windows-file-instance-v1:")
+        );
+
+        // An in-place edit changes the bytes, but not the file instance.
+        std::fs::write(&path, b"human-edited-data").unwrap();
+        let edited = root.observe_file(Path::new("asset.bin"), 64).unwrap();
+        assert_eq!(edited.bytes, b"human-edited-data");
+        assert_eq!(edited.instance_identity, original.instance_identity);
+
+        // A same-name replacement is a different file instance.
+        let next = directory.path().join("next.bin");
+        std::fs::write(&next, b"other-instance").unwrap();
+        std::fs::rename(&next, &path).unwrap();
+        let replacement = root.observe_file(Path::new("asset.bin"), 64).unwrap();
+        assert_eq!(replacement.bytes, b"other-instance");
+        assert_ne!(replacement.instance_identity, original.instance_identity);
+    }
+
+    #[test]
+    fn instance_observation_denies_links_limits_and_unreadable_root() {
+        let directory = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("small.bin"), b"small").unwrap();
+        let secret = outside.path().join("secret.bin");
+        std::fs::write(&secret, b"secret").unwrap();
+        std::fs::hard_link(&secret, directory.path().join("hardlink.bin")).unwrap();
+        let root = Root::open(directory.path(), true, false).unwrap();
+        assert_eq!(
+            root.observe_file(Path::new("small.bin"), 3)
+                .unwrap_err()
+                .code,
+            ErrorCode::ResourceExhausted
+        );
+        assert!(root.observe_file(Path::new("small.bin"), 0).is_err());
+        assert!(root.observe_file(Path::new("hardlink.bin"), 64).is_err());
+        assert!(root.observe_file(Path::new("../secret.bin"), 64).is_err());
+        assert!(root.observe_file(Path::new("missing.bin"), 64).is_err());
+        assert_eq!(std::fs::read(&secret).unwrap(), b"secret");
+        let write_only = Root::open(directory.path(), false, true).unwrap();
+        assert_eq!(
+            write_only
+                .observe_file(Path::new("small.bin"), 64)
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+    }
+
+    #[test]
     fn read_and_write_authority_are_independent() {
         let root_dir = tempfile::tempdir().unwrap();
         std::fs::write(root_dir.path().join("data.txt"), b"data").unwrap();
@@ -872,6 +1051,10 @@ mod tests {
         );
         assert!(
             root.write_new_atomic(Path::new(r"escape\new-only.txt"), b"no")
+                .is_err()
+        );
+        assert!(
+            root.observe_file(Path::new(r"escape\secret.txt"), 64)
                 .is_err()
         );
         assert!(!outside.path().join("created.txt").exists());

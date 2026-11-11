@@ -48,6 +48,14 @@ requires checking the destination before attempting any further action.
 This protects a new-only publication, not an edit to a preexisting file:
 `filesystem.write` still replaces files and does not offer compare-and-swap.
 
+For Project Graph assets backed by an explicitly readable Windows root, native
+file observation now records a volume/file-index/creation-time instance identity
+and checks last-write/change-time and size before and after a bounded read.
+It reopens the same name under the pinned directory handle to detect replacement.
+A different file at that name is ambiguous until explicitly rebound by the owner;
+normal in-place changes can be recorded as new revisions. This is best-effort
+revalidation, not an atomic transaction, lock or permission to overwrite files.
+
 Requests outside the root, nested junction escapes, alternate data streams and
 hard-linked files are rejected by the native backend. Do not retry a denied request
 through another provider. For a completed edit, inspect the returned result and read

@@ -498,6 +498,113 @@ async fn project_provenance_route_explains_registered_asset_without_inventing_pr
 
 #[cfg(target_os = "windows")]
 #[tokio::test]
+async fn windows_native_project_asset_observes_human_edits_but_not_file_replacement() {
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path().join("workspace");
+    std::fs::create_dir(&root).unwrap();
+    let state = temporary.path().join("project-state");
+    let path = root.join("human.bin");
+    std::fs::write(&path, b"original-human-content").unwrap();
+    let broker = broker(
+        &root,
+        &state,
+        "audit-native-file-observation",
+        "os-user-v1:fixture:native",
+    );
+    let session = unique_id();
+
+    let created = call(
+        &broker,
+        &session,
+        "project.create",
+        json!({"root":"workspace"}),
+    )
+    .await;
+    assert!(created.ok, "{created:?}");
+    let project = created.data.unwrap()["project"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let registered = call(
+        &broker,
+        &session,
+        "project.asset.register",
+        json!({
+            "root":"workspace", "project":project,
+            "label":"human-edited", "resource_type":"fixture",
+            "path":"human.bin", "max_bytes":1024
+        }),
+    )
+    .await;
+    assert!(registered.ok, "{registered:?}");
+    let view = registered.data.unwrap()["result"].clone();
+    let asset = view["asset"]["id"].as_str().unwrap().to_owned();
+
+    let revisions = |_: ()| json!({"root":"workspace","project":project,"asset":asset});
+    let first = call(&broker, &session, "project.revisions", revisions(())).await;
+    assert!(first.ok, "{first:?}");
+    let original = first.data.unwrap()["result"]["revisions"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(original.len(), 1, "{original:?}");
+    assert_eq!(
+        original[0]["method"],
+        "nt-handle-file-basic-read-revalidate"
+    );
+
+    // A human writing in place changes bytes, but keeps the same file instance.
+    std::fs::write(&path, b"updated-human-content").unwrap();
+    let updated = call(
+        &broker,
+        &session,
+        "project.asset.reconcile",
+        json!({"root":"workspace","project":project,"asset":asset}),
+    )
+    .await;
+    assert!(updated.ok, "{updated:?}");
+    let current = call(&broker, &session, "project.revisions", revisions(())).await;
+    assert!(current.ok, "{current:?}");
+    let current = current.data.unwrap()["result"]["revisions"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(current.len(), 2, "{current:?}");
+    assert!(
+        current
+            .iter()
+            .any(|revision| revision["pin"] == original[0]["pin"])
+    );
+    assert!(
+        current
+            .iter()
+            .any(|revision| revision["pin"] != original[0]["pin"])
+    );
+
+    // Another file at the same path is NOT the bound file instance.
+    let alternate = root.join("replacement.bin");
+    std::fs::write(&alternate, b"unrelated-file-instance").unwrap();
+    std::fs::rename(&alternate, &path).unwrap();
+    let ambiguous = call(
+        &broker,
+        &session,
+        "project.asset.reconcile",
+        json!({"root":"workspace","project":project,"asset":asset}),
+    )
+    .await;
+    assert!(ambiguous.ok, "{ambiguous:?}");
+    let after = call(&broker, &session, "project.revisions", revisions(())).await;
+    assert!(after.ok, "{after:?}");
+    let after = after.data.unwrap()["result"]["revisions"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(after.len(), 2, "Replacement must not be adopted: {after:?}");
+    assert_eq!(std::fs::read(&path).unwrap(), b"unrelated-file-instance");
+}
+
+#[cfg(target_os = "windows")]
+#[tokio::test]
 async fn project_store_database_inherits_private_windows_acl() {
     let (_temp, root, state) = fixture();
     let broker = broker(
