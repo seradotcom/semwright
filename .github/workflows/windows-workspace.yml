@@ -33,21 +33,25 @@ jobs:
           toolchain: 1.98.1
           components: rustfmt
       - name: Check affected Rust formatting
-        run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/tests/windows_workspace.rs
+        run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/tests/windows_workspace.rs crates/cli/src/lib.rs crates/cli/src/semwright.rs crates/platform-services/src/lib.rs crates/platform-windows-sys/src/paths.rs crates/platform-windows-sys/src/filesystem.rs
       - name: Workspace configuration and native confinement
         run: |
           cargo test --locked -p semwright-daemon --test windows_workspace
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-platform-windows-sys --lib filesystem::tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-platform-windows-sys --lib paths::tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-cli setup_
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build local interfaces
-        run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp --bins
+        run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins
       - name: Real broker and MCP workspace roundtrip
         run: python scripts/windows/workspace-smoke.py --bin-dir target/debug --output verification/windows-workspace
       - name: Bind binary hashes to source
         if: success()
         run: |
-          $paths = @('semwright.exe', 'semwrightd.exe', 'semwright-mcp.exe')
+          $paths = @('semwright.exe', 'semwrightd.exe', 'semwright-mcp.exe', 'semwright-inspect.exe', 'semwright-sandbox.exe')
           $binaries = @($paths | ForEach-Object {
             $file = Join-Path 'target/debug' $_
             @{ name = $_; sha256 = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLowerInvariant() }
@@ -68,5 +72,7 @@ jobs:
             target/debug/semwright.exe
             target/debug/semwrightd.exe
             target/debug/semwright-mcp.exe
+            target/debug/semwright-inspect.exe
+            target/debug/semwright-sandbox.exe
             verification/windows-workspace/binaries.json
           retention-days: 7

@@ -33,7 +33,36 @@ fn installed_command(bin_dir: &Path, name: &str) -> PathBuf {
     bin_dir.join(name)
 }
 
-fn setup_config_directory() -> Result<PathBuf> {
+fn validate_setup_directory(path: &Path) -> Result<()> {
+    if !path.is_absolute() || path.file_name().is_none() {
+        return Err(Error::invalid(
+            "Setup directory must be an absolute path below a filesystem root",
+        ));
+    }
+    #[cfg(target_os = "windows")]
+    semwright_platform_services::validate_private_data_directory(path)?;
+    #[cfg(unix)]
+    for ancestor in path.ancestors() {
+        match std::fs::symlink_metadata(ancestor) {
+            Ok(metadata) if !metadata.is_dir() || metadata.file_type().is_symlink() => {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Setup directory cannot contain files or symbolic links",
+                ));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(())
+}
+
+fn setup_config_directory(explicit: Option<&Path>) -> Result<PathBuf> {
+    if let Some(path) = explicit {
+        validate_setup_directory(path)?;
+        return Ok(path.to_path_buf());
+    }
     #[cfg(target_os = "linux")]
     {
         let home = std::env::var_os("HOME")
@@ -56,13 +85,7 @@ fn setup_config_directory() -> Result<PathBuf> {
     }
     #[cfg(target_os = "windows")]
     {
-        let roaming = std::env::var_os("APPDATA")
-            .map(PathBuf::from)
-            .ok_or_else(|| Error::unavailable("APPDATA is required for setup"))?;
-        if !roaming.is_absolute() {
-            return Err(Error::invalid("APPDATA must be absolute"));
-        }
-        Ok(roaming.join("Semwright/config"))
+        semwright_platform_services::configuration_directory()
     }
 }
 
@@ -73,6 +96,16 @@ fn validate_existing_private_file(path: &Path) -> Result<()> {
             ErrorCode::PermissionDenied,
             format!("Refusing non-regular setup file: {}", path.display()),
         ));
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::fs::MetadataExt;
+        if metadata.file_attributes() & 0x400 != 0 {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Setup files cannot be reparse points",
+            ));
+        }
     }
     #[cfg(unix)]
     {
@@ -102,27 +135,51 @@ fn setup_file(path: &Path, content: &str, dry_run: bool) -> Result<&'static str>
     Ok("created")
 }
 
-fn setup_mcp_document(mcp: &Path) -> Result<String> {
-    serde_json::to_string_pretty(&json!({
-        "mcpServers": {
-            "semwright": {
-                "command": mcp
-            }
-        }
-    }))
-    .map(|text| text + "\n")
-    .map_err(Into::into)
+fn setup_environment() -> Result<Value> {
+    #[cfg(target_os = "windows")]
+    if let Some(root) = std::env::var_os("SEMWRIGHT_DATA_DIR") {
+        // Validate even when --config-dir overrides the setup destination.
+        semwright_platform_services::configuration_directory()?;
+        return Ok(json!({"SEMWRIGHT_DATA_DIR": PathBuf::from(root)}));
+    }
+    Ok(json!({}))
 }
 
-fn setup_result(cli: &Cli) -> Result<Value> {
-    let config_dir = setup_config_directory()?;
+fn setup_client_args(socket: Option<&Path>, session_file: Option<&Path>) -> Vec<Value> {
+    let mut args = Vec::new();
+    if let Some(socket) = socket {
+        args.extend([json!("--socket"), json!(socket)]);
+    }
+    if let Some(ticket) = session_file {
+        args.extend([json!("--session-file"), json!(ticket)]);
+    }
+    args
+}
+
+fn setup_mcp_document(mcp: &Path, args: &[Value], environment: &Value) -> Result<String> {
+    let mut entry = json!({"command": mcp});
+    if !args.is_empty() {
+        entry["args"] = json!(args);
+    }
+    if environment.as_object().is_some_and(|env| !env.is_empty()) {
+        entry["env"] = environment.clone();
+    }
+    serde_json::to_string_pretty(&json!({"mcpServers": {"semwright": entry}}))
+        .map(|text| text + "\n")
+        .map_err(Into::into)
+}
+
+fn setup_result(cli: &Cli, explicit_config: Option<&Path>) -> Result<Value> {
+    let environment = setup_environment()?;
+    let config_dir = setup_config_directory(explicit_config)?;
+    validate_setup_directory(&config_dir)?;
     if let Some(parent) = config_dir.parent()
         && !cli.dry_run
     {
         std::fs::create_dir_all(parent)?;
     }
     if !cli.dry_run {
-        semwright_platform_services::private_directory(&config_dir)?;
+        semwright_platform_services::private_data_directory(&config_dir)?;
     }
 
     let config = config_dir.join("daemon.toml");
@@ -138,15 +195,22 @@ fn setup_result(cli: &Cli) -> Result<Value> {
     let mcp_document_path = config_dir.join("mcp-client.json");
 
     let config_status = setup_file(&config, OBSERVE_CONFIG, cli.dry_run)?;
-    let mcp_document = setup_mcp_document(&mcp)?;
+    let client_args = setup_client_args(cli.socket.as_deref(), cli.session_file.as_deref());
+    let mcp_document = setup_mcp_document(&mcp, &client_args, &environment)?;
     let mcp_status = setup_file(&mcp_document_path, &mcp_document, cli.dry_run)?;
+    let snippet_matches =
+        mcp_status != "kept-existing" || read_file(&mcp_document_path, 1_048_576)? == mcp_document;
 
-    let component = |path: &Path| {
-        json!({
-            "path": path,
-            "present": path.is_file()
-        })
-    };
+    let component = |path: &Path| json!({"path": path, "present": path.is_file()});
+    let mut broker_command = vec![json!(daemon), json!("--config"), json!(config)];
+    if let Some(socket) = &cli.socket {
+        broker_command.extend([json!("--socket"), json!(socket)]);
+    }
+    let mut doctor_command = vec![json!(cli_path)];
+    doctor_command.extend(client_args.clone());
+    doctor_command.extend([json!("--json"), json!("doctor")]);
+    let mut tui_command = vec![json!(inspector)];
+    tui_command.extend(client_args);
 
     Ok(json!({
         "schema_version": 1,
@@ -157,11 +221,12 @@ fn setup_result(cli: &Cli) -> Result<Value> {
         "config": {
             "path": config,
             "status": config_status,
-            "profile": "observe"
+            "profile": if config_status == "kept-existing" { None } else { Some("observe") }
         },
         "mcp_client_snippet": {
             "path": mcp_document_path,
             "status": mcp_status,
+            "matches_requested_configuration": snippet_matches,
             "client_configuration_modified": false
         },
         "components": {
@@ -172,68 +237,93 @@ fn setup_result(cli: &Cli) -> Result<Value> {
             "sandbox": component(&sandbox)
         },
         "next": {
-            "broker": [daemon, "--config", config],
-            "doctor": [cli_path, "--json", "doctor"],
-            "tui": [inspector],
+            "environment": environment,
+            "broker": broker_command,
+            "doctor": doctor_command,
+            "tui": tui_command,
             "mcp": "Copy the generated mcp-client.json entry into the MCP client you choose."
         },
         "notes": [
             "Setup never grants desktop/application authority.",
             "Setup never starts a background service or edits a third-party MCP client.",
+            "Existing configuration and MCP snippets are preserved; review a mismatching snippet manually.",
             "OS consent/TCC/portal prompts and sensitive approvals remain explicit human actions."
         ]
     }))
+}
+
+fn setup_shell_quote(value: &str) -> String {
+    let value = escape_terminal_text(value);
+    #[cfg(target_os = "windows")]
+    return format!("'{}'", value.replace('\'', "''"));
+    #[cfg(not(target_os = "windows"))]
+    return format!("'{}'", value.replace('\'', "'\\''"));
+}
+
+fn setup_shell_command(command: &Value) -> String {
+    let arguments = command
+        .as_array()
+        .map(|args| {
+            args.iter()
+                .filter_map(Value::as_str)
+                .map(setup_shell_quote)
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .unwrap_or_default();
+    #[cfg(target_os = "windows")]
+    return format!("& {arguments}");
+    #[cfg(not(target_os = "windows"))]
+    return arguments;
 }
 
 fn print_setup(value: &Value, machine: bool) -> Result<()> {
     if machine {
         return print_result(value, true);
     }
-    let path = |pointer: &str| {
-        value
-            .pointer(pointer)
-            .and_then(Value::as_str)
-            .unwrap_or("<unknown>")
-    };
-    let status = |pointer: &str| {
-        value
-            .pointer(pointer)
-            .and_then(Value::as_str)
-            .unwrap_or("unknown")
+    let field = |pointer: &str| {
+        escape_terminal_text(
+            value
+                .pointer(pointer)
+                .and_then(Value::as_str)
+                .unwrap_or("<unknown>"),
+        )
     };
     println!("Semwright setup");
     println!(
-        "  ✓ observe-only config: {} ({})",
-        escape_terminal_text(path("/config/path")),
-        escape_terminal_text(status("/config/status"))
+        "  Owner configuration: {} ({})",
+        field("/config/path"),
+        field("/config/status")
     );
     println!(
-        "  ✓ MCP client snippet: {} ({})",
-        escape_terminal_text(path("/mcp_client_snippet/path")),
-        escape_terminal_text(status("/mcp_client_snippet/status"))
+        "  MCP client snippet: {} ({})",
+        field("/mcp_client_snippet/path"),
+        field("/mcp_client_snippet/status")
     );
+    if value["mcp_client_snippet"]["matches_requested_configuration"] == false {
+        println!(
+            "  Existing MCP snippet differs from these settings; review it before connecting."
+        );
+    }
     println!();
     println!("No permissions were granted and no background service was started.");
     println!("Your MCP client was not modified automatically.");
     println!();
-    let command_path = |pointer: &str| {
-        value
-            .pointer(pointer)
-            .and_then(Value::as_str)
-            .map(escape_terminal_text)
-            .unwrap_or_else(|| "<unknown>".into())
-    };
     println!("Next:");
-    println!(
-        "  1. Broker: \"{}\" --config \"{}\"",
-        command_path("/next/broker/0"),
-        command_path("/next/broker/2")
-    );
-    println!(
-        "  2. Doctor: \"{}\" --json doctor",
-        command_path("/next/doctor/0")
-    );
-    println!("  3. TUI: \"{}\"", command_path("/next/tui/0"));
+    #[cfg(target_os = "windows")]
+    if let Some(root) = value["next"]["environment"]["SEMWRIGHT_DATA_DIR"].as_str() {
+        println!(
+            "  In each broker/client terminal: $env:SEMWRIGHT_DATA_DIR = {}",
+            setup_shell_quote(root)
+        );
+    }
+    for (label, key) in [
+        ("1. Broker", "broker"),
+        ("2. Doctor", "doctor"),
+        ("3. TUI", "tui"),
+    ] {
+        println!("  {label}: {}", setup_shell_command(&value["next"][key]));
+    }
     println!("  4. Copy the generated MCP snippet into your chosen MCP client if needed.");
     println!();
     println!("Desktop/TCC/portal consent and sensitive approvals remain explicit human actions.");
@@ -1154,8 +1244,8 @@ async fn manage_skill_remote(cli: &Cli, command: &Skill, client: &mut ipc::Clien
 
 async fn local(cli: &Cli) -> Result<bool> {
     match &cli.command {
-        Command::Setup => {
-            let result = setup_result(cli)?;
+        Command::Setup { config_dir } => {
+            let result = setup_result(cli, config_dir.as_deref())?;
             print_setup(&result, cli.json)?;
         }
         Command::Completions { shell } => {
@@ -1458,11 +1548,105 @@ mod setup_tests {
 
     #[test]
     fn setup_mcp_document_uses_exact_sibling_binary() {
-        let doc = setup_mcp_document(Path::new("/opt/semwright/bin/semwright-mcp")).unwrap();
+        let doc = setup_mcp_document(
+            Path::new("/opt/semwright/bin/semwright-mcp"),
+            &[],
+            &json!({}),
+        )
+        .unwrap();
         let value: Value = serde_json::from_str(&doc).unwrap();
         assert_eq!(
             value["mcpServers"]["semwright"]["command"],
             "/opt/semwright/bin/semwright-mcp"
         );
+    }
+
+    #[test]
+    fn setup_explicit_directory_is_dry_run_safe_and_non_overwriting() {
+        let parent = tempdir().unwrap();
+        let directory = parent.path().join("owner-config");
+        let mut cli = Cli::try_parse_from(["semwright", "--json", "--dry-run", "setup"]).unwrap();
+        let dry = setup_result(&cli, Some(&directory)).unwrap();
+        assert_eq!(dry["config"]["status"], "would-create");
+        assert!(!directory.exists());
+
+        cli.dry_run = false;
+        let created = setup_result(&cli, Some(&directory)).unwrap();
+        assert_eq!(created["config"]["status"], "created");
+        assert_eq!(created["permissions_granted"], false);
+        let config = directory.join("daemon.toml");
+        let snippet = directory.join("mcp-client.json");
+        let existing = std::fs::read(&snippet).unwrap();
+        std::fs::write(&config, "[policy]\nprofile = \"workspace\"\n").unwrap();
+
+        cli.socket = Some(parent.path().join("different-endpoint"));
+        let repeated = setup_result(&cli, Some(&directory)).unwrap();
+        assert_eq!(repeated["config"]["status"], "kept-existing");
+        assert!(repeated["config"]["profile"].is_null());
+        assert_eq!(repeated["mcp_client_snippet"]["status"], "kept-existing");
+        assert_eq!(
+            repeated["mcp_client_snippet"]["matches_requested_configuration"],
+            false
+        );
+        assert_eq!(std::fs::read(snippet).unwrap(), existing);
+        assert_eq!(
+            std::fs::read_to_string(config).unwrap(),
+            "[policy]\nprofile = \"workspace\"\n"
+        );
+    }
+
+    #[test]
+    fn setup_rejects_relative_configuration_directory() {
+        let cli = Cli::try_parse_from(["semwright", "--dry-run", "setup"]).unwrap();
+        assert_eq!(
+            setup_result(&cli, Some(Path::new("relative-config")))
+                .unwrap_err()
+                .code,
+            ErrorCode::InvalidArgument
+        );
+    }
+
+    #[test]
+    fn setup_snippet_binds_endpoint_ticket_and_private_data_environment() {
+        let arguments = setup_client_args(
+            Some(Path::new("endpoint with spaces")),
+            Some(Path::new("ticket with spaces")),
+        );
+        let environment = json!({"SEMWRIGHT_DATA_DIR": "data with spaces"});
+        let document =
+            setup_mcp_document(Path::new("binary with spaces"), &arguments, &environment).unwrap();
+        let document: Value = serde_json::from_str(&document).unwrap();
+        let entry = &document["mcpServers"]["semwright"];
+        assert_eq!(entry["command"], "binary with spaces");
+        assert_eq!(
+            entry["args"],
+            json!([
+                "--socket",
+                "endpoint with spaces",
+                "--session-file",
+                "ticket with spaces"
+            ])
+        );
+        assert_eq!(entry["env"], environment);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn setup_rejects_configuration_below_a_junction_without_writing() {
+        let parent = tempdir().unwrap();
+        let outside = parent.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        let link = parent.path().join("link");
+        let status = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&link)
+            .arg(&outside)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let cli = Cli::try_parse_from(["semwright", "setup"]).unwrap();
+        assert!(setup_result(&cli, Some(&link.join("config"))).is_err());
+        assert!(!outside.join("config").exists());
+        std::fs::remove_dir(link).unwrap();
     }
 }

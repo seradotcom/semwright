@@ -122,6 +122,33 @@ broker policy, change TCC/portal settings, or approve sensitive operations. Thos
 explicit owner/OS actions. This keeps one simple setup command without turning onboarding into an
 authority escalation.
 
+### Windows data and connection locations
+
+To keep broker data on a chosen drive, set `SEMWRIGHT_DATA_DIR` in the current process
+before running setup and the broker. Select a dedicated ordinary absolute directory;
+its runtime, state, config and cache subdirectories use owner-only ACLs. Relative,
+device, UNC and reparse-point paths are rejected. This does not change Windows Known
+Folders or a global environment setting.
+
+```powershell
+$env:SEMWRIGHT_DATA_DIR = 'D:\SemwrightData'
+& 'D:\Semwright\bin\semwright.exe' --socket '\\.\pipe\semwright-example' setup
+
+```
+
+Setup includes that data directory in the generated MCP entry's `env` and carries
+an explicit `--socket` into both the entry and the printed broker/doctor/TUI commands.
+An explicit `--session-file` is also carried into client commands. Apply the printed
+environment setting in each terminal that starts a broker or CLI client.
+
+Use `setup --config-dir 'D:\OwnerConfig'` when only the configuration destination
+should differ. This flag alone does not relocate the runtime, state or cache.
+`--dry-run --json setup` resolves these locations without creating directories.
+Existing files remain untouched on a repeated setup. The output reports
+`matches_requested_configuration=false` if an existing MCP snippet differs from
+the newly requested binary, endpoint or environment; review that file before connecting.
+A preserved owner configuration is not reported as newly created observe-only policy.
+
 ### Removal and upgrades
 
 Use the installed helper, or the extracted helper with the same explicit prefix:

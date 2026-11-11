@@ -88,7 +88,7 @@ fn verbatim_owner_input_is_not_silently_rewritten() {
     let directory = tempfile::tempdir().unwrap();
     let canonical = std::fs::canonicalize(directory.path()).unwrap();
     let error = confine_grants(&configuration(&canonical), &[]).unwrap_err();
-    assert_eq!(error.code, ErrorCode::InvalidArgument);
+    assert_eq!(error.code, ErrorCode::PolicyDenied);
 }
 
 #[test]
@@ -123,6 +123,16 @@ fn junction_at_root_or_in_an_ancestor_is_refused() {
         assert_eq!(error.code, ErrorCode::PolicyDenied);
     }
     std::fs::remove_dir(&link).unwrap();
+}
+
+#[test]
+fn case_alias_does_not_bypass_protected_overlap() {
+    let parent = tempfile::tempdir().unwrap();
+    let private = parent.path().join("PrivateState");
+    std::fs::create_dir(&private).unwrap();
+    let alias = private.to_string_lossy().to_ascii_lowercase();
+    let error = confine_grants(&configuration(Path::new(&alias)), &[private]).unwrap_err();
+    assert_eq!(error.code, ErrorCode::PolicyDenied);
 }
 
 #[test]

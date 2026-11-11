@@ -281,6 +281,22 @@ pub fn paths() -> Result<PlatformPaths> {
     semwright_platform_windows_sys::paths::paths()
 }
 
+#[cfg(target_os = "windows")]
+pub fn validate_filesystem_grant_path(path: &Path) -> Result<()> {
+    semwright_platform_windows_sys::filesystem::validate_grant_path(path)
+}
+
+#[cfg(target_os = "windows")]
+pub fn validate_private_data_directory(path: &Path) -> Result<()> {
+    semwright_platform_windows_sys::paths::validate_private_data_directory(path)
+}
+
+/// Resolve Windows configuration without creating broker runtime or state.
+#[cfg(target_os = "windows")]
+pub fn configuration_directory() -> Result<PathBuf> {
+    semwright_platform_windows_sys::paths::configuration_directory()
+}
+
 #[cfg(target_os = "linux")]
 pub fn filesystem() -> impl semwright_platform_api::filesystem::ScopedFilesystem {
     semwright_platform_linux_sys::filesystem::LinuxFilesystem

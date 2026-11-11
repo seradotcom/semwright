@@ -50,7 +50,11 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 pub enum Command {
     /// Prepare a safe local observe-only configuration and MCP client snippet.
-    Setup,
+    Setup {
+        /// Dedicated absolute configuration directory; existing files are preserved.
+        #[arg(long)]
+        config_dir: Option<PathBuf>,
+    },
     Doctor,
     #[command(visible_alias = "capability")]
     Capabilities {
@@ -1264,7 +1268,7 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
         Command::Audit {
             command: Audit::Tail { limit },
         } => ("audit.tail".into(), json!({"limit":limit})),
-        Command::Setup
+        Command::Setup { .. }
         | Command::Watch { .. }
         | Command::Driver { .. }
         | Command::Mcp { .. }
@@ -1499,7 +1503,10 @@ mod tests {
     fn setup_is_local_and_requires_no_broker() {
         let parsed = Cli::try_parse_from(["semwright", "setup"]).unwrap();
         assert!(request(&parsed).unwrap().is_none());
-        assert!(matches!(parsed.command, Command::Setup));
+        assert!(matches!(
+            parsed.command,
+            Command::Setup { config_dir: None }
+        ));
 
         let dry = Cli::try_parse_from(["semwright", "--dry-run", "--json", "setup"]).unwrap();
         assert!(dry.dry_run);

@@ -209,31 +209,12 @@ fn canonical_filesystem_path(path: &Path) -> Result<PathBuf> {
     }
 }
 
-#[cfg(target_os = "windows")]
-fn reject_reparse_grant(path: &Path) -> Result<()> {
-    use std::os::windows::fs::MetadataExt;
-
-    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
-    // Checking every ancestor also rejects a junction that resolves back to the
-    // same spelling. The filesystem backend still enforces handle-relative I/O.
-    for ancestor in path.ancestors() {
-        if std::fs::symlink_metadata(ancestor)?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT
-            != 0
-        {
-            return Err(Error::new(
-                ErrorCode::PolicyDenied,
-                "Filesystem grant paths cannot contain reparse points",
-            ));
-        }
-    }
-    Ok(())
-}
-
 pub fn confine_grants(config: &Config, protected: &[PathBuf]) -> Result<()> {
     for grant in &config.policy.filesystem {
         #[cfg(target_os = "windows")]
-        reject_reparse_grant(&grant.path)?;
+        semwright_platform_services::validate_filesystem_grant_path(&grant.path)?;
         let root = canonical_filesystem_path(&grant.path)?;
+        #[cfg(not(target_os = "windows"))]
         if root != grant.path {
             return Err(Error::invalid(
                 "Filesystem grant must be canonical; links in its path are not accepted",

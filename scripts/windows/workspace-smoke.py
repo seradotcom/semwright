@@ -19,9 +19,10 @@ import uuid
 
 
 class McpClient:
-    def __init__(self, binary: Path, endpoint: str, ticket: Path, stderr):
+    def __init__(self, entry, stderr, environment):
         self.process = subprocess.Popen(
-            [str(binary), "--socket", endpoint, "--session-file", str(ticket)],
+            [entry["command"], *entry.get("args", [])],
+            env=dict(environment, **entry.get("env", {})),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr,
             text=True, encoding="utf-8",
         )
@@ -127,9 +128,45 @@ def run(binary_dir: Path, output: Path):
         data = workspace / "settings.json"
         before = '{"enabled": false}\n'
         data.write_text(before, encoding="utf-8")
-        config = base / "daemon.toml"
+        config_dir = base / "owner-config"
+        config = config_dir / "daemon.toml"
+        data_root = base / "private-data"
+        environment = dict(os.environ, SEMWRIGHT_DATA_DIR=str(data_root))
         ticket = base / "client.session"
         endpoint = "\\\\.\\pipe\\semwright-workspace-" + uuid.uuid4().hex
+        setup_command = [
+            str(binary_dir / "semwright.exe"), "--socket", endpoint,
+            "--session-file", str(ticket), "--json", "setup",
+            "--config-dir", str(config_dir),
+        ]
+        dry = subprocess.run(
+            setup_command + ["--dry-run"], env=environment,
+            capture_output=True, text=True, encoding="utf-8", check=True, timeout=15,
+        )
+        dry_report = json.loads(dry.stdout)
+        assert dry_report["setup"] == "dry-run"
+        assert not config_dir.exists() and not data_root.exists()
+        setup = subprocess.run(
+            setup_command, env=environment, capture_output=True, text=True,
+            encoding="utf-8", check=True, timeout=15,
+        )
+        setup_report = json.loads(setup.stdout)
+        assert setup_report["authority_changed"] is False
+        assert setup_report["service_started"] is False
+        assert Path(setup_report["config"]["path"]) == config
+        snippet_path = config_dir / "mcp-client.json"
+        snippet_bytes = snippet_path.read_bytes()
+        snippet = json.loads(snippet_bytes)["mcpServers"]["semwright"]
+        assert Path(snippet["command"]) == binary_dir / "semwright-mcp.exe"
+        assert snippet["args"] == ["--socket", endpoint, "--session-file", str(ticket)]
+        assert snippet["env"] == {"SEMWRIGHT_DATA_DIR": str(data_root)}
+        again = subprocess.run(
+            setup_command, env=environment, capture_output=True, text=True,
+            encoding="utf-8", check=True, timeout=15,
+        )
+        assert json.loads(again.stdout)["config"]["status"] == "kept-existing"
+        assert snippet_path.read_bytes() == snippet_bytes
+        assert not data_root.exists(), "Setup must not start or initialize the runtime"
         junction = workspace / "escape"
         subprocess.run(
             ["cmd", "/C", "mklink", "/J", str(junction), str(outside)],
@@ -151,8 +188,7 @@ def run(binary_dir: Path, output: Path):
         ).open("w", encoding="utf-8") as mcp_log:
             def start_broker():
                 process = subprocess.Popen(
-                    [str(binary_dir / "semwrightd.exe"), "--config", str(config),
-                     "--socket", endpoint],
+                    setup_report["next"]["broker"], env=environment,
                     stdin=subprocess.DEVNULL, stdout=daemon_log, stderr=daemon_log,
                 )
                 deadline = time.monotonic() + 20
@@ -161,8 +197,7 @@ def run(binary_dir: Path, output: Path):
                         if process.poll() is not None:
                             raise RuntimeError("Broker exited; inspect daemon.log")
                         result = subprocess.run(
-                            [str(binary_dir / "semwright.exe"), "--socket", endpoint,
-                             "--session-file", str(base / "doctor.session"), "--json", "doctor"],
+                            setup_report["next"]["doctor"], env=environment,
                             capture_output=True, text=True, encoding="utf-8", timeout=8,
                         )
                         if result.returncode == 0:
@@ -180,7 +215,9 @@ def run(binary_dir: Path, output: Path):
             try:
                 write_config(True)
                 daemon = start_broker()
-                client = McpClient(binary_dir / "semwright-mcp.exe", endpoint, ticket, mcp_log)
+                assert (data_root / "state" / "audit").is_dir()
+                assert (data_root / "runtime").is_dir()
+                client = McpClient(snippet, mcp_log, environment)
                 tools = client.request("tools/list", {})["tools"]
                 assert any(tool["name"] == "semwright_execute" for tool in tools)
                 args = {"root": "workspace", "path": "settings.json"}
@@ -205,7 +242,7 @@ def run(binary_dir: Path, output: Path):
                     check_denied(client.execute("filesystem.write", dict(denied, text="forbidden")))
                 assert sentinel.read_text(encoding="utf-8") == "outside must stay unchanged\n"
                 client.close()
-                client = McpClient(binary_dir / "semwright-mcp.exe", endpoint, ticket, mcp_log)
+                client = McpClient(snippet, mcp_log, environment)
                 second = '{"enabled": true, "second_task": true}\n'
                 check_ok(client.execute("filesystem.write", dict(args, text=second)))
                 assert check_ok(client.execute("filesystem.read", args))["text"] == second
@@ -220,7 +257,11 @@ def run(binary_dir: Path, output: Path):
                 assert check_ok(client.execute("filesystem.read", args))["text"] == second
                 assert data.read_text(encoding="utf-8") == second
                 report = {
-                    "evidence": "hosted-native-broker-mcp",
+                    "evidence": "native-broker-mcp",
+                    "hosted": os.environ.get("GITHUB_ACTIONS") == "true",
+                    "setup_dry_run_and_non_overwrite": True,
+                    "generated_mcp_configuration_used": True,
+                    "explicit_runtime_data_directory": True,
                     "fake": False,
                     "read_write_readback": True,
                     "diff": True,

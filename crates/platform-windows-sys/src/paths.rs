@@ -219,7 +219,53 @@ pub fn try_lock_session_file(file: &std::fs::File) -> Result<bool> {
     }
 }
 
+fn data_directory_paths(root: &Path) -> Result<PlatformPaths> {
+    crate::filesystem::safe_root_syntax(root)?;
+    for ancestor in root.ancestors() {
+        match std::fs::symlink_metadata(ancestor) {
+            Ok(metadata)
+                if !metadata.is_dir()
+                    || metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 =>
+            {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "SEMWRIGHT_DATA_DIR cannot contain files or reparse points",
+                ));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(PlatformPaths {
+        runtime: root.join("runtime"),
+        state: root.join("state"),
+        config: root.join("config"),
+        cache: root.join("cache"),
+    })
+}
+
+/// Validate an owner-selected private directory without creating it.
+pub fn validate_private_data_directory(path: &Path) -> Result<()> {
+    data_directory_paths(path).map(|_| ())
+}
+
+/// Resolve setup's destination without creating runtime or state directories.
+pub fn configuration_directory() -> Result<PathBuf> {
+    if let Some(root) = std::env::var_os("SEMWRIGHT_DATA_DIR") {
+        return Ok(data_directory_paths(Path::new(&root))?.config);
+    }
+    Ok(known_folder(&FOLDERID_RoamingAppData)?.join("Semwright/config"))
+}
+
 pub fn paths() -> Result<PlatformPaths> {
+    if let Some(root) = std::env::var_os("SEMWRIGHT_DATA_DIR") {
+        let paths = data_directory_paths(Path::new(&root))?;
+        for path in [&paths.runtime, &paths.state, &paths.config, &paths.cache] {
+            ensure_owner_only_directory(path)?;
+        }
+        return Ok(paths);
+    }
     let local = known_folder(&FOLDERID_LocalAppData)?.join("Semwright");
     let roaming = known_folder(&FOLDERID_RoamingAppData)?.join("Semwright");
     let paths = PlatformPaths {
@@ -232,4 +278,62 @@ pub fn paths() -> Result<PlatformPaths> {
         ensure_private_directory(path)?;
     }
     Ok(paths)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn data_directory_resolution_does_not_create_anything() {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path().join("private data");
+        let paths = data_directory_paths(&root).unwrap();
+        assert_eq!(paths.runtime, root.join("runtime"));
+        assert_eq!(paths.state, root.join("state"));
+        assert_eq!(paths.config, root.join("config"));
+        assert_eq!(paths.cache, root.join("cache"));
+        assert!(!root.exists());
+    }
+
+    #[test]
+    fn data_directory_rejects_ambiguous_or_nonlocal_roots() {
+        for path in [
+            r"relative",
+            r"C:\",
+            r"C:relative",
+            r"\\server\share\data",
+            r"\\?\C:\data",
+            r"\\.\C:\data",
+            r"C:\one\..\data",
+            r"C:\data:stream",
+            r"C:\CON",
+            r"C:\data.",
+            r"C:\data ",
+        ] {
+            assert!(data_directory_paths(Path::new(path)).is_err(), "{path}");
+        }
+        let parent = tempfile::tempdir().unwrap();
+        let file = parent.path().join("file");
+        std::fs::write(&file, b"not a directory").unwrap();
+        assert!(data_directory_paths(&file.join("data")).is_err());
+    }
+
+    #[test]
+    fn data_directory_rejects_junction_ancestor_before_creation() {
+        let parent = tempfile::tempdir().unwrap();
+        let outside = parent.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        let link = parent.path().join("link");
+        let status = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&link)
+            .arg(&outside)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        assert!(data_directory_paths(&link.join("data")).is_err());
+        assert!(!outside.join("data").exists());
+        std::fs::remove_dir(link).unwrap();
+    }
 }

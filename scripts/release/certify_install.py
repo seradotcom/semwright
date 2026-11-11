@@ -32,6 +32,7 @@ def certify_install(stage: Path, platform: str, smoke=None) -> dict[str, bool]:
             env['LOCALAPPDATA'] = str(home / 'AppData' / 'Local')
             Path(env['APPDATA']).mkdir(parents=True, exist_ok=True)
             Path(env['LOCALAPPDATA']).mkdir(parents=True, exist_ok=True)
+            env['SEMWRIGHT_DATA_DIR'] = str(home / 'semwright-data')
         prefix = home / 'Installed bundle with spaces'
 
         def helper(operation: str, expected_success: bool = True):
@@ -56,7 +57,7 @@ def certify_install(stage: Path, platform: str, smoke=None) -> dict[str, bool]:
         semwright = prefix / 'bin' / ('semwright' + suffix)
         expected_mcp = prefix / 'bin' / ('semwright-mcp' + suffix)
         if platform == 'windows':
-            setup_dir = Path(env['APPDATA']) / 'Semwright' / 'config'
+            setup_dir = Path(env['SEMWRIGHT_DATA_DIR']) / 'config'
         elif platform == 'macos':
             setup_dir = home / 'Library' / 'Application Support' / 'Semwright' / 'config'
         else:

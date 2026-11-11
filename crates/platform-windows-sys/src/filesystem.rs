@@ -12,7 +12,7 @@ use std::{
         fs::OpenOptionsExt,
         io::{AsRawHandle, FromRawHandle},
     },
-    path::{Component, Path},
+    path::{Component, Path, PathBuf, Prefix},
 };
 use windows::{
     Wdk::{
@@ -74,19 +74,48 @@ fn identity(info: &BY_HANDLE_FILE_INFORMATION) -> FileIdentity {
     }
 }
 
-fn safe_root_syntax(path: &Path) -> Result<()> {
+pub(crate) fn safe_root_syntax(path: &Path) -> Result<()> {
     if !path.is_absolute() || path.file_name().is_none() {
         return Err(Error::invalid(
-            "Windows scoped root must be an explicit directory below a volume root",
+            "Windows scoped root must be an explicit path below a volume root",
         ));
     }
-    let s = path.as_os_str().to_string_lossy();
-    let lower = s.to_ascii_lowercase();
-    if lower.starts_with(r"\\") || lower.starts_with(r"\\?\") || lower.starts_with(r"\\.\") {
+    let mut components = path.components();
+    if !matches!(components.next(), Some(Component::Prefix(prefix)) if matches!(prefix.kind(), Prefix::Disk(_)))
+        || components.next() != Some(Component::RootDir)
+    {
         return Err(Error::new(
             ErrorCode::PolicyDenied,
             "UNC, extended and device roots are not accepted by Windows confinement",
         ));
+    }
+    for component in components {
+        let Component::Normal(name) = component else {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Windows grant-root traversal is forbidden",
+            ));
+        };
+        validate_component(name)?;
+    }
+    Ok(())
+}
+
+/// Validate owner grants before canonical overlap checks. Short names and case
+/// variants may resolve differently without being links; every ancestor is inspected.
+pub fn validate_grant_path(path: &Path) -> Result<()> {
+    use std::os::windows::fs::MetadataExt;
+
+    safe_root_syntax(path)?;
+    for ancestor in path.ancestors() {
+        if std::fs::symlink_metadata(ancestor)?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0
+            != 0
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Filesystem grant paths cannot contain reparse points",
+            ));
+        }
     }
     Ok(())
 }
@@ -107,7 +136,7 @@ fn reserved_device(name: &str) -> bool {
             .is_some_and(|n| n.parse::<u8>().is_ok_and(|n| (1..=9).contains(&n)))
 }
 
-fn validate_component(name: &OsStr) -> Result<()> {
+pub(crate) fn validate_component(name: &OsStr) -> Result<()> {
     let wide = name.encode_wide().collect::<Vec<_>>();
     if wide.is_empty() || wide.len() > 255 || wide.contains(&0) {
         return Err(Error::invalid("Invalid Windows path component"));
@@ -354,6 +383,42 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
     Ok(())
 }
 
+fn open_root_no_reparse(path: &Path, writable: bool) -> Result<File> {
+    safe_root_syntax(path)?;
+    let mut components = path.components();
+    let Some(Component::Prefix(prefix)) = components.next() else {
+        return Err(Error::invalid("Windows grant requires a drive"));
+    };
+    let Prefix::Disk(drive) = prefix.kind() else {
+        return Err(Error::invalid("Windows grant requires an ordinary drive"));
+    };
+    components.next(); // RootDir was validated by safe_root_syntax.
+    let drive_path = PathBuf::from(format!("{}:\\", char::from(drive)));
+    let mut current = open_no_reparse(&drive_path, true, false)?;
+    let volume = information(&current)?.dwVolumeSerialNumber;
+    let mut components = components.peekable();
+    while let Some(component) = components.next() {
+        let Component::Normal(name) = component else {
+            return Err(Error::invalid("Invalid Windows grant component"));
+        };
+        let mut access = FILE_READ_ATTRIBUTES | FILE_TRAVERSE | SYNCHRONIZE;
+        if writable && components.peek().is_none() {
+            access |= FILE_ADD_FILE;
+        }
+        current = nt_open_relative(
+            &current,
+            name,
+            access,
+            NT_FILE_OPEN,
+            FILE_DIRECTORY_FILE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            "Windows grant-root traversal failed",
+        )?;
+        validate_directory(&current, volume)?;
+    }
+    Ok(current)
+}
+
 pub struct Root {
     root: File,
     root_identity: FileIdentity,
@@ -369,8 +434,7 @@ impl Root {
                 "Windows scoped root must grant read or write authority",
             ));
         }
-        safe_root_syntax(path)?;
-        let root = open_no_reparse(path, true, writable)?;
+        let root = open_root_no_reparse(path, writable)?;
         let info = information(&root)?;
         if info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 == 0 {
             return Err(Error::invalid("Windows scoped root must be a directory"));
@@ -698,6 +762,18 @@ mod tests {
                 .is_err()
         );
         assert!(!outside.path().join("created.txt").exists());
+    }
+
+    #[test]
+    fn junction_in_grant_ancestor_is_rejected_by_root_open() {
+        let parent = tempfile::tempdir().unwrap();
+        let outside = parent.path().join("outside");
+        std::fs::create_dir_all(outside.join("nested")).unwrap();
+        let link = parent.path().join("link");
+        junction(&link, &outside);
+        assert!(Root::open(&link, true, true).is_err());
+        assert!(Root::open(&link.join("nested"), true, true).is_err());
+        std::fs::remove_dir(link).unwrap();
     }
 
     #[test]
