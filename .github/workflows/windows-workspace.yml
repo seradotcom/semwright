@@ -72,6 +72,8 @@ jobs:
         run: cargo test --locked -p semwright-core --lib scoped_snapshot_tests
       - name: Closed native Blender request must not bypass Host
         run: |
+          cargo test --locked -p semwright-driver-host --lib pinned_blender_assets_tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-sdk --lib windows_native_profile_tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-host --lib windows_native_profile_tests

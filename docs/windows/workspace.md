@@ -97,10 +97,20 @@ NVIDIA, or per-tool resources. It does not grant permission.
 
 The owner config driver_windows_blender52_initial defaults false, independent of
 network, recovery and GPU settings. Driver Host denies requests without the
-owner grant; even with explicit opt-in, it currently reports Unsupported rather
-than falling back to its generic launcher. Host-owned initial-process
-attestation, the native session protocol, scene save/fresh reopen and an exact
-installed Blender runtime still require independent acceptance. The Linux Blender 4.5.14 LTS profile retains
+owner grant. Under explicit owner opt-in and separate grants for the exact
+Blender executable, entire read-only runtime and writable workspace, it can
+prepare a private snapshot and a fixed first-party bootstrap and request the
+closed platform launch. The generic sealed-tool path has no Blender fallback;
+the native session rejects driver-supplied arguments and CWD. Preparation is
+bounded, cancellable, hashed and separate from the driver process. The child
+uses a nonce-bound readiness marker with a bounded timeout and owner-process
+cleanup on failure. Fixed source assets are pinned to first-party donor commit
+a63deb7a542876af0656b4b398ff5463ad6c5ee5, not resolved from user scripts.
+
+Platform compilation and simulated/negative tests are not proof of an
+installed Blender 5.2.1 running under the broker. Physical scene Save/Reopen
+in an independent process, input mutation/readback and release admission
+still require separate evidence. The Linux Blender 4.5.14 LTS profile retains
 its own evidence and is not qualified by these Windows preparation tests.
 
 Requests outside the root, nested junction escapes, alternate data streams and

@@ -3,6 +3,8 @@
 mod loopback;
 #[cfg(target_os = "linux")]
 mod runtime_stderr;
+#[cfg(target_os = "windows")]
+mod windows_blender52;
 
 use async_trait::async_trait;
 use semwright_backend_api::{
@@ -102,8 +104,28 @@ impl SealedTool {
 #[derive(Clone)]
 struct SealedTool {
     name: String,
-    staged: Arc<StagedFile>,
+    /// The separately owner-granted original path; native Blender must be
+    /// inside a complete runtime tree, never a generic sealed-tool copy.
+    source: PathBuf,
+    /// Only generic tools have an individually sealed Host executable.
+    /// A native-profile tool has no fallback generic staged binary.
+    staged: Option<Arc<StagedFile>>,
     sha256: String,
+}
+
+#[cfg(target_os = "windows")]
+impl SealedTool {
+    fn staged_path(&self) -> Result<&Path> {
+        self.staged
+            .as_ref()
+            .map(|value| value.0.as_path())
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Owner-profiled Blender cannot be launched by the generic sealed tool path",
+                )
+            })
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -420,10 +442,73 @@ struct HostToolBroker {
     system_config_mounts: BTreeMap<String, Mount>,
     template: SandboxSpec,
     operation_cpu_seconds: u64,
+    native_blender52: Option<Arc<windows_blender52::Prepared>>,
 }
 
 #[cfg(target_os = "windows")]
 impl HostToolBroker {
+    async fn prepare_windows_blender52(
+        mut self,
+        state: &Path,
+        owner_granted: bool,
+    ) -> Result<Self> {
+        if !self
+            .contracts
+            .values()
+            .any(|c| c.windows_native_profile.is_some())
+        {
+            return Ok(self);
+        }
+        if !owner_granted {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Native Blender owner grant missing",
+            ));
+        }
+        let tool =
+            self.tools.get("blender").cloned().ok_or_else(|| {
+                Error::new(ErrorCode::PolicyDenied, "Native Blender tool missing")
+            })?;
+        let workspace = self
+            .workspace_mounts
+            .get("workspace")
+            .cloned()
+            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Native workspace grant missing"))?;
+        let runtime = self
+            .workspace_mounts
+            .get("blender-runtime")
+            .cloned()
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Native Blender runtime grant missing",
+                )
+            })?;
+        let state = state.to_path_buf();
+        // The blocking, bounded tree copy remains cancellation-aware if this
+        // future is cancelled, the Host disconnects or the deadline expires.
+        struct CancelStaging(Arc<std::sync::atomic::AtomicBool>);
+        impl Drop for CancelStaging {
+            fn drop(&mut self) {
+                self.0.store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
+        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let _cancel_on_drop = CancelStaging(cancel.clone());
+        let task = tokio::task::spawn_blocking(move || {
+            windows_blender52::prepare(&state, &tool, workspace, runtime, cancel)
+        });
+        self.native_blender52 = Some(
+            tokio::time::timeout(Duration::from_secs(185), task)
+                .await
+                .map_err(|_| {
+                    Error::new(ErrorCode::Timeout, "Native runtime preparation timed out")
+                })?
+                .map_err(|_| Error::unavailable("Native runtime staging task failed"))??,
+        );
+        Ok(self)
+    }
+
     fn new(
         root_spec: &SandboxSpec,
         tools: &[SealedTool],
@@ -488,6 +573,7 @@ impl HostToolBroker {
             system_config_mounts,
             template,
             operation_cpu_seconds,
+            native_blender52: None,
         })
     }
 }
@@ -553,6 +639,16 @@ impl HostToolExecutor for HostToolBroker {
                 "Detached runtime-tool jobs do not yet provide aggregate per-operation CPU accounting",
             ));
         }
+        if self
+            .contracts
+            .get(name)
+            .is_some_and(|contract| contract.windows_native_profile.is_some())
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Native Blender is a fixed persistent session, not a generic Host-tool execute request",
+            ));
+        }
         let tool = self.tools.get(name).ok_or_else(|| {
             Error::new(
                 ErrorCode::PolicyDenied,
@@ -562,7 +658,7 @@ impl HostToolExecutor for HostToolBroker {
         // Bind each invocation to the exact Host-staged immutable bytes while
         // allowing Windows' supported x64 user-mode emulation for sealed tools on ARM64.
         let _ = semwright_platform_services::verify_sealed_tool_executable(
-            &tool.staged.0,
+            tool.staged_path()?,
             &tool.sha256,
         )?;
 
@@ -591,7 +687,7 @@ impl HostToolExecutor for HostToolBroker {
         })?;
         let (prepared_args, dependencies, typed_args) = prepare_host_tool_args(contract, args)?;
         let mut spec = self.template.clone();
-        spec.staged_executable = tool.staged.0.clone();
+        spec.staged_executable = tool.staged_path()?.to_path_buf();
         spec.args = prepared_args;
         let mut selected_mounts = contract
             .mounts
@@ -640,7 +736,7 @@ impl HostToolExecutor for HostToolBroker {
                 })?;
                 Ok(SealedToolMount {
                     source: SealedToolSource::VerifiedFile {
-                        path: dependency_tool.staged.0.clone(),
+                        path: dependency_tool.staged_path()?.to_path_buf(),
                         sha256: dependency_tool.sha256.clone(),
                     },
                     name: dependency_tool.name.clone(),
@@ -818,16 +914,36 @@ impl HostToolExecutor for HostToolBroker {
                 "Driver requested an ungranted sealed session tool",
             )
         })?;
-        let _ = semwright_platform_services::verify_sealed_tool_executable(
-            &tool.staged.0,
-            &tool.sha256,
-        )?;
         let contract = self.contracts.get(name).ok_or_else(|| {
             Error::new(
                 ErrorCode::PolicyDenied,
                 "Driver requested a sealed session tool without a manifest contract",
             )
         })?;
+        if contract.windows_native_profile.is_some() {
+            if !args.is_empty() || cwd.is_some() {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Native Blender session does not accept caller flags, paths or CWD",
+                ));
+            }
+            let prepared = self.native_blender52.clone().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Native Blender profile was not owner-granted and prepared",
+                )
+            })?;
+            return windows_blender52::start(
+                prepared,
+                self.template.clone(),
+                CancellationToken::new(),
+            )
+            .await;
+        }
+        let _ = semwright_platform_services::verify_sealed_tool_executable(
+            tool.staged_path()?,
+            &tool.sha256,
+        )?;
         let (prepared_args, dependencies, typed_args) =
             prepare_host_tool_args(contract, HostToolArgs::Typed(args))?;
         if !typed_args {
@@ -838,7 +954,7 @@ impl HostToolExecutor for HostToolBroker {
         }
 
         let mut spec = self.template.clone();
-        spec.staged_executable = tool.staged.0.clone();
+        spec.staged_executable = tool.staged_path()?.to_path_buf();
         spec.args = prepared_args;
         let mut selected_mounts = contract
             .mounts
@@ -885,7 +1001,7 @@ impl HostToolExecutor for HostToolBroker {
                 })?;
                 Ok(SealedToolMount {
                     source: SealedToolSource::VerifiedFile {
-                        path: dependency_tool.staged.0.clone(),
+                        path: dependency_tool.staged_path()?.to_path_buf(),
                         sha256: dependency_tool.sha256.clone(),
                     },
                     name: dependency_tool.name.clone(),
@@ -1457,7 +1573,8 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str, state: &Path) -> Re
     let _ = semwright_platform_services::verify_sealed_tool_executable(&staged_path, digest)?;
     Ok(SealedTool {
         name: name.to_owned(),
-        staged,
+        source: path.to_path_buf(),
+        staged: Some(staged),
         sha256: digest.to_ascii_lowercase(),
     })
 }
@@ -1795,13 +1912,22 @@ fn validate_windows_native_profile(manifest: &Manifest, owner_granted: bool) -> 
             "Windows Blender profile is first-party Blender-only",
         ));
     }
-    // The typed request and runtime snapshot exist, but the Host-owned
-    // initial process, its Job/LPAC attestation and protocol session are
-    // NOT integrated here. Never fall back to the generic tool launcher.
-    Err(Error::new(
-        ErrorCode::Unsupported,
-        "Windows Blender native Host session is not yet enabled",
-    ))
+    // No extra tool, loopback, network, GPU or plain-Host-tool authority may
+    // coexist with this first-party profile. The owner separately grants the
+    // exact tool source, runtime root and writable workspace in roots.
+    if manifest.tools.len() != 1
+        || manifest.network
+        || manifest.loopback_port.is_some()
+        || manifest.nvidia_gpu
+        || manifest.protocol < 4
+        || !manifest.interfaces.host_tools
+    {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Native Blender profile requires the isolated first-party Host session and no additional authority",
+        ));
+    }
+    Ok(())
 }
 
 fn validate_nvidia_gpu_permission(manifest: &Manifest, allow_nvidia_gpu: bool) -> Result<()> {
@@ -3653,7 +3779,24 @@ impl DriverProvider {
                         .ok_or_else(|| {
                             Error::new(ErrorCode::PolicyDenied, "Driver tool grant disappeared")
                         })?;
-                    seal_verified_tool(&grant.path, &tool.sha256, &tool.name, state)
+                    if tool.windows_native_profile.is_some() {
+                        // Native Blender is an application tree, NOT a generic
+                        // <=64 MiB sealed tool. Validate the separately granted
+                        // owner executable under the native 512 MiB budget;
+                        // the Host later snapshots the entire verified tree.
+                        semwright_platform_services::verify_application_executable(
+                            &grant.path,
+                            &tool.sha256,
+                        )?;
+                        Ok(SealedTool {
+                            name: tool.name.clone(),
+                            source: grant.path.clone(),
+                            staged: None,
+                            sha256: tool.sha256.to_ascii_lowercase(),
+                        })
+                    } else {
+                        seal_verified_tool(&grant.path, &tool.sha256, &tool.name, state)
+                    }
                 })
                 .collect::<Result<Vec<_>>>()?;
             let loopback = match manifest.loopback_port {
@@ -3668,13 +3811,17 @@ impl DriverProvider {
                 loopback.as_deref().map(loopback::LoopbackProxy::pipe_path),
             )?;
             let tool_broker: Option<Arc<dyn HostToolExecutor>> = if manifest.interfaces.host_tools {
-                Some(Arc::new(HostToolBroker::new(
-                    &spec,
-                    &sealed_tools,
-                    &manifest.tools,
-                    &manifest.system_config,
-                    manifest.resources.operation_cpu_seconds,
-                )?))
+                Some(Arc::new(
+                    HostToolBroker::new(
+                        &spec,
+                        &sealed_tools,
+                        &manifest.tools,
+                        &manifest.system_config,
+                        manifest.resources.operation_cpu_seconds,
+                    )?
+                    .prepare_windows_blender52(state, allow_windows_blender52_initial)
+                    .await?,
+                ))
             } else {
                 None
             };
@@ -5330,9 +5477,32 @@ mod windows_native_profile_tests {
                 .code,
             ErrorCode::PolicyDenied
         );
-        let permitted = validate_windows_native_profile(&candidate, true).unwrap_err();
-        assert_eq!(permitted.code, ErrorCode::Unsupported);
-        assert!(permitted.outcome_known);
+        if cfg!(target_os = "windows") {
+            assert!(validate_windows_native_profile(&candidate, true).is_ok());
+        } else {
+            assert_eq!(
+                validate_windows_native_profile(&candidate, true)
+                    .unwrap_err()
+                    .code,
+                ErrorCode::Unsupported
+            );
+        }
+        candidate.network = true;
+        assert_eq!(
+            validate_windows_native_profile(&candidate, true)
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        candidate.network = false;
+        candidate.loopback_port = Some(39001);
+        assert_eq!(
+            validate_windows_native_profile(&candidate, true)
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        candidate.loopback_port = None;
         candidate.tools[0].windows_native_profile = None;
         assert!(validate_windows_native_profile(&candidate, false).is_ok());
     }
@@ -5375,8 +5545,15 @@ mod windows_native_profile_tests {
         )
         .await
         {
-            Ok(_) => panic!("unimplemented native Host session launched"),
-            Err(error) => assert_eq!(error.code, ErrorCode::Unsupported),
+            Ok(_) => panic!("native Host session accepted without owner-approved roots"),
+            Err(error) => assert_eq!(
+                error.code,
+                if cfg!(target_os = "windows") {
+                    ErrorCode::PolicyDenied
+                } else {
+                    ErrorCode::Unsupported
+                }
+            ),
         }
         assert!(!state.exists(), "native denial must not create state");
     }
