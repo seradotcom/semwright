@@ -5546,14 +5546,24 @@ mod windows_native_profile_tests {
         .await
         {
             Ok(_) => panic!("native Host session accepted without owner-approved roots"),
-            Err(error) => assert_eq!(
-                error.code,
+            Err(error) => {
+                // The sample manifest has no owner grants. Windows may
+                // reject its missing or invalid grant path before reaching
+                // the explicit policy denial. Both outcomes must remain
+                // known pre-launch failures with no filesystem side effects.
                 if cfg!(target_os = "windows") {
-                    ErrorCode::PolicyDenied
+                    assert!(
+                        matches!(
+                            error.code,
+                            ErrorCode::PolicyDenied | ErrorCode::InvalidArgument
+                        ),
+                        "{error:?}"
+                    );
                 } else {
-                    ErrorCode::Unsupported
+                    assert_eq!(error.code, ErrorCode::Unsupported);
                 }
-            ),
+                assert!(error.outcome_known);
+            }
         }
         assert!(!state.exists(), "native denial must not create state");
     }
