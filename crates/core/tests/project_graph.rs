@@ -1,5 +1,7 @@
 use semwright_backends::fake::FakeDesktop;
 use semwright_core::{Broker, NoApprover, audit::Audit};
+#[cfg(target_os = "windows")]
+use semwright_platform_api::filesystem::ScopedFilesystem;
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
 use semwright_types::{Envelope, ErrorCode, ExecuteRequest, unique_id};
 use serde_json::{Value, json};
