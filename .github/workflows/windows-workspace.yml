@@ -12,6 +12,7 @@ on:
       - 'crates/platform-services/src/lib.rs'
       - 'crates/cli/**'
       - 'crates/mcp/**'
+      - 'crates/protocol/**'
       - 'scripts/windows/workspace-smoke.py'
       - 'scripts/windows/run-interactive-certification.ps1'
       - 'scripts/windows/validate-interactive-certification.ps1'
@@ -52,9 +53,11 @@ jobs:
           toolchain: 1.98.1
           components: rustfmt
       - name: Check affected Rust formatting
-        run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/tests/windows_workspace.rs crates/cli/src/lib.rs crates/cli/src/semwright.rs crates/platform-services/src/lib.rs crates/platform-windows-sys/src/paths.rs crates/platform-windows-sys/src/filesystem.rs
+        run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/tests/windows_workspace.rs crates/cli/src/lib.rs crates/cli/src/semwright.rs crates/platform-services/src/lib.rs crates/platform-windows-sys/src/paths.rs crates/platform-windows-sys/src/filesystem.rs crates/protocol/src/lib.rs
       - name: Parse the interactive harness
         run: ./scripts/windows/validate-interactive-certification.ps1
+      - name: Response-loss transport semantics
+        run: cargo test --locked -p semwright-protocol --lib transport_outcome_tests
       - name: Workspace configuration and native confinement
         run: |
           cargo test --locked -p semwright-daemon --test windows_workspace
@@ -145,7 +148,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libpipewire-0.3-dev
-      - name: Shared setup and configuration regression checks
+      - name: Shared setup, configuration and transport checks
         run: |
           cargo test --locked -p semwright-cli setup_
           cargo test --locked -p semwright-daemon --lib config::tests
+          cargo test --locked -p semwright-protocol --lib transport_outcome_tests

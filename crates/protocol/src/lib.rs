@@ -226,33 +226,198 @@ impl Client {
     }
 
     pub async fn execute(&mut self, id: String, request: ExecuteRequest) -> Result<Envelope> {
-        write_frame(
-            &mut self.stream,
-            &ClientMessage::Execute {
-                id: id.clone(),
-                request,
-            },
-        )
-        .await?;
-        loop {
-            match read_frame::<_, ServerMessage>(&mut self.stream).await? {
-                ServerMessage::Result { envelope } if envelope.request_id == id => {
-                    return Ok(*envelope);
-                }
-                ServerMessage::Error { error } => return Err(error),
-                ServerMessage::Event { .. } => (),
-                _ => {
-                    return Err(Error::new(
-                        ErrorCode::ProtocolMismatch,
-                        "Unexpected broker response",
-                    ));
-                }
-            }
-        }
+        execute_framed(&mut self.stream, id, request).await
     }
 
     pub async fn cancel(&mut self, id: String) -> Result<()> {
         write_frame(&mut self.stream, &ClientMessage::Cancel { id }).await
+    }
+}
+
+/// A dropped response cannot prove that the broker did not apply the request.
+/// Encode first so an invalid/oversized request remains a known pre-dispatch error.
+async fn execute_framed<S>(stream: &mut S, id: String, request: ExecuteRequest) -> Result<Envelope>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let frame = encode(&ClientMessage::Execute {
+        id: id.clone(),
+        request,
+    })?;
+    // Even a failed write can have placed a complete request on the wire.
+    stream
+        .write_all(&frame)
+        .await
+        .map_err(|error| Error::from(error).uncertain())?;
+    stream
+        .flush()
+        .await
+        .map_err(|error| Error::from(error).uncertain())?;
+    loop {
+        let message = read_frame::<_, ServerMessage>(stream)
+            .await
+            .map_err(Error::uncertain)?;
+        match message {
+            ServerMessage::Result { envelope } if envelope.request_id == id => {
+                // Only an id-matched broker envelope can certify the outcome.
+                return Ok(*envelope);
+            }
+            ServerMessage::Event { .. } => (),
+            ServerMessage::Error { error } => {
+                // An uncorrelated protocol error is not the command's result.
+                return Err(error.uncertain());
+            }
+            _ => {
+                return Err(
+                    Error::new(ErrorCode::ProtocolMismatch, "Unexpected broker response")
+                        .uncertain(),
+                );
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod transport_outcome_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn request() -> ExecuteRequest {
+        ExecuteRequest {
+            command: "filesystem.write".into(),
+            args: json!({"root":"workspace","path":"file.txt","text":"change"}),
+            dry_run: false,
+            backend: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn dropped_response_after_dispatch_is_uncertain() {
+        let (mut client, mut broker) = tokio::io::duplex(512);
+        let expected_id = "a".repeat(32);
+        let peer = tokio::spawn(async move {
+            match read_frame::<_, ClientMessage>(&mut broker).await.unwrap() {
+                ClientMessage::Execute { id, request } => {
+                    assert_eq!(id, expected_id);
+                    assert_eq!(request.command, "filesystem.write");
+                }
+                other => panic!("expected Execute, got {other:?}"),
+            }
+            // The broker may have committed the change; no result is delivered.
+        });
+        let error = execute_framed(&mut client, "a".repeat(32), request())
+            .await
+            .unwrap_err();
+        peer.await.unwrap();
+        assert!(!error.outcome_known, "{error:?}");
+    }
+
+    #[tokio::test]
+    async fn broken_send_does_not_claim_a_known_outcome() {
+        let (mut client, broker) = tokio::io::duplex(64);
+        drop(broker);
+        let error = execute_framed(&mut client, "a".repeat(32), request())
+            .await
+            .unwrap_err();
+        assert!(!error.outcome_known, "{error:?}");
+    }
+
+    #[tokio::test]
+    async fn wrong_id_result_cannot_certify_the_command() {
+        let (mut client, mut broker) = tokio::io::duplex(512);
+        let peer = tokio::spawn(async move {
+            let _: ClientMessage = read_frame(&mut broker).await.unwrap();
+            let unrelated = Envelope::finish(
+                "b".repeat(32),
+                "filesystem.write".into(),
+                "filesystem".into(),
+                std::time::Duration::ZERO,
+                false,
+                Ok(json!({"written":true})),
+            );
+            write_frame(
+                &mut broker,
+                &ServerMessage::Result {
+                    envelope: Box::new(unrelated),
+                },
+            )
+            .await
+            .unwrap();
+        });
+        let error = execute_framed(&mut client, "a".repeat(32), request())
+            .await
+            .unwrap_err();
+        peer.await.unwrap();
+        assert_eq!(error.code, ErrorCode::ProtocolMismatch);
+        assert!(!error.outcome_known);
+    }
+
+    #[tokio::test]
+    async fn uncorrelated_protocol_error_is_uncertain() {
+        let (mut client, mut broker) = tokio::io::duplex(512);
+        let peer = tokio::spawn(async move {
+            let _: ClientMessage = read_frame(&mut broker).await.unwrap();
+            write_frame(
+                &mut broker,
+                &ServerMessage::Error {
+                    error: Error::new(ErrorCode::Conflict, "uncorrelated protocol event"),
+                },
+            )
+            .await
+            .unwrap();
+        });
+        let error = execute_framed(&mut client, "a".repeat(32), request())
+            .await
+            .unwrap_err();
+        peer.await.unwrap();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert!(!error.outcome_known);
+    }
+
+    #[tokio::test]
+    async fn correlated_broker_denial_remains_definitive() {
+        let (mut client, mut broker) = tokio::io::duplex(512);
+        let peer = tokio::spawn(async move {
+            let _: ClientMessage = read_frame(&mut broker).await.unwrap();
+            let denied = Envelope::finish(
+                "a".repeat(32),
+                "filesystem.write".into(),
+                "filesystem".into(),
+                std::time::Duration::ZERO,
+                false,
+                Err(Error::new(ErrorCode::PolicyDenied, "root is read only")),
+            );
+            write_frame(
+                &mut broker,
+                &ServerMessage::Result {
+                    envelope: Box::new(denied),
+                },
+            )
+            .await
+            .unwrap();
+        });
+        let envelope = execute_framed(&mut client, "a".repeat(32), request())
+            .await
+            .unwrap();
+        peer.await.unwrap();
+        assert!(!envelope.ok);
+        assert_eq!(
+            envelope.error.as_ref().unwrap().code,
+            ErrorCode::PolicyDenied
+        );
+        assert!(envelope.error.unwrap().outcome_known);
+    }
+
+    #[tokio::test]
+    async fn oversized_request_is_rejected_before_dispatch() {
+        let (mut client, _broker) = tokio::io::duplex(64);
+        let mut request = request();
+        request.args = json!({"text": "x".repeat(MAX_FRAME)});
+        let error = execute_framed(&mut client, "a".repeat(32), request)
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidArgument);
+        assert!(error.outcome_known);
     }
 }
 
