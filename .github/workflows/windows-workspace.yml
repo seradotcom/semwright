@@ -3,6 +3,19 @@ name: Windows workspace connection
 on:
   push:
     branches: [fix/windows-workspace-roots]
+  pull_request:
+    paths:
+      - 'crates/daemon/src/config.rs'
+      - 'crates/daemon/tests/windows_workspace.rs'
+      - 'crates/platform-windows-sys/src/filesystem.rs'
+      - 'crates/platform-windows-sys/src/paths.rs'
+      - 'crates/platform-services/src/lib.rs'
+      - 'crates/cli/**'
+      - 'crates/mcp/**'
+      - 'scripts/windows/workspace-smoke.py'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/windows-workspace.yml'
   workflow_dispatch:
 
 permissions:
@@ -76,3 +89,22 @@ jobs:
             target/debug/semwright-sandbox.exe
             verification/windows-workspace/binaries.json
           retention-days: 7
+
+  unix-setup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.98.1
+      - name: Install Linux platform dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
+      - name: Shared setup and configuration regression checks
+        run: |
+          cargo test --locked -p semwright-cli setup_
+          cargo test --locked -p semwright-daemon --lib config::tests

@@ -127,7 +127,7 @@ def run(binary_dir: Path, output: Path):
         sentinel.write_text("outside must stay unchanged\n", encoding="utf-8")
         data = workspace / "settings.json"
         before = '{"enabled": false}\n'
-        data.write_text(before, encoding="utf-8")
+        data.write_bytes(before.encode("utf-8"))
         config_dir = base / "owner-config"
         config = config_dir / "daemon.toml"
         data_root = base / "private-data"
@@ -221,7 +221,8 @@ def run(binary_dir: Path, output: Path):
                 tools = client.request("tools/list", {})["tools"]
                 assert any(tool["name"] == "semwright_execute" for tool in tools)
                 args = {"root": "workspace", "path": "settings.json"}
-                assert check_ok(client.execute("filesystem.read", args))["text"] == before
+                initial = check_ok(client.execute("filesystem.read", args))["text"]
+                assert initial == before, (repr(initial), repr(before))
                 first = '{"enabled": true}\n'
                 check_ok(client.execute("filesystem.write", dict(args, text=first)))
                 assert check_ok(client.execute("filesystem.read", args))["text"] == first
