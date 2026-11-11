@@ -605,6 +605,112 @@ async fn windows_native_project_asset_observes_human_edits_but_not_file_replacem
 
 #[cfg(target_os = "windows")]
 #[tokio::test]
+async fn windows_project_reopen_preserves_owner_and_reconciles_offline_edit() {
+    let (_temp, root, state) = fixture();
+    let path = root.join("offline.bin");
+    std::fs::write(&path, b"first-version").unwrap();
+    let principal = "os-user-v1:fixture:stable-restart";
+    let first = broker(&root, &state, "audit-restart-first", principal);
+    let session = unique_id();
+    let created = call(
+        &first,
+        &session,
+        "project.create",
+        json!({"root":"workspace"}),
+    )
+    .await;
+    assert!(created.ok, "{created:?}");
+    let project = created.data.unwrap()["project"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let registered = call(
+        &first,
+        &session,
+        "project.asset.register",
+        json!({
+            "root":"workspace","project":project,
+            "label":"offline file","resource_type":"fixture",
+            "path":"offline.bin","max_bytes":4096
+        }),
+    )
+    .await;
+    assert!(registered.ok, "{registered:?}");
+    let asset = registered.data.unwrap()["result"]["asset"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let original = call(
+        &first,
+        &session,
+        "project.revisions",
+        json!({"root":"workspace","project":project,"asset":asset}),
+    )
+    .await;
+    assert!(original.ok, "{original:?}");
+    assert_eq!(
+        original.data.unwrap()["result"]["revisions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    drop(first);
+
+    // Read-only native reopen isolates the private-scope prerequisite from
+    // ownership and SQLite replay. This does not grant the project directory
+    // to a client or weaken the broker's owner-only ACL.
+    let private = semwright_platform_services::filesystem()
+        .open_root(&state.join(&project), true, false)
+        .expect("Windows private project directory cannot reopen read-only");
+    let boundary = private
+        .read(Path::new("scope.json"), 4096)
+        .expect("Windows private project scope cannot be read after restart");
+    assert!(!boundary.is_empty());
+    drop(private);
+
+    std::fs::write(&path, b"human-edited-offline").unwrap();
+    let second = broker(&root, &state, "audit-restart-second", principal);
+    let second_session = unique_id();
+    let reopened = call(
+        &second,
+        &second_session,
+        "project.query",
+        json!({"root":"workspace","project":project}),
+    )
+    .await;
+    assert!(
+        reopened.ok,
+        "Same owner/project refused native reopen: {reopened:?}"
+    );
+    let reconciled = call(
+        &second,
+        &second_session,
+        "project.asset.reconcile",
+        json!({"root":"workspace","project":project,"asset":asset}),
+    )
+    .await;
+    assert!(reconciled.ok, "{reconciled:?}");
+    let revisions = call(
+        &second,
+        &second_session,
+        "project.revisions",
+        json!({"root":"workspace","project":project,"asset":asset}),
+    )
+    .await;
+    assert!(revisions.ok, "{revisions:?}");
+    assert_eq!(
+        revisions.data.unwrap()["result"]["revisions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2,
+        "Offline edit must become another observed revision, not another project"
+    );
+}
+
+#[cfg(target_os = "windows")]
+#[tokio::test]
 async fn project_store_database_inherits_private_windows_acl() {
     let (_temp, root, state) = fixture();
     let broker = broker(

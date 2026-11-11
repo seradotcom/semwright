@@ -18,6 +18,7 @@ on:
       - 'crates/core/tests/project_graph.rs'
       - 'schemas/commands.json'
       - 'scripts/windows/workspace-smoke.py'
+      - 'scripts/windows/project-restart-smoke.py'
       - 'scripts/windows/delayed-hello-smoke.ps1'
       - 'scripts/windows/run-interactive-certification.ps1'
       - 'scripts/windows/validate-interactive-certification.ps1'
@@ -66,7 +67,10 @@ jobs:
       - name: Window-scoped semantic snapshot contract
         run: cargo test --locked -p semwright-core --lib scoped_snapshot_tests
       - name: Windows project file-instance continuity
-        run: cargo test --locked -p semwright-core --test project_graph windows_native_project_asset_observes_human_edits_but_not_file_replacement
+        run: |
+          cargo test --locked -p semwright-core --test project_graph windows_native_project_asset_observes_human_edits_but_not_file_replacement
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-core --test project_graph windows_project_reopen_preserves_owner_and_reconciles_offline_edit
       - name: Workspace configuration and native confinement
         run: |
           cargo test --locked -p semwright-daemon --test windows_workspace
@@ -81,6 +85,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build local interfaces
         run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins
+      - name: Native project restart with offline owner edit
+        run: python scripts/windows/project-restart-smoke.py --bin-dir target/debug --output verification/windows-project-restart
       - name: Delayed and anonymous Windows pipe handshakes
         run: ./scripts/windows/delayed-hello-smoke.ps1 -BinDir target/debug -Output verification/windows-pipe
       - name: Build the bounded physical UIA case without running it
@@ -121,6 +127,7 @@ jobs:
           path: |
             verification/windows-workspace/
             verification/windows-pipe/
+            verification/windows-project-restart/
           retention-days: 14
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: success()
