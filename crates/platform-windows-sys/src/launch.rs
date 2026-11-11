@@ -540,7 +540,9 @@ fn verify_materialized_sealed_tool(path: &Path, digest: &str) -> Result<()> {
 }
 
 pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
-    if max_bytes == 0 || max_bytes > 16 * 1024 * 1024 {
+    // Project Graph stores may use up to 64 MiB; caller-specific budgets such
+    // as sealed driver state stay at their explicit smaller limits.
+    if max_bytes == 0 || max_bytes > 64 * 1024 * 1024 {
         return Err(Error::invalid(
             "Windows private-file verification budget is invalid",
         ));

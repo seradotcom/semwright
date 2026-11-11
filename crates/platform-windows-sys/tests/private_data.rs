@@ -30,6 +30,24 @@ fn private_data_accepts_small_owner_controlled_file() {
 }
 
 #[test]
+fn private_data_accepts_project_store_budget_and_keeps_caller_limits() {
+    const GRAPH_BUDGET: u64 = 64 * 1024 * 1024;
+    let directory = tempfile::tempdir().expect("private graph-store directory");
+    let db = directory.path().join("project.sqlite3");
+    // Above the old 16 MiB verifier ceiling, but within the existing SQLite
+    // 64 MiB budget. This is a disposable CI fixture, not an actual user DB.
+    std::fs::write(&db, vec![0x7a; 16 * 1024 * 1024 + 1])
+        .expect("write bounded project store fixture");
+    harden_file(&db);
+    verify_private_data_file(&db, GRAPH_BUDGET)
+        .expect("64 MiB graph budget must admit a trusted 16 MiB+ private file");
+    let smaller = verify_private_data_file(&db, 4096).unwrap_err();
+    assert_eq!(smaller.code, ErrorCode::PermissionDenied);
+    let excessive = verify_private_data_file(&db, GRAPH_BUDGET + 1).unwrap_err();
+    assert_eq!(excessive.code, ErrorCode::InvalidArgument);
+}
+
+#[test]
 fn private_data_rejects_hard_linked_source() {
     let directory = tempfile::tempdir().expect("private-data directory");
     let secret = directory.path().join("secret.txt");
