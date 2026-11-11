@@ -4378,6 +4378,10 @@ mod windows_native_profile_tests {
             "../../driver-blender/driver.manifest.example.json"
         ))
         .unwrap();
+        // The portable manifest example uses a Unix placeholder executable.
+        // Use the absolute test executable on Windows without weakening the
+        // SDK's executable-path validation.
+        manifest.executable = std::env::current_exe().unwrap();
         manifest.tools = vec![request()];
         manifest
             .validate()
