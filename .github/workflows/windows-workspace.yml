@@ -10,6 +10,7 @@ on:
       - 'crates/daemon/src/server.rs'
       - 'crates/driver-sdk/**'
       - 'crates/driver-host/**'
+      - 'crates/driver-blender/**'
       - 'crates/platform-windows/**'
       - 'crates/platform-windows-sys/**'
       - 'crates/platform-services/src/lib.rs'
@@ -109,6 +110,26 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build local interfaces
         run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins
+      - name: Build Blender 5.2.1 native acceptance binary (not a release)
+        run: |
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver native_initial_session_never_uses_legacy_runner_or_driver_flags
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --locked -p semwright-driver-blender --bin semwright-blender-driver
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $driver = 'target/debug/semwright-blender-driver.exe'
+          if (!(Test-Path -LiteralPath $driver)) { throw 'Windows native driver executable missing' }
+          New-Item -ItemType Directory -Force verification/windows-blender-native | Out-Null
+          @{
+            source = '${{ github.sha }}'
+            name = 'semwright-blender-driver.exe'
+            sha256 = (Get-FileHash -LiteralPath $driver -Algorithm SHA256).Hash.ToLowerInvariant()
+            windows_blender_version = '5.2.1'
+            native_host_profile = 'blender_5_2_1_initial'
+            linux_runner_unchanged = $true
+            physical_blender_accepted = $false
+            release_admission = $false
+            runner = 'windows-2025'
+          } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 verification/windows-blender-native/manifest.json
       - name: Native project restart with offline owner edit
         run: python scripts/windows/project-restart-smoke.py --bin-dir target/debug --output verification/windows-project-restart
       - name: Delayed and anonymous Windows pipe handshakes
@@ -168,6 +189,14 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: success()
         with:
+          name: windows-blender-native-driver-acceptance
+          path: |
+            target/debug/semwright-blender-driver.exe
+            verification/windows-blender-native/manifest.json
+          retention-days: 7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: success()
+        with:
           name: windows-uia-physical-test
           path: |
             verification/windows-uia/uia-native-fixture.exe
@@ -201,3 +230,4 @@ jobs:
           cargo test --locked -p semwright-protocol --lib transport_outcome_tests
           cargo test --locked -p semwright-core --lib scoped_snapshot_tests
           cargo test --locked -p semwright-driver-sdk --lib windows_native_profile_tests
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver native_initial_session_never_uses_legacy_runner_or_driver_flags

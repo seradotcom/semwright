@@ -23,6 +23,12 @@ const FONT_CONFIG_MOUNT: &str = "font-config";
 const BLENDER_TOOL: &str = "blender";
 const SESSION_RUNNER_TOOL: &str = "blender-session-runner";
 const MAX_DRIVER_SESSIONS: usize = 2;
+// The two first-party initial profiles are intentionally distinct. Do not
+// accept a different Blender release because it happens to answer the same
+// JSON transport: native data and RNA compatibility are version-bound.
+#[cfg(target_os = "windows")]
+const SUPPORTED_BLENDER_VERSION: [u64; 3] = [5, 2, 1];
+#[cfg(not(target_os = "windows"))]
 const SUPPORTED_BLENDER_VERSION: [u64; 3] = [4, 5, 14];
 const LEGACY_DESCRIPTORS: &str = include_str!("../../../schemas/commands.json");
 #[cfg(test)]
@@ -1368,6 +1374,28 @@ fn bridge_error_code(value: &str) -> ErrorCode {
     }
 }
 
+fn initial_session_spec() -> (&'static str, Vec<RuntimeToolArg>, Option<RuntimeToolCwd>) {
+    // On Windows the Host constructs the entire pinned 5.2.1 launch,
+    // including its nonce, bootstrap and mounts. The driver must supply NO
+    // arguments or CWD, and must not invoke the Linux legacy session runner.
+    #[cfg(target_os = "windows")]
+    {
+        (BLENDER_TOOL, vec![], None)
+    }
+    // The Linux 4.5.14 LTS profile retains its independently tested runner.
+    #[cfg(not(target_os = "windows"))]
+    {
+        (
+            SESSION_RUNNER_TOOL,
+            session_arguments(),
+            Some(RuntimeToolCwd {
+                mount: SCRATCH_MOUNT.into(),
+                relative: String::new(),
+            }),
+        )
+    }
+}
+
 fn session_arguments() -> Vec<RuntimeToolArg> {
     vec![
         RuntimeToolArg::Literal {
@@ -1575,16 +1603,9 @@ impl BlenderDriver {
                 "Blender DriverProvider session capacity is exhausted",
             ));
         }
+        let (tool, args, cwd) = initial_session_spec();
         let session = context
-            .start_runtime_tool_session_args(
-                SESSION_RUNNER_TOOL,
-                session_arguments(),
-                Duration::from_secs(3_600),
-                Some(RuntimeToolCwd {
-                    mount: SCRATCH_MOUNT.into(),
-                    relative: String::new(),
-                }),
-            )
+            .start_runtime_tool_session_args(tool, args, Duration::from_secs(3_600), cwd)
             .await?;
 
         let summary = match Self::exchange(
@@ -1621,15 +1642,22 @@ impl BlenderDriver {
             })?;
         if version != SUPPORTED_BLENDER_VERSION {
             let _ = context.close_runtime_tool_session(&session).await;
-            return Err(Error::unavailable(
-                "Owner-pinned Blender version is not the supported 4.5.14 LTS runtime",
-            ));
+            return Err(Error::unavailable(format!(
+                "Owner-pinned Blender version is not the supported {}.{}.{} LTS runtime",
+                SUPPORTED_BLENDER_VERSION[0],
+                SUPPORTED_BLENDER_VERSION[1],
+                SUPPORTED_BLENDER_VERSION[2]
+            )));
         }
         let version_string = summary
             .get("version_string")
             .and_then(Value::as_str)
             .filter(|value| value.len() <= 128 && !value.chars().any(char::is_control))
-            .unwrap_or("4.5.14 LTS")
+            .unwrap_or(if cfg!(target_os = "windows") {
+                "5.2.1 LTS"
+            } else {
+                "4.5.14 LTS"
+            })
             .to_owned();
         self.sessions
             .insert(context.session().to_owned(), session.clone());
@@ -2016,6 +2044,31 @@ mod tests {
             256
         );
         assert_eq!(output["properties"]["fallback"]["maxLength"], 1024);
+    }
+
+    #[test]
+    fn native_initial_session_never_uses_legacy_runner_or_driver_flags() {
+        let (tool, args, cwd) = initial_session_spec();
+        if cfg!(target_os = "windows") {
+            assert_eq!(SUPPORTED_BLENDER_VERSION, [5, 2, 1]);
+            assert_eq!(tool, BLENDER_TOOL);
+            assert!(
+                args.is_empty(),
+                "Windows Host constructs all Blender arguments"
+            );
+            assert!(cwd.is_none(), "Windows Host fixes the bootstrap directory");
+        } else {
+            assert_eq!(SUPPORTED_BLENDER_VERSION, [4, 5, 14]);
+            assert_eq!(tool, SESSION_RUNNER_TOOL);
+            assert_eq!(
+                serde_json::to_value(&args).unwrap(),
+                serde_json::to_value(session_arguments()).unwrap()
+            );
+            assert_eq!(
+                cwd.as_ref().map(|value| value.mount.as_str()),
+                Some(SCRATCH_MOUNT)
+            );
+        }
     }
 
     #[test]
