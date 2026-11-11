@@ -7,6 +7,7 @@ on:
     paths:
       - 'crates/daemon/src/config.rs'
       - 'crates/daemon/tests/windows_workspace.rs'
+      - 'crates/daemon/src/server.rs'
       - 'crates/platform-windows/**'
       - 'crates/platform-windows-sys/**'
       - 'crates/platform-services/src/lib.rs'
@@ -16,6 +17,7 @@ on:
       - 'crates/core/src/lib.rs'
       - 'schemas/commands.json'
       - 'scripts/windows/workspace-smoke.py'
+      - 'scripts/windows/delayed-hello-smoke.ps1'
       - 'scripts/windows/run-interactive-certification.ps1'
       - 'scripts/windows/validate-interactive-certification.ps1'
       - 'packaging/portable/**'
@@ -55,7 +57,7 @@ jobs:
           toolchain: 1.98.1
           components: rustfmt
       - name: Check affected Rust formatting
-        run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/tests/windows_workspace.rs crates/cli/src/lib.rs crates/cli/src/semwright.rs crates/platform-services/src/lib.rs crates/platform-windows-sys/src/paths.rs crates/platform-windows-sys/src/filesystem.rs crates/protocol/src/lib.rs
+        run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/src/server.rs crates/daemon/tests/windows_workspace.rs crates/cli/src/lib.rs crates/cli/src/semwright.rs crates/platform-services/src/lib.rs crates/platform-windows-sys/src/paths.rs crates/platform-windows-sys/src/filesystem.rs crates/protocol/src/lib.rs
       - name: Parse the interactive harness
         run: ./scripts/windows/validate-interactive-certification.ps1
       - name: Response-loss transport semantics
@@ -74,6 +76,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build local interfaces
         run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins
+      - name: Delayed and anonymous Windows pipe handshakes
+        run: ./scripts/windows/delayed-hello-smoke.ps1 -BinDir target/debug -Output verification/windows-pipe
       - name: Build the bounded physical UIA case without running it
         run: |
           New-Item -ItemType Directory -Force verification/windows-uia | Out-Null
@@ -109,7 +113,9 @@ jobs:
         if: always()
         with:
           name: windows-workspace-evidence
-          path: verification/windows-workspace/
+          path: |
+            verification/windows-workspace/
+            verification/windows-pipe/
           retention-days: 14
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: success()

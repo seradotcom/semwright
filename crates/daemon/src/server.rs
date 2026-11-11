@@ -186,6 +186,7 @@ impl Drop for SocketFile {
 }
 async fn connection<S>(
     mut stream: S,
+    authenticate_after_hello: fn(&S) -> Result<()>,
     broker: Arc<Broker>,
     sessions: Arc<Sessions>,
     stop: CancellationToken,
@@ -200,6 +201,10 @@ where
     )
     .await
     .map_err(|_| Error::new(ErrorCode::Timeout, "Broker handshake timed out"))??;
+    // Windows pipe impersonation needs the last client message to have been read.
+    // Authenticate the OS peer before interpreting any bearer ticket, sending a
+    // response or installing a session. A failed check is silent and fail-closed.
+    authenticate_after_hello(&stream)?;
     let session = match message {
         ClientMessage::Hello {
             version: PROTOCOL_VERSION,
@@ -466,7 +471,7 @@ pub async fn serve(path: &Path, broker: Arc<Broker>, stop: CancellationToken) ->
                 if validate_peer(&stream).is_err(){continue;}
                 let Ok(permit)=connections.clone().try_acquire_owned()else{continue};
                 let broker=broker.clone();let sessions=sessions.clone();let stop=stop.clone();let jobs=jobs.clone();
-                handlers.spawn(async move{let _permit=permit;let _=connection(stream,broker,sessions,stop,jobs).await;});
+                handlers.spawn(async move{let _permit=permit;let _=connection(stream, |_| Ok(()), broker,sessions,stop,jobs).await;});
             },
         }
     }
@@ -489,15 +494,19 @@ pub async fn serve(path: &Path, broker: Arc<Broker>, stop: CancellationToken) ->
             joined=handlers.join_next(),if !handlers.is_empty()=>{let _=joined;},
             connected=listener.connect()=>{
                 connected?;
-                if semwright_platform_services::validate_windows_server_peer(&listener).is_err() {
-                    listener = semwright_platform_services::windows_pipe_server(path, first)?;
-                    continue;
-                }
+                // No impersonation at accept: the new client has not written Hello.
                 let connected = listener;
                 listener = semwright_platform_services::windows_pipe_server(path, first)?;
                 let Ok(permit)=connections.clone().try_acquire_owned()else{continue};
                 let broker=broker.clone();let sessions=sessions.clone();let stop=stop.clone();let jobs=jobs.clone();
-                handlers.spawn(async move{let _permit=permit;let _=connection(connected,broker,sessions,stop,jobs).await;});
+                handlers.spawn(async move{
+                    let _permit=permit;
+                    let _=connection(
+                        connected,
+                        |pipe| semwright_platform_services::validate_windows_server_peer(pipe).map(|_| ()),
+                        broker,sessions,stop,jobs
+                    ).await;
+                });
             },
         }
     }
