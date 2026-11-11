@@ -56,6 +56,23 @@ A different file at that name is ambiguous until explicitly rebound by the owner
 normal in-place changes can be recorded as new revisions. This is best-effort
 revalidation, not an atomic transaction, lock or permission to overwrite files.
 
+### Native Blender runtime preparation
+
+The Windows platform layer has a Host-internal, owner-pinned Blender 5.2.1
+runtime snapshot primitive. A trusted Host caller must first validate a separate
+owner grant for the executable and the read/execute runtime directory, a fresh
+private destination, and nonoverlap with the writable project and private state.
+Preparation copies bounded files from non-reparse, identity-checked handles,
+checks trusted ACLs and each file digest, verifies the exact sealed Blender
+executable, and returns a runtime inventory. Cancellation and existing
+destinations fail without treating the operation as an application launch.
+
+This platform primitive alone does not enable driver.blender.* on Windows.
+A broker-authorized Driver Host profile, its initial-process attestation, native
+session/protocol, scene save/reopen and an exact installed Blender runtime still
+require independent acceptance. The Linux Blender 4.5.14 LTS profile retains
+its own evidence and is not qualified by these Windows preparation tests.
+
 Requests outside the root, nested junction escapes, alternate data streams and
 hard-linked files are rejected by the native backend. Do not retry a denied request
 through another provider. For a completed edit, inspect the returned result and read

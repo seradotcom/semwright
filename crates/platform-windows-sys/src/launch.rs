@@ -1,3 +1,9 @@
+#[path = "launch/blender52_runtime.rs"]
+mod blender52_runtime;
+pub use blender52_runtime::{
+    paths_overlap as windows_native_paths_overlap, stage as stage_blender52_runtime,
+};
+
 #[cfg(target_arch = "aarch64")]
 use crate::pe::IMAGE_FILE_MACHINE_AMD64;
 use crate::{

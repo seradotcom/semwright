@@ -59,7 +59,7 @@ jobs:
           toolchain: 1.98.1
           components: rustfmt
       - name: Check affected Rust formatting
-        run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/src/server.rs crates/daemon/tests/windows_workspace.rs crates/cli/src/lib.rs crates/cli/src/semwright.rs crates/platform-services/src/lib.rs crates/platform-windows-sys/src/launch.rs crates/platform-windows-sys/tests/private_data.rs crates/platform-windows-sys/src/paths.rs crates/platform-windows-sys/src/filesystem.rs crates/platform-windows-sys/src/window.rs crates/platform-windows/src/lib.rs crates/core/tests/project_graph.rs crates/protocol/src/lib.rs
+        run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/src/server.rs crates/daemon/tests/windows_workspace.rs crates/cli/src/lib.rs crates/cli/src/semwright.rs crates/platform-services/src/lib.rs crates/platform-windows-sys/src/launch.rs crates/platform-windows-sys/src/launch/blender52_runtime.rs crates/platform-windows-sys/tests/private_data.rs crates/platform-windows-sys/src/paths.rs crates/platform-windows-sys/src/filesystem.rs crates/platform-windows-sys/src/window.rs crates/platform-windows/src/lib.rs crates/core/tests/project_graph.rs crates/protocol/src/lib.rs
       - name: Parse the interactive harness
         run: ./scripts/windows/validate-interactive-certification.ps1
       - name: Response-loss transport semantics
@@ -73,6 +73,8 @@ jobs:
           cargo test --locked -p semwright-core --test project_graph windows_native_project_asset_observes_human_edits_but_not_file_replacement
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-core --test project_graph windows_project_reopen_preserves_owner_and_reconciles_offline_edit
+      - name: Windows owner-authorized native runtime source confinement
+        run: cargo test --locked -p semwright-platform-windows-sys --lib native_runtime_tests
       - name: Workspace configuration and native confinement
         run: |
           cargo test --locked -p semwright-daemon --test windows_workspace

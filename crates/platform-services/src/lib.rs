@@ -191,6 +191,28 @@ pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
     semwright_platform_windows_sys::launch::verify_private_data_file(path, max_bytes)
 }
 
+/// Host-internal native runtime preparation. No client, app or manifest can
+/// acquire this authority by supplying a path.
+#[cfg(target_os = "windows")]
+pub fn stage_blender52_runtime(
+    source: &Path,
+    destination: &Path,
+    executable_sha256: &str,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Result<serde_json::Value> {
+    semwright_platform_windows_sys::launch::stage_blender52_runtime(
+        source,
+        destination,
+        executable_sha256,
+        cancel,
+    )
+}
+
+#[cfg(target_os = "windows")]
+pub fn windows_native_paths_overlap(left: &Path, right: &Path) -> Result<bool> {
+    semwright_platform_windows_sys::launch::windows_native_paths_overlap(left, right)
+}
+
 pub fn sandbox_command(
     s: &semwright_platform_api::launch::SandboxSpec,
 ) -> Result<tokio::process::Command> {
