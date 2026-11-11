@@ -1704,6 +1704,11 @@
     "input_schema": {
       "type": "object",
       "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win):[0-9a-f]{32}$"
+        },
         "app": {
           "type": "string",
           "maxLength": 255

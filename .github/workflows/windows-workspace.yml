@@ -13,6 +13,8 @@ on:
       - 'crates/cli/**'
       - 'crates/mcp/**'
       - 'crates/protocol/**'
+      - 'crates/core/src/lib.rs'
+      - 'schemas/commands.json'
       - 'scripts/windows/workspace-smoke.py'
       - 'scripts/windows/run-interactive-certification.ps1'
       - 'scripts/windows/validate-interactive-certification.ps1'
@@ -58,6 +60,8 @@ jobs:
         run: ./scripts/windows/validate-interactive-certification.ps1
       - name: Response-loss transport semantics
         run: cargo test --locked -p semwright-protocol --lib transport_outcome_tests
+      - name: Window-scoped semantic snapshot contract
+        run: cargo test --locked -p semwright-core --lib scoped_snapshot_tests
       - name: Workspace configuration and native confinement
         run: |
           cargo test --locked -p semwright-daemon --test windows_workspace
@@ -153,3 +157,4 @@ jobs:
           cargo test --locked -p semwright-cli setup_
           cargo test --locked -p semwright-daemon --lib config::tests
           cargo test --locked -p semwright-protocol --lib transport_outcome_tests
+          cargo test --locked -p semwright-core --lib scoped_snapshot_tests

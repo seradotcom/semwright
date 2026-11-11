@@ -79,6 +79,118 @@ pub struct Broker {
     fake: bool,
     started: Instant,
 }
+fn validate_snapshot_scope(
+    command: &str,
+    args: &Value,
+    backend: &str,
+    reference_kind: Option<&str>,
+) -> Result<()> {
+    if command != "ui.snapshot" {
+        return Ok(());
+    }
+    let has_ref = args.get("ref").is_some();
+    let has_app = args.get("app").is_some();
+    if has_ref && has_app {
+        return Err(Error::invalid(
+            "ui.snapshot accepts a live ref or app filter, never both",
+        ));
+    }
+    if has_ref {
+        if backend != "windows" {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Reference-scoped ui.snapshot is currently supported only on Windows",
+            ));
+        }
+        if !matches!(reference_kind, Some("win" | "ui")) {
+            return Err(Error::invalid(
+                "Windows ui.snapshot requires a window or UI element reference",
+            ));
+        }
+    }
+    if backend == "windows" && has_app {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Windows ui.snapshot cannot apply an app filter; use an exact window ref",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod scoped_snapshot_tests {
+    use super::*;
+
+    #[test]
+    fn windows_window_and_ui_references_are_supported() {
+        let args = json!({"ref":"win:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"});
+        assert!(validate_snapshot_scope("ui.snapshot", &args, "windows", Some("win")).is_ok());
+        assert!(validate_snapshot_scope("ui.snapshot", &args, "windows", Some("ui")).is_ok());
+        assert!(validate_snapshot_scope("ui.snapshot", &json!({}), "windows", None).is_ok());
+    }
+
+    #[test]
+    fn unsupported_scopes_fail_closed() {
+        let target = json!({"ref":"win:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"});
+        for backend in ["macos", "atspi", "fake"] {
+            assert_eq!(
+                validate_snapshot_scope("ui.snapshot", &target, backend, Some("win"))
+                    .unwrap_err()
+                    .code,
+                ErrorCode::Unsupported
+            );
+        }
+        assert_eq!(
+            validate_snapshot_scope("ui.snapshot", &target, "windows", Some("app"))
+                .unwrap_err()
+                .code,
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            validate_snapshot_scope("ui.snapshot", &target, "windows", None)
+                .unwrap_err()
+                .code,
+            ErrorCode::InvalidArgument
+        );
+    }
+
+    #[test]
+    fn windows_app_filter_is_not_silently_ignored() {
+        let args = json!({"app":"notepad.exe"});
+        assert_eq!(
+            validate_snapshot_scope("ui.snapshot", &args, "windows", None)
+                .unwrap_err()
+                .code,
+            ErrorCode::Unsupported
+        );
+        assert!(validate_snapshot_scope("ui.snapshot", &args, "atspi", None).is_ok());
+        assert_eq!(
+            validate_snapshot_scope(
+                "ui.snapshot",
+                &json!({"ref":"win:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","app":"notepad.exe"}),
+                "windows",
+                Some("win")
+            )
+            .unwrap_err()
+            .code,
+            ErrorCode::InvalidArgument
+        );
+    }
+
+    #[test]
+    fn unrelated_commands_are_unchanged() {
+        assert!(
+            validate_snapshot_scope(
+                "ui.inspect",
+                &json!({"ref":"ui:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}),
+                "atspi",
+                Some("ui")
+            )
+            .is_ok()
+        );
+    }
+}
+
 impl Broker {
     pub fn new(
         policy: Policy,
@@ -845,6 +957,14 @@ impl Broker {
                 dynamic_provider.as_ref(),
             )
             .await?;
+        validate_snapshot_scope(
+            &request.command,
+            &request.args,
+            selected,
+            reference
+                .as_ref()
+                .map(|reference| reference.target.kind.as_str()),
+        )?;
         audit.backend(selected);
         let selected_provider = dynamic_provider.or_else(|| self.provider(selected));
         let provider_stop = if let Some(provider) = &selected_provider {
