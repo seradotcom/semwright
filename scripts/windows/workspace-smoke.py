@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -121,8 +122,15 @@ def run(binary_dir: Path, output: Path):
         base = Path(temporary)
         workspace = base / "workspace"
         outside = base / "outside"
+        artifact_source = base / "artifact-source"
+        artifact_destination = base / "artifact-destination"
         workspace.mkdir()
         outside.mkdir()
+        artifact_source.mkdir()
+        artifact_destination.mkdir()
+        # The transferable binary has no text encoding or executable meaning.
+        handoff_payload = b"\x00\xff\x01scoped-new-only"
+        (artifact_source / "source.bin").write_bytes(handoff_payload)
         sentinel = outside / "secret.txt"
         sentinel.write_text("outside must stay unchanged\n", encoding="utf-8")
         data = workspace / "settings.json"
@@ -179,7 +187,11 @@ def run(binary_dir: Path, output: Path):
             config.write_text(
                 '[policy]\nprofile = "observe"\n'
                 '[[policy.filesystem]]\nname = "workspace"\n'
-                f"path = '{workspace}'\nread = true\nwrite = {str(writable).lower()}\n",
+                f"path = '{workspace}'\nread = true\nwrite = {str(writable).lower()}\n"
+                '[[policy.filesystem]]\nname = "handoff-source"\n'
+                f"path = '{artifact_source}'\nread = true\nwrite = false\n"
+                '[[policy.filesystem]]\nname = "handoff-destination"\n'
+                f"path = '{artifact_destination}'\nread = false\nwrite = true\n",
                 encoding="utf-8",
             )
 
@@ -242,6 +254,36 @@ def run(binary_dir: Path, output: Path):
                     check_denied(client.execute("filesystem.read", denied))
                     check_denied(client.execute("filesystem.write", dict(denied, text="forbidden")))
                 assert sentinel.read_text(encoding="utf-8") == "outside must stay unchanged\n"
+                transfer = {
+                    "source_root": "handoff-source",
+                    "source_path": "source.bin",
+                    "destination_root": "handoff-destination",
+                    "destination_path": "first.bin",
+                    "overwrite": False,
+                    "expected_sha256": hashlib.sha256(handoff_payload).hexdigest(),
+                }
+                published = client.execute("artifact.handoff", transfer)
+                assert published["ok"], published
+                assert published["execution"]["backend"] == "artifacts", published
+                assert published["data"]["sha256"] == transfer["expected_sha256"]
+                destination = artifact_destination / "first.bin"
+                assert destination.read_bytes() == handoff_payload
+                conflict = client.execute("artifact.handoff", transfer)
+                assert not conflict["ok"], conflict
+                assert conflict["error"]["code"] == "Conflict", conflict
+                assert conflict["error"]["outcome_known"] is True, conflict
+                assert destination.read_bytes() == handoff_payload
+                tampered = dict(transfer, expected_sha256="0" * 64, destination_path="other.bin")
+                rejected_digest = client.execute("artifact.handoff", tampered)
+                assert not rejected_digest["ok"], rejected_digest
+                assert rejected_digest["error"]["code"] == "Conflict", rejected_digest
+                assert not (artifact_destination / "other.bin").exists()
+                traversal = dict(transfer, destination_path="../outside/secret.txt")
+                rejected_path = client.execute("artifact.handoff", traversal)
+                assert not rejected_path["ok"], rejected_path
+                assert rejected_path["error"]["outcome_known"] is True, rejected_path
+                assert sentinel.read_text(encoding="utf-8") == "outside must stay unchanged\n"
+                assert not any(artifact_destination.glob(".semwright-*.tmp"))
                 client.close()
                 client = McpClient(snippet, mcp_log, environment)
                 second = '{"enabled": true, "second_task": true}\n'
@@ -265,6 +307,10 @@ def run(binary_dir: Path, output: Path):
                     "explicit_runtime_data_directory": True,
                     "fake": False,
                     "read_write_readback": True,
+                    "artifact_no_replace_native": True,
+                    "artifact_no_replace_conflict": True,
+                    "artifact_digest_guard": True,
+                    "artifact_handoff_path_denied": True,
                     "diff": True,
                     "outside_and_junction_denied": True,
                     "second_task_after_reconnect": True,

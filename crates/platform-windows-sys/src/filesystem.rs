@@ -334,7 +334,7 @@ fn mark_delete_on_close(file: &File) -> Result<()> {
     })
 }
 
-fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
+fn rename_relative(file: &File, parent: &File, name: &OsStr, replace_existing: bool) -> Result<()> {
     validate_component(name)?;
     let wide = name.encode_wide().collect::<Vec<_>>();
     let name_bytes = wide
@@ -365,7 +365,7 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
     // SAFETY: storage is pointer-aligned and large enough for FILE_RENAME_INFORMATION plus
     // every UTF-16 unit. The destination parent HANDLE remains live for the synchronous call.
     let status = unsafe {
-        (*info).Anonymous.ReplaceIfExists = true;
+        (*info).Anonymous.ReplaceIfExists = replace_existing;
         (*info).RootDirectory = handle(parent);
         (*info).FileNameLength = name_bytes;
         std::ptr::copy_nonoverlapping(wide.as_ptr(), (*info).FileName.as_mut_ptr(), wide.len());
@@ -555,7 +555,7 @@ impl Root {
         Ok(bytes)
     }
 
-    fn write_inner(&self, path: &Path, bytes: &[u8]) -> Result<()> {
+    fn write_inner(&self, path: &Path, bytes: &[u8], no_replace: bool) -> Result<()> {
         if !self.writable {
             return Err(Error::new(ErrorCode::PolicyDenied, "Root is not writable"));
         }
@@ -568,10 +568,15 @@ impl Root {
         self.root_still_pinned()?;
         let (parent, basename) = self.open_parent(path, true)?;
 
-        match self.inspect_existing_file(&parent, &basename, true) {
-            Ok(_) => {}
-            Err(error) if error.code == ErrorCode::NotFound => {}
-            Err(error) => return Err(error),
+        if !no_replace {
+            // Replacement must reject an existing link or reparse point.
+            // New-only publication relies on the atomic kernel rename decision
+            // instead; a separate existence check would be racy.
+            match self.inspect_existing_file(&parent, &basename, true) {
+                Ok(_) => {}
+                Err(error) if error.code == ErrorCode::NotFound => {}
+                Err(error) => return Err(error),
+            }
         }
 
         let temporary = OsString::from(format!(".semwright-{}.tmp", uuid::Uuid::new_v4().simple()));
@@ -597,7 +602,7 @@ impl Root {
             temp.write_all(bytes)?;
             temp.sync_all()?;
             self.root_still_pinned()?;
-            rename_relative(&temp, &parent, &basename)?;
+            rename_relative(&temp, &parent, &basename, !no_replace)?;
             renamed = true;
 
             let (committed, committed_info) = self
@@ -640,7 +645,11 @@ impl ScopedRoot for Root {
     }
 
     fn write_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()> {
-        self.write_inner(path, bytes)
+        self.write_inner(path, bytes, false)
+    }
+
+    fn write_new_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()> {
+        self.write_inner(path, bytes, true)
     }
 }
 
@@ -711,12 +720,112 @@ mod tests {
     }
 
     #[test]
+    fn new_only_publication_never_replaces_existing_bytes() {
+        let directory = tempfile::tempdir().unwrap();
+        let nested = directory.path().join("nested");
+        std::fs::create_dir(&nested).unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        root.write_new_atomic(Path::new("nested/owned.bin"), b"first")
+            .unwrap();
+        let error = root
+            .write_new_atomic(Path::new("nested/owned.bin"), b"second")
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert!(error.outcome_known);
+        assert_eq!(
+            root.read(Path::new("nested/owned.bin"), 64).unwrap(),
+            b"first"
+        );
+        assert_eq!(std::fs::read(nested.join("owned.bin")).unwrap(), b"first");
+        assert!(!std::fs::read_dir(&nested).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".semwright-")
+        }));
+    }
+
+    #[test]
+    fn new_only_concurrent_publishers_have_exactly_one_winner() {
+        use std::sync::{Arc, Barrier};
+        let directory = tempfile::tempdir().unwrap();
+        let root = Arc::new(Root::open(directory.path(), false, true).unwrap());
+        const WRITERS: usize = 6;
+        let barrier = Arc::new(Barrier::new(WRITERS));
+        let handles: Vec<_> = (0..WRITERS)
+            .map(|index| {
+                let root = root.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    let payload = format!("writer-{index}");
+                    barrier.wait();
+                    (
+                        payload.clone(),
+                        root.write_new_atomic(Path::new("owned.bin"), payload.as_bytes()),
+                    )
+                })
+            })
+            .collect();
+        let results: Vec<_> = handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect();
+        let winners: Vec<_> = results
+            .iter()
+            .filter(|(_, result)| result.is_ok())
+            .collect();
+        assert_eq!(winners.len(), 1, "{results:?}");
+        for (_, result) in results.iter().filter(|(_, result)| result.is_err()) {
+            let error = result.as_ref().unwrap_err();
+            assert_eq!(error.code, ErrorCode::Conflict, "{error:?}");
+            assert!(error.outcome_known);
+        }
+        assert_eq!(
+            std::fs::read(directory.path().join("owned.bin")).unwrap(),
+            winners[0].0.as_bytes()
+        );
+        assert!(!std::fs::read_dir(directory.path()).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".semwright-")
+        }));
+    }
+
+    #[test]
+    fn new_only_refuses_unsafe_destination_without_replacing_it() {
+        let directory = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let secret = outside.path().join("secret.bin");
+        std::fs::write(&secret, b"unaltered").unwrap();
+        std::fs::hard_link(&secret, directory.path().join("link.bin")).unwrap();
+        std::fs::create_dir(directory.path().join("folder")).unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        for name in ["link.bin", "folder", "../secret.bin", "CON", "foo:stream"] {
+            assert!(
+                root.write_new_atomic(Path::new(name), b"new").is_err(),
+                "{name}"
+            );
+        }
+        assert_eq!(std::fs::read(&secret).unwrap(), b"unaltered");
+        assert!(directory.path().join("folder").is_dir());
+    }
+
+    #[test]
     fn read_and_write_authority_are_independent() {
         let root_dir = tempfile::tempdir().unwrap();
         std::fs::write(root_dir.path().join("data.txt"), b"data").unwrap();
 
         let read_only = Root::open(root_dir.path(), true, false).unwrap();
         assert!(read_only.write_atomic(Path::new("new.txt"), b"x").is_err());
+        assert!(
+            read_only
+                .write_new_atomic(Path::new("new-only.txt"), b"x")
+                .is_err()
+        );
+        assert!(!root_dir.path().join("new-only.txt").exists());
 
         let write_only = Root::open(root_dir.path(), false, true).unwrap();
         assert!(write_only.read(Path::new("data.txt"), 16).is_err());
@@ -761,7 +870,12 @@ mod tests {
             root.write_atomic(Path::new(r"escape\created.txt"), b"no")
                 .is_err()
         );
+        assert!(
+            root.write_new_atomic(Path::new(r"escape\new-only.txt"), b"no")
+                .is_err()
+        );
         assert!(!outside.path().join("created.txt").exists());
+        assert!(!outside.path().join("new-only.txt").exists());
     }
 
     #[test]

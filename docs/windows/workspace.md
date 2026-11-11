@@ -39,6 +39,15 @@ path. Reads return UTF-8 text. Writes atomically replace bounded text files. Bot
 operations enforce the declared read/write authority; a write grant does not grant
 an unrestricted shell or permission to execute a project's scripts.
 
+For a binary transfer between two separately granted roots, use
+`artifact.handoff` with `overwrite=false` and a matching `expected_sha256`. On
+Windows, the native backend publishes the new file with a handle-relative,
+atomic no-replace rename. If the destination already exists, the request
+returns a conflict instead of replacing its bytes. A lost response still
+requires checking the destination before attempting any further action.
+This protects a new-only publication, not an edit to a preexisting file:
+`filesystem.write` still replaces files and does not offer compare-and-swap.
+
 Requests outside the root, nested junction escapes, alternate data streams and
 hard-linked files are rejected by the native backend. Do not retry a denied request
 through another provider. For a completed edit, inspect the returned result and read
