@@ -61,7 +61,7 @@ jobs:
           toolchain: 1.98.1
           components: rustfmt
       - name: Check affected Rust formatting
-        run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/src/server.rs crates/daemon/tests/windows_workspace.rs crates/cli/src/lib.rs crates/cli/src/semwright.rs crates/platform-services/src/lib.rs crates/platform-windows-sys/src/launch.rs crates/platform-windows-sys/src/launch/blender52_runtime.rs crates/platform-windows-sys/tests/private_data.rs crates/platform-windows-sys/src/paths.rs crates/platform-windows-sys/src/filesystem.rs crates/platform-windows-sys/src/window.rs crates/platform-windows/src/lib.rs crates/core/tests/project_graph.rs crates/protocol/src/lib.rs
+        run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/src/server.rs crates/daemon/tests/windows_workspace.rs crates/cli/src/lib.rs crates/cli/src/semwright.rs crates/platform-services/src/lib.rs crates/platform-windows-sys/src/launch.rs crates/platform-windows-sys/src/job.rs crates/platform-windows-sys/src/launch/initial_attestation.rs crates/platform-windows-sys/src/launch/initial_lpac.rs crates/platform-windows-sys/src/launch/blender52_runtime.rs crates/platform-windows-sys/tests/private_data.rs crates/platform-windows-sys/src/paths.rs crates/platform-windows-sys/src/filesystem.rs crates/platform-windows-sys/src/window.rs crates/platform-windows/src/lib.rs crates/core/tests/project_graph.rs crates/protocol/src/lib.rs
       - name: Check native manifest/Host source formatting
         run: rustfmt --edition 2024 --check crates/driver-sdk/src/lib.rs crates/driver-host/src/lib.rs crates/daemon/src/semwrightd.rs
       - name: Parse the interactive harness
@@ -84,6 +84,11 @@ jobs:
           cargo test --locked -p semwright-core --test project_graph windows_native_project_asset_observes_human_edits_but_not_file_replacement
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-core --test project_graph windows_project_reopen_preserves_owner_and_reconciles_offline_edit
+      - name: Verify real Windows initial-process identity before resume
+        run: |
+          cargo test --locked -p semwright-platform-windows-sys --lib initial_attestation
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-driver-host --test windows_secure_host secure_windows_driver_host_roundtrips_protocol_v2
       - name: Windows owner-authorized native runtime source confinement
         run: cargo test --locked -p semwright-platform-windows-sys --lib native_runtime_tests
       - name: Workspace configuration and native confinement

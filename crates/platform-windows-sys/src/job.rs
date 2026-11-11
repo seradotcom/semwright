@@ -131,6 +131,22 @@ impl ProcessJob {
         })
     }
 
+    /// Query membership in this exact Job; never infer it from an ambient Job.
+    pub fn verify_member(&self, process: HANDLE) -> Result<()> {
+        let mut member = 0i32;
+        // SAFETY: both handles are live and the BOOL out-parameter is writable.
+        let ok = unsafe {
+            windows_sys::Win32::System::JobObjects::IsProcessInJob(process.0, self.0.0, &mut member)
+        };
+        if ok == 0 || member != 1 {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Initial process membership in the requested Job was not verified",
+            ));
+        }
+        Ok(())
+    }
+
     /// Must be called while a securely-created child is still suspended.
     pub fn assign_suspended_process(&self, process: HANDLE) -> Result<()> {
         // SAFETY: caller guarantees `process` is a live child process HANDLE and still suspended.
@@ -149,5 +165,18 @@ impl SandboxCpuAccounting for ProcessJob {
             )
         })?;
         Ok(Duration::from_nanos(nanos))
+    }
+}
+
+#[cfg(test)]
+mod initial_attestation_tests {
+    use super::*;
+
+    #[test]
+    fn an_unrelated_job_cannot_attest_the_owner_process() {
+        let job = ProcessJob::new(Some(1), None, None).unwrap();
+        // SAFETY: current-process pseudo-handle; this check only queries membership.
+        let owner = unsafe { windows::Win32::System::Threading::GetCurrentProcess() };
+        assert!(job.verify_member(owner).is_err());
     }
 }

@@ -1,5 +1,7 @@
 #[path = "launch/blender52_runtime.rs"]
 mod blender52_runtime;
+#[path = "launch/initial_attestation.rs"]
+mod initial_attestation;
 pub use blender52_runtime::{
     paths_overlap as windows_native_paths_overlap, stage as stage_blender52_runtime,
 };
@@ -2529,6 +2531,15 @@ impl SandboxLauncher for WindowsSandbox {
         };
         attributes.set_value(PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, &capabilities)?;
 
+        // Hold the exact identities requested for the still-suspended child.
+        // The child must prove these before its first user-mode instruction.
+        let expected_user = current_user_sid_bytes()?;
+        let expected_container = copy_sid_bytes(profile.sid)?;
+        let expected_capabilities = capability_entries
+            .iter()
+            .map(|entry| Ok((copy_sid_bytes(entry.Sid)?, entry.Attributes)))
+            .collect::<Result<Vec<_>>>()?;
+
         let mut startup = STARTUPINFOEXW::default();
         startup.StartupInfo.cb = std::mem::size_of::<STARTUPINFOEXW>() as u32;
         startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
@@ -2632,7 +2643,69 @@ impl SandboxLauncher for WindowsSandbox {
             }
             return Err(error);
         }
-        // SAFETY: containment is established; resuming now is the first point untrusted code runs.
+
+        // Assignment success is not proof that this exact child is a member
+        // of this exact Job, or that its token matches our requested LPAC
+        // identity and capability sets. Verify before any child code can run.
+        let attestation = job.verify_member(process.raw()).and_then(|()| {
+            initial_attestation::verify(
+                process.raw().0,
+                &expected_user,
+                &expected_container,
+                &expected_capabilities,
+            )
+            .map_err(|error| {
+                Error::new(
+                    ErrorCode::SandboxDenied,
+                    format!("Initial process token attestation failed: {error}"),
+                )
+            })
+        });
+        let attestation = match attestation {
+            Ok(value) => value,
+            Err(error) => {
+                let job_termination_ok = job.terminate(1).is_ok();
+                // SAFETY: still-suspended child owned by this invocation.
+                let process_termination_ok = unsafe { TerminateProcess(process.raw(), 1) }.is_ok();
+                // SAFETY: bounded wait on the owned process handle.
+                let exit_observed =
+                    unsafe { WaitForSingleObject(process.raw(), 5_000) } == WAIT_OBJECT_0;
+                eprintln!(
+                    "{}",
+                    serde_json::json!({
+                        "component": "platform-windows",
+                        "phase": "initial_process_attestation_rejected",
+                        "pid": process_info.dwProcessId,
+                        "resumed": false,
+                        "job_termination_ok": job_termination_ok,
+                        "process_termination_ok": process_termination_ok,
+                        "exit_observed": exit_observed,
+                        "error": error.to_string(),
+                    })
+                );
+                if !exit_observed {
+                    return Err(Error::new(
+                        ErrorCode::SandboxDenied,
+                        "Rejected initial process cleanup could not be confirmed",
+                    ));
+                }
+                return Err(error);
+            }
+        };
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "component": "platform-windows",
+                "phase": "initial_process_attested_before_resume",
+                "pid": process_info.dwProcessId,
+                "exact_job": true,
+                "resumed": false,
+                "application_startup_verified": false,
+                "token": attestation,
+            })
+        );
+        // SAFETY: containment and exact suspended-child attestation hold; resuming now is
+        // the first point untrusted child code may run.
         if unsafe { ResumeThread(thread.raw()) } == u32::MAX {
             // SAFETY: resume failed while we still own the process.
             unsafe {

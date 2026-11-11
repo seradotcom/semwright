@@ -56,6 +56,17 @@ A different file at that name is ambiguous until explicitly rebound by the owner
 normal in-place changes can be recorded as new revisions. This is best-effort
 revalidation, not an atomic transaction, lock or permission to overwrite files.
 
+### Windows initial-process attestation
+
+Windows sandbox children now remain suspended until Core has verified both
+membership in the exact assigned kernel Job and the newly created process
+token: current owner SID, requested AppContainer SID, LPAC status and exact
+capability SID/attribute set. A mismatch terminates the child and its Job
+before untrusted instructions run, and records a bounded diagnostic. This
+also applies to existing Windows drivers; it grants no new application
+capability. A successful attestation proves containment before ResumeThread,
+not successful Blender startup or native Save/Reopen.
+
 ### Native Blender runtime preparation
 
 The Windows platform layer has a Host-internal, owner-pinned Blender 5.2.1
