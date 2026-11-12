@@ -1746,6 +1746,23 @@ impl WindowsMountGrant {
     fn grant(prepared: &PreparedMountGrant, sid: PSID) -> Result<Self> {
         let sid_bytes = copy_sid_bytes(sid)?;
         let owned_sid = PSID(sid_bytes.as_ptr().cast_mut().cast());
+        if prepared.materialized.logical_name == "blender-runtime" {
+            // This is a one-time, read-only pre-grant baseline inside the
+            // broker's actual process security context. Compare it against
+            // the identical probe on the denied mount (performed before
+            // rollback), without revealing private paths or any SID.
+            eprintln!(
+                "{}",
+                serde_json::json!({
+                    "component":"platform-windows",
+                    "phase":"native_runtime_mount_before_grant",
+                    "logical_mount":"blender-runtime",
+                    "observation":native_mount_write_dac_audit(
+                        Path::new(&prepared.materialized.path)
+                    ),
+                })
+            );
+        }
         if dacl_has_sid(&prepared.path, owned_sid)? {
             return Err(Error::new(
                 ErrorCode::SandboxDenied,
