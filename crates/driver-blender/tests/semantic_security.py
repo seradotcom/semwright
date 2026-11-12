@@ -65,7 +65,7 @@ def main():
         raise AssertionError("oversized string accepted")
 
     with tempfile.TemporaryDirectory() as directory:
-        store = semantic.SemanticStore(object(), directory)
+        store = semantic.SemanticStore(object(), str(Path(directory).resolve()))
         reference = store._ref("objects", "Cube")
         root, name, path = store._parse_ref(reference)
         assert (root, name, path) == ("objects", "Cube", [])
@@ -84,7 +84,7 @@ def main():
                 pass
             else:
                 assert candidate.startswith(semantic.REF_PREFIX + "/")
-    source = SEMANTIC.read_text()
+    source = SEMANTIC.read_text(encoding="utf-8")
     forbidden = ["eval(", "exec(", "subprocess", "os.system(", "__import__("]
     for token in forbidden:
         assert token not in source, token
