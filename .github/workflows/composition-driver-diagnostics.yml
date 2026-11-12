@@ -78,6 +78,8 @@ jobs:
           key: composition-motion-driver-v2
       - name: Compile Motion production adapter and tests
         run: cargo check --locked -p semwright-driver-motion-canvas --all-targets
+      - name: Native text observation bounds
+        run: cargo test --locked -p semwright-motion-authoring --test native_text_pixel_observation
       - name: Motion driver and FixedTxt authoring regression
         run: cargo test --locked --no-fail-fast -p semwright-driver-motion-canvas --lib --example fixed_text_compile_v4
       - name: Motion lints

@@ -233,7 +233,7 @@ impl NativeTextPixelMask {
         let mut changed = 0_u32;
         // Each canonical six-byte run is exactly eight base64 characters, so
         // padding and alternate encodings are unnecessary and rejected.
-        for run in self.data.as_bytes().chunks_exact(8) {
+        for run in self.data.as_bytes().as_chunks::<8>().0 {
             let mut word = 0_u64;
             for byte in run {
                 let part = match byte {
