@@ -24,7 +24,10 @@ class NativeBlenderCrossVersionParity(unittest.TestCase):
         linux = (SOURCE / "semantic.py").read_bytes()
         windows = (WINDOWS / "semantic.py").read_bytes()
         self.assertGreater(len(linux), 100_000)
-        self.assertEqual(linux, windows)
+        # Git may materialize tracked Python as CRLF on Windows while the
+        # compiled first-party embedded source remains LF. This only ignores
+        # the platform text newline convention, not semantic code changes.
+        self.assertEqual(normalized(linux), normalized(windows))
         ast.parse(linux)
         ast.parse(windows)
 
