@@ -1649,6 +1649,92 @@ fn prepare_tool_staging_traverse(staging_root: &Path) -> Result<PreparedMountGra
     })
 }
 
+/// A bounded, read-only inspection after an owner-granted native-runtime
+/// mount was denied by Windows. It NEVER alters a DACL, replays an operation,
+/// follows reparse points, or publishes private paths or principal identities.
+fn native_mount_write_dac_audit(root: &Path) -> serde_json::Value {
+    use std::collections::BTreeMap;
+    use std::os::windows::fs::MetadataExt;
+    use std::time::{Duration, Instant};
+
+    let started = Instant::now();
+    let deadline = started + Duration::from_secs(12);
+    let mut pending = vec![root.to_path_buf()];
+    let mut checked = 0usize;
+    let mut directories = 0usize;
+    let mut failures = BTreeMap::<i32, usize>::new();
+    let mut metadata_errors = 0usize;
+    let mut enumeration_errors = 0usize;
+    let mut refused_reparse = 0usize;
+    let mut root_write_dac_status = None;
+    const MAX_AUDIT_ENTRIES: usize = 10_000;
+    while let Some(path) = pending.pop() {
+        if checked >= MAX_AUDIT_ENTRIES || Instant::now() >= deadline {
+            pending.push(path);
+            break;
+        }
+        checked += 1;
+        let metadata = match std::fs::symlink_metadata(&path) {
+            Ok(value) => value,
+            Err(_) => {
+                metadata_errors += 1;
+                continue;
+            }
+        };
+        if metadata.file_type().is_symlink()
+            || metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+        {
+            refused_reparse += 1;
+            continue;
+        }
+        let mut options = std::fs::OpenOptions::new();
+        options
+            .read(true)
+            .access_mode(WRITE_DAC.0)
+            .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0 | FILE_SHARE_DELETE.0)
+            .custom_flags((FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS).0);
+        let status = match options.open(&path) {
+            Ok(file) => {
+                drop(file);
+                0
+            }
+            Err(error) => {
+                let status = error.raw_os_error().unwrap_or(-1);
+                *failures.entry(status).or_default() += 1;
+                status
+            }
+        };
+        if checked == 1 {
+            root_write_dac_status = Some(status);
+        }
+        if metadata.is_dir() {
+            directories += 1;
+            match std::fs::read_dir(&path) {
+                Ok(entries) => {
+                    for entry in entries {
+                        match entry {
+                            Ok(entry) => pending.push(entry.path()),
+                            Err(_) => enumeration_errors += 1,
+                        }
+                    }
+                }
+                Err(_) => enumeration_errors += 1,
+            }
+        }
+    }
+    serde_json::json!({
+        "root_write_dac_status":root_write_dac_status,
+        "scanned":checked,
+        "directories":directories,
+        "write_dac_failures_by_win32":failures,
+        "metadata_errors":metadata_errors,
+        "enumeration_errors":enumeration_errors,
+        "refused_reparse_points":refused_reparse,
+        "bounded":!pending.is_empty(),
+        "elapsed_ms":started.elapsed().as_millis(),
+    })
+}
+
 struct WindowsMountGrant {
     path: Vec<u16>,
     sid: Vec<u8>,
@@ -1689,6 +1775,22 @@ impl WindowsMountGrant {
                     "error": error.to_string(),
                 })
             );
+            if prepared.materialized.logical_name == "blender-runtime" {
+                // The child is not launched. Read only whether the broker can
+                // open the failed private snapshot and its descendants with
+                // WRITE_DAC; never log filenames, paths, or security IDs.
+                eprintln!(
+                    "{}",
+                    serde_json::json!({
+                        "component":"platform-windows",
+                        "phase":"native_runtime_mount_dacl_diagnosis",
+                        "logical_mount":"blender-runtime",
+                        "observation":native_mount_write_dac_audit(
+                            Path::new(&prepared.materialized.path)
+                        ),
+                    })
+                );
+            }
             let _ = revoke_mount_sid(&prepared.path, owned_sid);
             return Err(error);
         }
@@ -3095,6 +3197,24 @@ mod verifier_tests {
             .verify(&path, &digest)
             .expect("hardened staged Windows executable should satisfy trust policy");
         assert_eq!(verified, bytes);
+    }
+
+    #[test]
+    fn native_mount_write_dac_probe_only_reads_owner_private_fixture() {
+        let temp = tempfile::tempdir().unwrap();
+        let child = temp.path().join("native-tree");
+        std::fs::create_dir(&child).unwrap();
+        let content = b"original-private-fixture-bytes";
+        let file = child.join("unchanged.dat");
+        std::fs::write(&file, content).unwrap();
+        let audit = native_mount_write_dac_audit(&child);
+        assert_eq!(audit["root_write_dac_status"], 0);
+        assert!(audit["scanned"].as_u64().unwrap() >= 2);
+        assert_eq!(audit["metadata_errors"], 0);
+        assert_eq!(audit["enumeration_errors"], 0);
+        assert_eq!(audit["refused_reparse_points"], 0);
+        assert_eq!(std::fs::read(&file).unwrap(), content);
+        assert!(!audit.to_string().contains("unchanged.dat"));
     }
 
     #[test]

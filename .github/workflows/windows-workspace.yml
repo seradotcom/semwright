@@ -94,6 +94,8 @@ jobs:
           cargo test --locked -p semwright-platform-windows-sys --lib initial_attestation
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-host --test windows_secure_host secure_windows_driver_host_roundtrips_protocol_v2
+      - name: Read-only native mount ACL rejection probe
+        run: cargo test --locked -p semwright-platform-windows-sys --lib native_mount_write_dac_probe_only_reads_owner_private_fixture
       - name: Native executable ACL permits only untrusted read and execute
         run: cargo test --locked -p semwright-platform-windows-sys --lib executable_acl_
       - name: Windows owner-authorized native runtime source confinement
