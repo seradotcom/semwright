@@ -153,6 +153,22 @@ API or protection against a hostile simultaneous owner writer. Existing
 `driver.blender.file.save` and `driver.blender.file.open` remain destructive and
 require their existing human approval. Linux's lifecycle catalog is unchanged.
 
+### Native staging after an interrupted broker
+
+The owner-approved Windows Blender 5.2.1 Host prepares a private runtime copy
+rather than changing permissions on the installed application. Each new copy
+holds a Windows file lease while its Host is live. A subsequent authorized
+native connection can reclaim only completed copies from this Host-managed
+namespace after a conservative grace period and an exclusive lease check.
+Unknown files, legacy unmarked snapshots, malformed or linked trees and
+unconfirmed native exits are retained for owner investigation. Ordinary
+graceful shutdown still releases the copy immediately.
+
+This bounded recovery is not a general cache purge and does not certify
+crash durability or the cleanup of unrelated driver files. It never changes
+vendor Blender ACLs, grants, the owner's project or externally installed
+applications.
+
 ### Reference lifetime
 
 Blender RNA references are opaque and belong to one loaded semantic state.

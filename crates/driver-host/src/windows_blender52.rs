@@ -10,16 +10,18 @@ use std::{
 };
 use tokio::io::AsyncReadExt;
 
-struct PrivateTree(PathBuf, AtomicBool);
+#[path = "windows_blender52_stage_recovery.rs"]
+mod stage_recovery;
+
+struct PrivateTree(stage_recovery::Lease, AtomicBool);
 impl Drop for PrivateTree {
     fn drop(&mut self) {
         if self.1.load(Ordering::Acquire) {
+            self.0.retain_unconfirmed_exit();
             eprintln!(
                 "{}",
                 serde_json::json!({"component":"driver-host","phase":"native_assets_retained_unconfirmed_exit"})
             );
-        } else {
-            let _ = std::fs::remove_dir_all(&self.0);
         }
     }
 }
@@ -74,22 +76,20 @@ pub(super) fn prepare(
             "Native Blender requires exact disjoint owner grants",
         ));
     }
-    let root = state.join(format!("blender-native-{}", unique_id()));
-    std::fs::create_dir(&root)?;
-    let root = PrivateTree(root, AtomicBool::new(false));
-    semwright_platform_services::private_data_directory(&root.0)?;
-    let snapshot = root.0.join("runtime");
+    let root = PrivateTree(stage_recovery::new_stage(state)?, AtomicBool::new(false));
+    let snapshot = root.0.path().join("runtime");
     let inventory = semwright_platform_services::stage_blender52_runtime(
         &runtime.source,
         &snapshot,
         &tool.sha256,
         &cancel,
     )?;
+    let runtime_receipt = serde_json::to_vec(&inventory)?;
     new_file(
-        &root.0.join("runtime-inventory.json"),
-        &serde_json::to_vec(&inventory)?,
+        &root.0.path().join("runtime-inventory.json"),
+        &runtime_receipt,
     )?;
-    let code = root.0.join("code");
+    let code = root.0.path().join("code");
     std::fs::create_dir(&code)?;
     std::fs::create_dir(code.join("semwright_blender_runtime"))?;
     // Canonical first-party sources are compiled into the Host; no workspace script is trusted.
@@ -134,7 +134,10 @@ pub(super) fn prepare(
         pins.insert(name, hex::encode(Sha256::digest(source.as_bytes())));
     }
     let encoded = serde_json::to_vec(&pins)?;
-    new_file(&root.0.join("bootstrap-inventory.json"), &encoded)?;
+    new_file(&root.0.path().join("bootstrap-inventory.json"), &encoded)?;
+    // Only a completely prepared, source-bound stage is eligible for future
+    // crash reconciliation. The lease remains held throughout native custody.
+    root.0.publish(&runtime_receipt, &encoded, &tool.sha256)?;
     let prepared = Prepared {
         root,
         workspace,
