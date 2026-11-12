@@ -123,6 +123,35 @@ performs blocking launch work off the protocol reader, propagates parent
 cancellation through native readiness, and reaps a process that arrives after
 its parent ends. No timed-out start is automatically retried.
 
+### Native session checkpoints
+
+The Windows driver reuses the lifecycle contract from the same pinned first-party
+source commit, a63deb7a542876af0656b4b398ff5463ad6c5ee5, as its embedded runtime:
+
+- `driver.blender.session.checkpoint.inspect` observes the caller's existing
+  session without creating one or saving data. Its result is advisory.
+- `driver.blender.session.checkpoint_close` creates a new, bounded, verified
+  `static_mesh_scene_v1` recovery copy before requesting Host-owned process
+  closure. Existing destinations and unsupported native state are rejected.
+  Failed save/validation retains the session. A partial close returns the
+  checkpoint receipt with `closed=false` and `close_state=unconfirmed` or
+  `not_attempted`; reconcile before further effects.
+- `driver.blender.session.open` refuses an existing or unresolved caller
+  session. It loads a fresh isolated process from a workspace-relative file
+  with a required SHA-256 match and `use_scripts=false`.
+- `driver.blender.file.checkpoint` saves the same new recovery copy while
+  keeping the session open. `driver.blender.session.close` requires explicit
+  discard and retains destructive-operation approval.
+
+The checkpoint contract does not preserve undo history or transient UI, and
+rejects animation, external media and other state outside its bounded static
+scene closure. The native operation owns serialization, source retention flags,
+file verification and atomic publication without replacement. Paths remain in
+the separately trusted private workspace; this is not a general save/overwrite
+API or protection against a hostile simultaneous owner writer. Existing
+`driver.blender.file.save` and `driver.blender.file.open` remain destructive and
+require their existing human approval. Linux's lifecycle catalog is unchanged.
+
 Platform compilation and simulated/negative tests are not proof of an
 installed Blender 5.2.1 running under the broker. Physical scene Save/Reopen
 in an independent process, input mutation/readback and release admission

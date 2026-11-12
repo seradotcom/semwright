@@ -73,6 +73,8 @@ jobs:
         run: cargo test --locked -p semwright-core --lib scoped_snapshot_tests
       - name: Closed native Blender request must not bypass Host
         run: |
+          python crates/driver-host/tests/windows_blender_checkpoint.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-host --lib pinned_blender_assets_tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-sdk --lib windows_native_profile_tests
@@ -125,7 +127,11 @@ jobs:
         run: |
           cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver native_initial_session_
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver native_lifecycle_tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo build --locked -p semwright-driver-blender --bin semwright-blender-driver
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python crates/driver-blender/tests/windows_lifecycle_protocol.py --driver target/debug/semwright-blender-driver.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $driver = 'target/debug/semwright-blender-driver.exe'
           if (!(Test-Path -LiteralPath $driver)) { throw 'Windows native driver executable missing' }
@@ -236,6 +242,7 @@ jobs:
           sudo apt-get install -y libpipewire-0.3-dev
       - name: Shared setup, configuration and transport checks
         run: |
+          python3 crates/driver-host/tests/windows_blender_checkpoint.py
           cargo test --locked -p semwright-cli setup_
           cargo test --locked -p semwright-daemon --lib config::tests
           cargo test --locked -p semwright-protocol --lib transport_outcome_tests
