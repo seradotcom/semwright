@@ -509,6 +509,29 @@ impl HostToolBroker {
         Ok(self)
     }
 
+    fn driver_process_spec(&self, root_spec: &SandboxSpec) -> Result<SandboxSpec> {
+        let mut spec = root_spec.clone();
+        if self
+            .contracts
+            .values()
+            .any(|contract| contract.windows_native_profile.is_some())
+        {
+            if self.native_blender52.is_none() {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Native Blender runtime must be prepared before the driver can launch",
+                ));
+            }
+            // The driver opens a typed Host session without runtime paths. Only
+            // the Host-launched native process mounts the verified private copy;
+            // granting the vendor installation to the driver would modify its ACL.
+            spec.mounts.retain(|mount| {
+                mount.class != MountClass::Workspace || mount.logical_name != "blender-runtime"
+            });
+        }
+        Ok(spec)
+    }
+
     fn new(
         root_spec: &SandboxSpec,
         tools: &[SealedTool],
@@ -3803,7 +3826,7 @@ impl DriverProvider {
                 Some(port) => Some(loopback::start(state, port).await?),
                 None => None,
             };
-            let spec = sandbox_spec_windows(
+            let mut spec = sandbox_spec_windows(
                 &manifest,
                 &staged_path,
                 helper,
@@ -3811,17 +3834,17 @@ impl DriverProvider {
                 loopback.as_deref().map(loopback::LoopbackProxy::pipe_path),
             )?;
             let tool_broker: Option<Arc<dyn HostToolExecutor>> = if manifest.interfaces.host_tools {
-                Some(Arc::new(
-                    HostToolBroker::new(
-                        &spec,
-                        &sealed_tools,
-                        &manifest.tools,
-                        &manifest.system_config,
-                        manifest.resources.operation_cpu_seconds,
-                    )?
-                    .prepare_windows_blender52(state, allow_windows_blender52_initial)
-                    .await?,
-                ))
+                let broker = HostToolBroker::new(
+                    &spec,
+                    &sealed_tools,
+                    &manifest.tools,
+                    &manifest.system_config,
+                    manifest.resources.operation_cpu_seconds,
+                )?
+                .prepare_windows_blender52(state, allow_windows_blender52_initial)
+                .await?;
+                spec = broker.driver_process_spec(&spec)?;
+                Some(Arc::new(broker))
             } else {
                 None
             };
@@ -5566,6 +5589,125 @@ mod windows_native_profile_tests {
             }
         }
         assert!(!state.exists(), "native denial must not create state");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[tokio::test]
+    async fn native_runtime_is_host_only_and_legacy_driver_mounts_are_preserved() {
+        use semwright_platform_api::launch::{ResourceLimits, SandboxKind};
+
+        let temporary = tempfile::tempdir().unwrap();
+        let workspace = temporary.path().join("workspace");
+        let vendor_runtime = temporary.path().join("vendor-runtime");
+        let state = temporary.path().join("host-state");
+        for directory in [&workspace, &vendor_runtime, &state] {
+            semwright_platform_services::private_data_directory(directory).unwrap();
+        }
+        // An unsigned native PE exercises real snapshot verification without
+        // claiming that this unit test started or accepted Blender.
+        let current = std::env::current_exe().unwrap();
+        let executable = vendor_runtime.join("blender.exe");
+        std::fs::copy(&current, &executable).unwrap();
+        let digest = hex::encode(Sha256::digest(std::fs::read(&executable).unwrap()));
+        let tool = SealedTool {
+            name: "blender".into(),
+            source: executable.clone(),
+            staged: None,
+            sha256: digest.clone(),
+        };
+        let contract = DriverToolMount {
+            root: "blender-executable".into(),
+            name: "blender".into(),
+            sha256: digest.clone(),
+            mounts: vec!["workspace".into(), "blender-runtime".into()],
+            system_config: vec![],
+            dependencies: vec![],
+            nvidia_gpu: false,
+            windows_native_profile: Some(WindowsNativeProfile::Blender521Initial),
+            resources: None,
+        };
+        let root_spec = SandboxSpec {
+            kind: SandboxKind::Driver,
+            staged_executable: current.clone(),
+            helper: current,
+            mounts: vec![
+                Mount {
+                    source: workspace.clone(),
+                    class: MountClass::Workspace,
+                    logical_name: "workspace".into(),
+                    read_only: false,
+                    execute: false,
+                },
+                Mount {
+                    source: vendor_runtime.clone(),
+                    class: MountClass::Workspace,
+                    logical_name: "blender-runtime".into(),
+                    read_only: true,
+                    execute: true,
+                },
+            ],
+            args: vec![],
+            environment: vec![("SEMWRIGHT_DRIVER_HOST_TOOLS".into(), "1".into())],
+            sealed_tools: vec![],
+            network: false,
+            nvidia_gpu: false,
+            limits: Some(ResourceLimits {
+                open_files: 64,
+                processes: 1,
+                cpu_seconds: 30,
+                address_space_bytes: 1024 * 1024 * 1024,
+                file_size_bytes: 64 * 1024 * 1024,
+            }),
+        };
+        let broker = HostToolBroker::new(
+            &root_spec,
+            std::slice::from_ref(&tool),
+            std::slice::from_ref(&contract),
+            &[],
+            0,
+        )
+        .unwrap();
+        assert_eq!(
+            broker.driver_process_spec(&root_spec).unwrap_err().code,
+            ErrorCode::PolicyDenied,
+            "A native driver must not launch before owner-approved preparation"
+        );
+        let broker = broker
+            .prepare_windows_blender52(&state, true)
+            .await
+            .unwrap();
+        let driver_spec = broker.driver_process_spec(&root_spec).unwrap();
+        assert_eq!(driver_spec.mounts.len(), 1);
+        assert_eq!(driver_spec.mounts[0].source, workspace);
+        assert!(!driver_spec.mounts[0].read_only);
+        assert!(!driver_spec.mounts[0].execute);
+        assert_eq!(driver_spec.staged_executable, root_spec.staged_executable);
+        assert_eq!(driver_spec.environment, root_spec.environment);
+        assert!(!driver_spec.network);
+        assert!(broker.native_blender52.is_some());
+        assert_eq!(
+            broker.workspace_mounts["blender-runtime"].source,
+            vendor_runtime
+        );
+        assert_eq!(
+            root_spec.mounts.len(),
+            2,
+            "Host authority must remain separate"
+        );
+        assert_eq!(
+            hex::encode(Sha256::digest(std::fs::read(&executable).unwrap())),
+            digest
+        );
+        assert_eq!(std::fs::read_dir(&vendor_runtime).unwrap().count(), 1);
+
+        let mut legacy_contract = contract;
+        legacy_contract.windows_native_profile = None;
+        let legacy = HostToolBroker::new(&root_spec, &[tool], &[legacy_contract], &[], 0).unwrap();
+        let legacy_spec = legacy.driver_process_spec(&root_spec).unwrap();
+        assert_eq!(legacy_spec.mounts.len(), 2);
+        assert_eq!(legacy_spec.mounts[1].source, vendor_runtime);
+        assert!(legacy_spec.mounts[1].read_only);
+        assert!(legacy_spec.mounts[1].execute);
     }
 
     #[test]

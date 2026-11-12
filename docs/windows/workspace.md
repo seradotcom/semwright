@@ -107,6 +107,13 @@ uses a nonce-bound readiness marker with a bounded timeout and owner-process
 cleanup on failure. Fixed source assets are pinned to first-party donor commit
 a63deb7a542876af0656b4b398ff5463ad6c5ee5, not resolved from user scripts.
 
+The native runtime grant belongs to the Host. The generic driver process receives
+its workspace without mounting the vendor installation; it requests the fixed
+native session through the Host protocol. Only the native child receives the
+verified private runtime snapshot. Core does not require changing the installed
+Blender directory's DACL or elevating the broker to grant the driver access.
+Legacy driver manifests keep their existing mount contract.
+
 Platform compilation and simulated/negative tests are not proof of an
 installed Blender 5.2.1 running under the broker. Physical scene Save/Reopen
 in an independent process, input mutation/readback and release admission
