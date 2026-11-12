@@ -5595,6 +5595,7 @@ mod windows_native_profile_tests {
     #[tokio::test]
     async fn native_runtime_is_host_only_and_legacy_driver_mounts_are_preserved() {
         use semwright_platform_api::launch::{ResourceLimits, SandboxKind};
+        use sha2::{Digest, Sha256};
 
         let temporary = tempfile::tempdir().unwrap();
         let workspace = temporary.path().join("workspace");
