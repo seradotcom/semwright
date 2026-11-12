@@ -839,7 +839,7 @@ fn renderer_stderr_failure_class(stderr: &[u8]) -> Option<RenderFailureClass> {
     None
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 fn renderer_status_failure_class(status: &std::process::ExitStatus) -> Option<RenderFailureClass> {
     #[cfg(unix)]
     {
@@ -862,7 +862,7 @@ fn renderer_status_failure_class(status: &std::process::ExitStatus) -> Option<Re
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 fn renderer_process_failure_code(status: &std::process::ExitStatus, stdout: &[u8]) -> ErrorCode {
     let receipt = renderer_failure_code(stdout);
     if receipt != ErrorCode::BackendFailed {

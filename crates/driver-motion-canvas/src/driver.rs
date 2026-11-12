@@ -1935,7 +1935,7 @@ mod tests {
         let composed_digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
         assert_eq!(
             composed_digest,
-            "2bd2c4f343243368c929ce49a85e0b8abfb408db9e712e4c458d9e65b00932f4"
+            "4f5e39b2c0ac105620ea04aa9540a6d56d22ce5e79006b9ec78409f16e490c37"
         );
         let observed_doctor = catalog
             .iter()
@@ -1952,8 +1952,60 @@ mod tests {
             })
         );
 
-        // Remove only the reviewed doctor extension, retaining the font catalog.
+        // Recover the prior catalog by removing only the four optional frame
+        // lists added for bounded native text-pixel observation. An unrelated
+        // schema change must still fail the earlier digest and every old golden.
         let mut font_catalog = catalog.clone();
+        let frame_schema = embedded_scalar::<Vec<u64>>();
+        for (name, direction, model_pointer) in [
+            ("driver.motion-canvas.render.plan", "input", "/$defs/RenderProfile"),
+            ("driver.motion-canvas.render.start", "input", "/$defs/RenderProfile"),
+            ("driver.motion-canvas.render.execute", "input", "/$defs/RenderProfile"),
+            ("driver.motion-canvas.render.plan", "output", ""),
+        ] {
+            assert_eq!(
+                font_catalog
+                    .iter()
+                    .filter(|capability| capability.descriptor.name == name)
+                    .count(),
+                1
+            );
+            let capability = font_catalog
+                .iter_mut()
+                .find(|capability| capability.descriptor.name == name)
+                .unwrap();
+            let schema = if direction == "input" {
+                &mut capability.descriptor.input_schema
+            } else {
+                &mut capability.descriptor.output_schema
+            };
+            let model = if model_pointer.is_empty() {
+                schema
+            } else {
+                schema.pointer_mut(model_pointer).expect("render profile schema")
+            };
+            assert!(!model
+                .get("required")
+                .and_then(Value::as_array)
+                .is_some_and(|required| required.iter().any(|field| {
+                    field.as_str() == Some("text_pixel_observation_frames")
+                })));
+            let properties = model
+                .get_mut("properties")
+                .and_then(Value::as_object_mut)
+                .expect("render model properties");
+            assert_eq!(
+                properties.remove("text_pixel_observation_frames"),
+                Some(frame_schema.clone())
+            );
+        }
+        assert_eq!(
+            semwright_driver_sdk::capabilities_digest(&font_catalog).unwrap(),
+            "2bd2c4f343243368c929ce49a85e0b8abfb408db9e712e4c458d9e65b00932f4",
+            "catalog changes beyond the optional native text-pixel frame lists"
+        );
+
+        // Remove only the reviewed doctor extension, retaining the font catalog.
         assert_eq!(
             font_catalog
                 .iter()
@@ -2310,6 +2362,7 @@ mod driver_tests {
             manifest.tools[0].mounts,
             ["project", "output", "runtime", "fontconfig"]
         );
+        #[cfg(not(windows))]
         manifest.validate().unwrap();
         // This is the Linux deployment example, not a Windows-native runtime.
         #[cfg(windows)]

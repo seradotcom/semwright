@@ -323,7 +323,9 @@ function textPixelRle(bits:Uint8Array,width:number,height:number):TextPixelMask{
  return {encoding:'row-runs-u16le-base64',data,runs:used/6,changed_pixels:changed};
 }
 function beginTextPixelFrame(reg:ReturnType<typeof registration>,context:CanvasRenderingContext2D):TextPixelFrame|undefined{
- const config=globalThis.__SEMWRIGHT_NATIVE_CONFIG__,samples=config?.text_pixel_observation_frames;
+ const config=globalThis.__SEMWRIGHT_NATIVE_CONFIG__;
+ if(!config)return undefined;
+ const samples=config.text_pixel_observation_frames;
  if(!samples?.length)return undefined;
  const playback=usePlayback();
  const width=context.canvas.width,height=context.canvas.height;
@@ -331,7 +333,7 @@ function beginTextPixelFrame(reg:ReturnType<typeof registration>,context:CanvasR
  requireValue(Number.isSafeInteger(playback.frame)&&playback.frame>=0&&Number.isSafeInteger(config.fps_num)&&config.fps_num>0&&Number.isSafeInteger(config.fps_den)&&config.fps_den>0&&playback.fps===config.fps_num/config.fps_den,'native text pixel playback binding');
  if(!samples.includes(playback.frame))return undefined;
  requireValue(width>0&&height>0&&width<=4096&&height<=4096&&width*height<=TEXT_PIXEL_AREA,'native text pixel canvas budget');
- requireValue(config.text_pixel_background===null||textPixelRgb(config.text_pixel_background)!==null,'native text pixel background observation');
+ requireValue(config.text_pixel_background===null||(typeof config.text_pixel_background==='string'&&textPixelRgb(config.text_pixel_background)!==null),'native text pixel background observation');
  const subjects=new Map<string,TextPixelSubject>();
  for(const shot of reg.data.shots)for(const subject of shot.subjects)if(subject.content.kind==='text'){
   const node=reg.nodes.get(subject.id);
@@ -582,7 +584,8 @@ function nativeLineage(n:Node,reg:ReturnType<typeof registration>):Known<NativeL
   const result:NativeLineageNode[]=[],seen=new Set<Node>();let current:Node|null=n;
   while(current){
    requireValue(result.length<64&&!seen.has(current),'native lineage bound or cycle');seen.add(current);
-   const parent=current.parent(),opacity=current.opacity();
+   const parent:Node|null=current.parent();
+   const opacity=current.opacity();
    requireValue((parent===null||parent instanceof Node)&&Number.isFinite(opacity)&&opacity>=0&&opacity<=1,'native lineage values');
    result.push({native_key:nativeKey(current),subject_id:reg.semanticIds.get(current)??null,native_type:nativeNodeType(current),
     parent_key:parent?nativeKey(parent):null,local_to_parent:nativeMatrix(current.localToParent()),opacity,
