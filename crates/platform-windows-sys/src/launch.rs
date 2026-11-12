@@ -1416,7 +1416,11 @@ fn set_mount_ace(
     if status.0 != 0 || updated.is_null() {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
-            "Windows sandbox mount ACE could not be constructed",
+            format!(
+                "Windows sandbox mount ACE could not be constructed (Win32 status {}, null ACL {})",
+                status.0,
+                updated.is_null()
+            ),
         ));
     }
     let updated = LocalAcl(updated);
@@ -1435,7 +1439,10 @@ fn set_mount_ace(
     if status.0 != 0 {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
-            "Windows sandbox mount ACE could not be applied",
+            format!(
+                "Windows sandbox mount ACE could not be applied (Win32 status {})",
+                status.0
+            ),
         ));
     }
     Ok(())
@@ -1670,6 +1677,18 @@ impl WindowsMountGrant {
             prepared.denied_permissions,
             prepared.inheritance,
         ) {
+            // Avoid exposing private filesystem paths, principal SIDs or
+            // AppContainer tokens in diagnostic logs.
+            eprintln!(
+                "{}",
+                serde_json::json!({
+                    "component": "platform-windows",
+                    "phase": "sandbox_mount_ace_rejected",
+                    "logical_mount": prepared.materialized.logical_name.as_str(),
+                    "operation": "deny",
+                    "error": error.to_string(),
+                })
+            );
             let _ = revoke_mount_sid(&prepared.path, owned_sid);
             return Err(error);
         }
@@ -1692,6 +1711,16 @@ impl WindowsMountGrant {
             prepared.permissions,
             prepared.inheritance,
         ) {
+            eprintln!(
+                "{}",
+                serde_json::json!({
+                    "component": "platform-windows",
+                    "phase": "sandbox_mount_ace_rejected",
+                    "logical_mount": prepared.materialized.logical_name.as_str(),
+                    "operation": "allow",
+                    "error": error.to_string(),
+                })
+            );
             let _ = revoke_mount_sid(&prepared.path, owned_sid);
             return Err(error);
         }
