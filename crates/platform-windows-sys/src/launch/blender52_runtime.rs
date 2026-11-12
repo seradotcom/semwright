@@ -231,7 +231,10 @@ pub fn stage(
     if !is_directory {
         return Err(Error::invalid("Native runtime root must be a directory"));
     }
-    verify_sealed_tool_executable(&source.join("blender.exe"), executable_sha256)?;
+    // Blender is an owner-pinned application binary, not a generic <=64 MiB
+    // sealed driver tool. Preserve its native-PE, digest, ACL and signature
+    // checks using the already bounded 512 MiB application verifier.
+    verify_application_executable(&source.join("blender.exe"), executable_sha256)?;
     std::fs::create_dir(destination)?;
     crate::paths::ensure_owner_only_directory(destination)?;
     let mut bytes = 0;
@@ -251,7 +254,9 @@ pub fn stage(
         let _ = std::fs::remove_dir_all(destination);
         return Err(error);
     }
-    verify_sealed_tool_executable(&destination.join("blender.exe"), executable_sha256)?;
+    // Independently verify copied executable bytes and identity before
+    // publishing the transient snapshot; never trust the source check alone.
+    verify_application_executable(&destination.join("blender.exe"), executable_sha256)?;
     let encoded = serde_json::to_vec(&hashes)
         .map_err(|_| Error::invalid("Native runtime inventory encoding"))?;
     Ok(
@@ -297,6 +302,63 @@ mod native_runtime_tests {
             std::fs::read(source.join("unexpected.dll")).unwrap(),
             b"not-blender"
         );
+    }
+
+    #[test]
+    fn owner_pinned_large_blender_pe_survives_source_and_snapshot_verification() {
+        // Blender 5.2.1 is >64 MiB. The generic sealed-tool verifier must
+        // reject this source, but the owner-pinned application verifier can
+        // accept up to 512 MiB without dropping ACL/PE/hash checks. CI-only
+        // disposable fixture: append zero bytes to an unsigned native PE.
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source");
+        let private_state = directory.path().join("private-state");
+        std::fs::create_dir(&source).unwrap();
+        std::fs::create_dir(&private_state).unwrap();
+        let exe = source.join("blender.exe");
+        std::fs::copy(std::env::current_exe().unwrap(), &exe).unwrap();
+        let bytes = MAX_EXECUTABLE + 1;
+        assert!(bytes < MAX_APPLICATION_EXECUTABLE);
+        let file = std::fs::OpenOptions::new().write(true).open(&exe).unwrap();
+        assert!(file.metadata().unwrap().len() < bytes);
+        file.set_len(bytes).unwrap();
+        drop(file);
+        let principal = match std::env::var("USERDOMAIN") {
+            Ok(domain) if !domain.is_empty() => {
+                format!(r"{domain}\{}", std::env::var("USERNAME").unwrap())
+            }
+            _ => std::env::var("USERNAME").unwrap(),
+        };
+        for path in [&source, &exe, &private_state] {
+            let acl = std::process::Command::new("icacls")
+                .arg(path)
+                .arg("/inheritance:r")
+                .arg("/grant:r")
+                .arg(format!("{principal}:(F)"))
+                .status()
+                .unwrap();
+            assert!(
+                acl.success(),
+                "could not secure test fixture: {}",
+                path.display()
+            );
+        }
+        let digest = hex::encode(Sha256::digest(std::fs::read(&exe).unwrap()));
+        assert!(
+            verify_sealed_tool_executable(&exe, &digest).is_err(),
+            "Generic <=64 MiB sealed tools may never accept this Blender fixture"
+        );
+        verify_application_executable(&exe, &digest)
+            .expect("Owner-pinned native application supports the larger PE budget");
+        let dest = private_state.join("snapshot");
+        let receipt = stage(&source, &dest, &digest, &AtomicBool::new(false))
+            .expect("Native Blender stage must verify both large source and copied PE");
+        assert_eq!(receipt["bytes"], bytes);
+        assert_eq!(receipt["entries"], 1);
+        assert_eq!(receipt["files"]["blender.exe"], digest);
+        assert!(dest.join("blender.exe").is_file());
+        verify_application_executable(&dest.join("blender.exe"), &digest)
+            .expect("Private native snapshot must preserve PE and executable digest");
     }
 
     #[test]
