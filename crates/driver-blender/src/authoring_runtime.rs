@@ -7,7 +7,10 @@ use semwright_driver_sdk::DriverExecutionContext;
 use semwright_semantic_composition as composition;
 use semwright_types::{Error, ErrorCode, Idempotency, JobProgress, Result, Risk, unique_id};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+
+#[path = "authoring_spatial.rs"]
+mod authoring_spatial;
 
 type Plan = composition::PreparedPlan<AuthoringIntent, NativeOperation>;
 
@@ -78,6 +81,9 @@ struct MeasureInput {
     pairs: Vec<[String; 2]>,
     #[serde(default)]
     sample: Option<MeasureSample>,
+    /// Optional bounded readback rules, not native execution instructions.
+    #[serde(default)]
+    checks: Vec<composition::SpatialClearanceRule>,
 }
 impl MeasureInput {
     fn validate(&self) -> composition::Result<()> {
@@ -88,6 +94,32 @@ impl MeasureInput {
             local_id(&pair[1])?;
             composition::ensure(pair[0] != pair[1], "measurement pair requires distinct IDs")?;
         }
+        composition::ensure(self.checks.len() <= 16, "spatial rule count exceeds 16")?;
+        if !self.checks.is_empty() {
+            composition::ensure(
+                self.evaluated,
+                "spatial clearance requires evaluated single-frame native geometry",
+            )?;
+        }
+        let mut distinct = BTreeSet::new();
+        let mut native_pair_count = self.pairs.len();
+        for rule in &self.checks {
+            rule.validate()?;
+            local_id(&rule.a)?;
+            local_id(&rule.b)?;
+            let key = if rule.a < rule.b {
+                (&rule.a, &rule.b)
+            } else {
+                (&rule.b, &rule.a)
+            };
+            composition::ensure(distinct.insert(key), "duplicate spatial pair rule")?;
+            if !self.pairs.iter().any(|pair| {
+                (pair[0] == rule.a && pair[1] == rule.b) || (pair[0] == rule.b && pair[1] == rule.a)
+            }) {
+                native_pair_count += 1;
+            }
+        }
+        composition::ensure(native_pair_count <= 64, "native pair measurement budget")?;
         if let Some(sample) = self.sample {
             composition::ensure(
                 self.evaluated,
@@ -966,7 +998,29 @@ pub(super) async fn execute(
             let input: MeasureInput = serde_json::from_value(args)?;
             input.validate().map_err(common_error)?;
             let sample = input.sample;
-            let mut output = native(channel, "measure", serde_json::to_value(&input)?).await?;
+            let checks = input.checks.clone();
+            let mut native_input = serde_json::to_value(&input)?;
+            let forwarded = native_input
+                .as_object_mut()
+                .ok_or_else(|| Error::invalid("native measure input"))?;
+            // The first-party Python runtime only accepts native measurement
+            // fields. Rules are checked after real readback in the Rust driver.
+            forwarded.remove("checks");
+            if !checks.is_empty() {
+                let pairs = forwarded
+                    .get_mut("pairs")
+                    .and_then(Value::as_array_mut)
+                    .ok_or_else(|| Error::invalid("native measure pairs"))?;
+                for rule in &checks {
+                    if !pairs.iter().any(|pair| {
+                        (pair[0] == rule.a && pair[1] == rule.b)
+                            || (pair[0] == rule.b && pair[1] == rule.a)
+                    }) {
+                        pairs.push(json!([rule.a, rule.b]));
+                    }
+                }
+            }
+            let mut output = native(channel, "measure", native_input).await?;
             if let Some(sample) = sample {
                 let observed = output.get("sample_observed").ok_or_else(|| {
                     Error::new(
@@ -996,6 +1050,15 @@ pub(super) async fn execute(
                             "domain": "media-time"
                         }),
                     );
+            }
+            if !checks.is_empty() {
+                let assessed = authoring_spatial::assess(&checks, &output)?;
+                output
+                    .as_object_mut()
+                    .ok_or_else(|| {
+                        Error::new(ErrorCode::PluginProtocolError, "native measure output")
+                    })?
+                    .insert("spatial_rules".into(), assessed);
             }
             Ok(output)
         }
@@ -1057,5 +1120,55 @@ pub(super) async fn execute(
             ErrorCode::Unsupported,
             "authoring phase not implemented",
         )),
+    }
+}
+
+#[cfg(test)]
+mod spatial_input_contract_tests {
+    use super::*;
+
+    fn basic() -> MeasureInput {
+        serde_json::from_value(json!({
+            "island":"managed-test",
+            "evaluated":true,
+            "checks":[
+                {"a":"magnet-a","b":"magnet-b","minimum_gap_m":0.025}
+            ]
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn spatial_measurement_checks_require_evaluated_geometry() {
+        let mut input = basic();
+        assert!(input.validate().is_ok());
+        input.evaluated = false;
+        assert!(input.validate().is_err());
+    }
+
+    #[test]
+    fn symmetric_duplicates_and_unbounded_native_pairs_fail_closed() {
+        let mut input = basic();
+        input.checks.push(composition::SpatialClearanceRule {
+            a: "magnet-b".into(),
+            b: "magnet-a".into(),
+            minimum_gap_m: 0.0,
+        });
+        assert!(input.validate().is_err());
+        let mut input = basic();
+        input.pairs = (0..64)
+            .map(|i| [format!("obj-{i}-a"), format!("obj-{i}-b")])
+            .collect();
+        assert!(input.validate().is_err());
+    }
+
+    #[test]
+    fn spatial_rule_cannot_smuggle_extra_native_fields() {
+        let extra: std::result::Result<MeasureInput, _> = serde_json::from_value(json!({
+            "island":"managed-test","evaluated":true,
+            "checks":[{"a":"magnet-a","b":"magnet-b",
+                "minimum_gap_m":0.01,"arbitrary_python":"print(1)"}]
+        }));
+        assert!(extra.is_err());
     }
 }

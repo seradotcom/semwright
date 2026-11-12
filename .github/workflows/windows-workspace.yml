@@ -11,6 +11,7 @@ on:
       - 'crates/driver-sdk/**'
       - 'crates/driver-host/**'
       - 'crates/driver-blender/**'
+      - 'crates/semantic-composition/**'
       - 'crates/platform-windows/**'
       - 'crates/platform-windows-sys/**'
       - 'crates/platform-services/src/lib.rs'
@@ -65,6 +66,8 @@ jobs:
         run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/src/server.rs crates/daemon/tests/windows_workspace.rs crates/cli/src/lib.rs crates/cli/src/semwright.rs crates/platform-services/src/lib.rs crates/platform-windows-sys/src/launch.rs crates/platform-windows-sys/src/job.rs crates/platform-windows-sys/src/launch/initial_attestation.rs crates/platform-windows-sys/src/launch/initial_lpac.rs crates/platform-windows-sys/src/launch/blender52_runtime.rs crates/platform-windows-sys/tests/private_data.rs crates/platform-windows-sys/src/paths.rs crates/platform-windows-sys/src/filesystem.rs crates/platform-windows-sys/src/window.rs crates/platform-windows/src/lib.rs crates/core/tests/project_graph.rs crates/protocol/src/lib.rs
       - name: Check native manifest/Host source formatting
         run: rustfmt --edition 2024 --check crates/driver-sdk/src/lib.rs crates/driver-host/src/lib.rs crates/daemon/src/semwrightd.rs
+      - name: Shared native spatial constraint contract formatting
+        run: rustfmt --edition 2024 --check crates/semantic-composition/src/spatial_clearance.rs crates/driver-blender/src/authoring_runtime.rs crates/driver-blender/src/authoring_spatial.rs
       - name: Parse the interactive harness
         run: ./scripts/windows/validate-interactive-certification.ps1
       - name: Response-loss transport semantics
@@ -73,6 +76,8 @@ jobs:
         run: cargo test --locked -p semwright-core --lib scoped_snapshot_tests
       - name: Closed native Blender request must not bypass Host
         run: |
+          python crates/driver-blender/tests/semantic_cross_version_parity.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python crates/driver-blender/tests/semantic_references.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python crates/driver-blender/tests/semantic_security.py
@@ -80,6 +85,12 @@ jobs:
           python crates/driver-host/tests/windows_blender_checkpoint.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-host --lib pinned_blender_assets_tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-semantic-composition --lib spatial_clearance::tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver authoring_spatial::tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver spatial_input_contract_tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-host --lib stage_recovery::tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -248,6 +259,7 @@ jobs:
           sudo apt-get install -y libpipewire-0.3-dev
       - name: Shared setup, configuration and transport checks
         run: |
+          python3 crates/driver-blender/tests/semantic_cross_version_parity.py
           python3 crates/driver-blender/tests/semantic_references.py
           python3 crates/driver-blender/tests/semantic_security.py
           python3 crates/driver-host/tests/windows_blender_checkpoint.py
@@ -258,4 +270,7 @@ jobs:
           cargo test --locked -p semwright-driver-sdk --lib windows_native_profile_tests
           cargo test --locked -p semwright-driver-sdk --lib runtime_tool_session_
           cargo test --locked -p semwright-driver-host --lib host_tool_protocol_tests
+          cargo test --locked -p semwright-semantic-composition --lib spatial_clearance::tests
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver authoring_spatial::tests
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver spatial_input_contract_tests
           cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver native_initial_session_

@@ -2,10 +2,12 @@
 mod canonical;
 mod controller;
 mod model;
+mod spatial_clearance;
 mod vault;
 pub use canonical::*;
 pub use controller::*;
 pub use model::*;
+pub use spatial_clearance::*;
 pub use vault::*;
 
 pub const CONTRACT_VERSION: u32 = 1;

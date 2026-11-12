@@ -20,6 +20,43 @@ Ordinary incremental `Transform` and `MaterialSlots` intents use fresh source fi
 
 Typed relations compile to normal Blender relations: parent/bone parent, world-space follow, fixed-axis look-at and axis-selective `align` via COPY_LOCATION with explicit owner/target spaces. `composition.measure` distinguishes source/evaluated state. Optional sampled animation measurement uses A's exact `media-time::Rate`, evaluates one declared frame, reports exact rational sample time and restores the previous frame/subframe. Pair measurements report origin/center offsets, AABB clearance and contact evidence; mesh intersection separately reports AABB broad phase and bounded world-triangle narrow phase. AABB overlap alone never yields an intersection claim; self-intersection remains UNKNOWN.
 
+### Explicit spatial invariants from native evidence
+
+Both the Linux 4.5.14 and Windows 5.2.1 Blender drivers use the same Rust
+`composition.measure` adapter and backend-neutral
+`semwright-semantic-composition` clearance evaluator. A caller can declare a
+pair's desired minimum world-space separation without requesting arbitrary
+`bpy.ops`, ad-hoc Python or a second mutation:
+
+```json
+{
+  "island": "managed-scene",
+  "evaluated": true,
+  "checks": [
+    {"a": "magnet-left", "b": "magnet-right", "minimum_gap_m": 0.02}
+  ]
+}
+```
+
+The native measurement automatically includes named check pairs (up to 16)
+and returns `spatial_rules.checks` with `PASS`, `FAIL` or `UNKNOWN`,
+an explicit evidence basis and a **single evaluated frame** scope. Disjoint
+world-space bounding boxes can prove a conservative minimum separation;
+observed crossing of native surface triangles is a failure. Overlapping
+bounding boxes do NOT prove contact, absent geometry does not prove
+separation, and contradictory evidence is `UNKNOWN`. These are advisory
+measurements, not implicit policy grants, undo/rollback, or a promise that
+every animation frame is valid. `composition.measure` retains its existing
+mutating-risk policy classification, since sampling may temporarily change
+the current scene frame before restoring it.
+
+The caller supplies the meaning of entity identities. The driver does not
+infer that an object named "magnet" is magnetic or that parenting a branch
+welds its geometry to a tree. Those invariants need explicit relational
+constraints and separate geometric readback. Other drivers can supply their
+own native measurements to the same generic evaluator instead of
+duplicating application-specific rules.
+
 `mesh_instance` intentionally shares a native mesh datablock and rejects material/modifier writes. `mesh_copy` is the explicit copy-on-write variant and receives an independent datablock before material-slot/modifier mutation.
 
 `composition.persist` creates a new blend library file. `composition.reopen` must run in a fresh driver process for persistence evidence. GLB export remains the single existing `driver.blender.export.glb` implementation from #154, preceded by the Blender dependency-closure preflight.
