@@ -1957,6 +1957,11 @@ mod tests {
         // schema change must still fail the earlier digest and every old golden.
         let mut font_catalog = catalog.clone();
         let frame_schema = embedded_scalar::<Vec<u64>>();
+        let mut profile_frame_schema = frame_schema.clone();
+        profile_frame_schema["description"] = json!(concat!(
+            "Selected native playback frames for bounded read-only glyph paint observation.\n",
+            "Empty retains the legacy profile and has no serialized field."
+        ));
         for (name, direction, model_pointer) in [
             ("driver.motion-canvas.render.plan", "input", "/$defs/RenderProfile"),
             ("driver.motion-canvas.render.start", "input", "/$defs/RenderProfile"),
@@ -1996,7 +2001,11 @@ mod tests {
                 .expect("render model properties");
             assert_eq!(
                 properties.remove("text_pixel_observation_frames"),
-                Some(frame_schema.clone())
+                Some(if direction == "input" {
+                    profile_frame_schema.clone()
+                } else {
+                    frame_schema.clone()
+                })
             );
         }
         assert_eq!(
