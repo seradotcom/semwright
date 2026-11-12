@@ -67,7 +67,7 @@ jobs:
       - name: Check native manifest/Host source formatting
         run: rustfmt --edition 2024 --check crates/driver-sdk/src/lib.rs crates/driver-host/src/lib.rs crates/daemon/src/semwrightd.rs
       - name: Shared native spatial, hierarchy and intent contract formatting
-        run: rustfmt --edition 2024 --check crates/semantic-composition/src/spatial_clearance.rs crates/semantic-composition/src/direct_parent.rs crates/semantic-composition/src/semantic_intent.rs crates/driver-blender/src/authoring_runtime.rs crates/driver-blender/src/authoring_spatial.rs crates/driver-blender/src/authoring_structure.rs
+        run: rustfmt --edition 2024 --check crates/semantic-composition/src/spatial_clearance.rs crates/semantic-composition/src/direct_parent.rs crates/semantic-composition/src/semantic_intent.rs crates/driver-blender/src/authoring_runtime.rs crates/driver-blender/src/authoring_spatial.rs crates/driver-blender/src/authoring_structure.rs crates/driver-blender/src/authoring_guard.rs
       - name: Parse the interactive harness
         run: ./scripts/windows/validate-interactive-certification.ps1
       - name: Response-loss transport semantics
@@ -93,6 +93,10 @@ jobs:
           cargo test --locked -p semwright-semantic-composition --lib semantic_intent::tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver authoring_structure::tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver authoring_guard::tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver guarded_persist_input_tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver authoring_spatial::tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -279,6 +283,8 @@ jobs:
           cargo test --locked -p semwright-semantic-composition --lib spatial_clearance::tests
           cargo test --locked -p semwright-semantic-composition --lib direct_parent::tests
           cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver authoring_structure::tests
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver authoring_guard::tests
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver guarded_persist_input_tests
           cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver authoring_spatial::tests
           cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver spatial_input_contract_tests
           cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver native_initial_session_

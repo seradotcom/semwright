@@ -9,6 +9,8 @@ use semwright_types::{Error, ErrorCode, Idempotency, JobProgress, Result, Risk, 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+#[path = "authoring_guard.rs"]
+mod authoring_guard;
 #[path = "authoring_spatial.rs"]
 mod authoring_spatial;
 #[path = "authoring_structure.rs"]
@@ -195,6 +197,42 @@ impl MeasureInput {
         Ok(())
     }
 }
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct PersistInput {
+    island: String,
+    path: String,
+    /// Optional explicit native checks required before an owner-granted save.
+    /// An absent guard preserves the existing new-only native persist route.
+    #[serde(default)]
+    intent_manifest: Option<composition::SemanticIntentManifest>,
+}
+
+impl PersistInput {
+    fn validate(&self) -> composition::Result<()> {
+        local_id(&self.island)?;
+        composition::ensure(
+            (7..=240).contains(&self.path.len()),
+            "native persist path size",
+        )?;
+        if let Some(manifest) = &self.intent_manifest {
+            composition::ensure(
+                manifest.resource == self.island,
+                "guarded save manifest targets a different managed island",
+            )?;
+            let prepared = manifest.prepare()?;
+            for role in &prepared.roles {
+                local_id(&role.entity)?;
+            }
+            composition::ensure(
+                prepared.spatial_checks.len() <= 16 && prepared.direct_parents.len() <= 16,
+                "guarded save requires bounded native checks",
+            )?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PageInput {
@@ -343,7 +381,8 @@ pub(super) fn capabilities() -> Vec<Capability> {
         ("verify", reference, report, Risk::ReadOnly),
         (
             "persist",
-            json!({"type":"object","properties":{"island":id.clone(),"path":{"type":"string","minLength":7,"maxLength":240}},"required":["island","path"],"additionalProperties":false}),
+            serde_json::to_value(schemars::schema_for!(PersistInput))
+                .expect("guarded persist schema serializes"),
             json!({"type":"object"}),
             Risk::Mutating,
         ),
@@ -726,6 +765,134 @@ fn plan_island(plan: &Plan) -> Result<&str> {
         .ok_or_else(|| Error::invalid("empty authoring plan"))
 }
 #[allow(clippy::too_many_arguments)]
+async fn measure_input(channel: &NativeSession<'_>, input: MeasureInput) -> Result<Value> {
+    input.validate().map_err(common_error)?;
+    let sample = input.sample;
+    let (checks, parent_checks, declared_manifest) =
+        input.prepared_checks().map_err(common_error)?;
+    let source_before = if parent_checks.is_empty() && declared_manifest.is_none() {
+        None
+    } else {
+        Some(snapshot(channel, Some(&input.island)).await?)
+    };
+    let mut native_input = serde_json::to_value(&input)?;
+    let forwarded = native_input
+        .as_object_mut()
+        .ok_or_else(|| Error::invalid("native measure input"))?;
+    // The first-party Python runtime only accepts native measurement
+    // fields. Rules are checked after real readback in the Rust driver.
+    forwarded.remove("checks");
+    forwarded.remove("parent_checks");
+    forwarded.remove("intent_manifest");
+    if !checks.is_empty() {
+        let pairs = forwarded
+            .get_mut("pairs")
+            .and_then(Value::as_array_mut)
+            .ok_or_else(|| Error::invalid("native measure pairs"))?;
+        for rule in &checks {
+            if !pairs.iter().any(|pair| {
+                (pair[0] == rule.a && pair[1] == rule.b) || (pair[0] == rule.b && pair[1] == rule.a)
+            }) {
+                pairs.push(json!([rule.a, rule.b]));
+            }
+        }
+    }
+    let mut output = native(channel, "measure", native_input).await?;
+    if let Some(sample) = sample {
+        let observed = output.get("sample_observed").ok_or_else(|| {
+            Error::new(
+                ErrorCode::PluginProtocolError,
+                "sampled native measurement omitted observed frame metadata",
+            )
+        })?;
+        if observed.get("frame").and_then(Value::as_i64) != Some(i64::from(sample.frame)) {
+            return Err(Error::new(
+                ErrorCode::PluginProtocolError,
+                "sampled native measurement returned a different frame",
+            ));
+        }
+        let exact_time = sample
+            .rate
+            .at(i64::from(sample.frame))
+            .map_err(common_error)?;
+        output
+            .as_object_mut()
+            .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "measure output"))?
+            .insert(
+                "sample_time".into(),
+                json!({
+                    "frame": sample.frame,
+                    "rate": sample.rate,
+                    "time": exact_time,
+                    "domain": "media-time"
+                }),
+            );
+    }
+    if !checks.is_empty() {
+        let assessed = authoring_spatial::assess(&checks, &output)?;
+        output
+            .as_object_mut()
+            .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "native measure output"))?
+            .insert("spatial_rules".into(), assessed);
+    }
+    if let Some(before) = source_before {
+        // One broker command can return both independent native
+        // observations without the agent coordinating two calls.
+        // Fingerprint the source again to detect intervening drift.
+        let after = snapshot(channel, Some(&input.island)).await?;
+        if before.native_session != after.native_session
+            || before.fingerprint != after.fingerprint
+            || before.island != after.island
+            || output["native_session"].as_str() != Some(before.native_session.as_str())
+        {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Native source changed during combined semantic readback; reobserve before another attempt",
+            ).uncertain());
+        }
+        let hierarchical = if parent_checks.is_empty() {
+            None
+        } else {
+            Some(authoring_structure::assess(
+                &authoring_structure::CheckInput {
+                    island: input.island.clone(),
+                    checks: parent_checks,
+                },
+                &before,
+            )?)
+        };
+        let object = output
+            .as_object_mut()
+            .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "native measure output"))?;
+        if let Some(hierarchical) = hierarchical {
+            object.insert(
+                "structural_rules".into(),
+                serde_json::to_value(hierarchical)?,
+            );
+        }
+        if let Some(manifest) = declared_manifest {
+            object.insert(
+                "declared_intent".into(),
+                json!({
+                    "schema":"semantic-intent/v1",
+                    "manifest_sha256":manifest.digest,
+                    "roles":manifest.roles,
+                    "source_fingerprint":before.fingerprint,
+                    "native_session":before.native_session,
+                    "inferred_rules":false,
+                    "stored_in_native_scene":false
+                }),
+            );
+        }
+        object.insert(
+            "combined_source_fingerprint".into(),
+            serde_json::to_value(&before.fingerprint)?,
+        );
+        object.insert("combined_source_consistent".into(), json!(true));
+    }
+    Ok(output)
+}
+
 pub(super) async fn execute(
     state: &mut State,
     channel: &NativeSession<'_>,
@@ -1071,136 +1238,96 @@ pub(super) async fn execute(
         }
         "measure" => {
             let input: MeasureInput = serde_json::from_value(args)?;
+            measure_input(channel, input).await
+        }
+        "persist" => {
+            let input: PersistInput = serde_json::from_value(args)?;
             input.validate().map_err(common_error)?;
-            let sample = input.sample;
-            let (checks, parent_checks, declared_manifest) =
-                input.prepared_checks().map_err(common_error)?;
-            let source_before = if parent_checks.is_empty() && declared_manifest.is_none() {
+            let Some(manifest) = input.intent_manifest else {
+                return native(
+                    channel,
+                    "persist",
+                    json!({
+                        "island":input.island,
+                        "path":input.path
+                    }),
+                )
+                .await;
+            };
+            // No new I/O channel or write permission: Blender's existing
+            // native library-write capability is the only save mechanism.
+            // Every declared invariant must PASS in the current native state.
+            let prepared = manifest.prepare().map_err(common_error)?;
+            let source_before = snapshot(channel, Some(&input.island)).await?;
+            let measured = if prepared.spatial_checks.is_empty() {
                 None
             } else {
-                Some(snapshot(channel, Some(&input.island)).await?)
+                Some(
+                    measure_input(
+                        channel,
+                        MeasureInput {
+                            island: input.island.clone(),
+                            evaluated: true,
+                            pairs: Vec::new(),
+                            sample: None,
+                            checks: Vec::new(),
+                            parent_checks: Vec::new(),
+                            intent_manifest: Some(manifest.clone()),
+                        },
+                    )
+                    .await?,
+                )
             };
-            let mut native_input = serde_json::to_value(&input)?;
-            let forwarded = native_input
-                .as_object_mut()
-                .ok_or_else(|| Error::invalid("native measure input"))?;
-            // The first-party Python runtime only accepts native measurement
-            // fields. Rules are checked after real readback in the Rust driver.
-            forwarded.remove("checks");
-            forwarded.remove("parent_checks");
-            forwarded.remove("intent_manifest");
-            if !checks.is_empty() {
-                let pairs = forwarded
-                    .get_mut("pairs")
-                    .and_then(Value::as_array_mut)
-                    .ok_or_else(|| Error::invalid("native measure pairs"))?;
-                for rule in &checks {
-                    if !pairs.iter().any(|pair| {
-                        (pair[0] == rule.a && pair[1] == rule.b)
-                            || (pair[0] == rule.b && pair[1] == rule.a)
-                    }) {
-                        pairs.push(json!([rule.a, rule.b]));
-                    }
-                }
+            let guard = authoring_guard::check(
+                &input.island,
+                &manifest,
+                &prepared,
+                &source_before,
+                measured.as_ref(),
+            )?;
+
+            // Native measurement can briefly sample the current frame; never
+            // save a different source revision after the guard was checked.
+            let source_now = snapshot(channel, Some(&input.island)).await?;
+            if source_now.native_session != source_before.native_session
+                || source_now.fingerprint != source_before.fingerprint
+                || source_now.drift != source_before.drift
+            {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Native source changed after guarded validation; do not retry save",
+                )
+                .uncertain());
             }
-            let mut output = native(channel, "measure", native_input).await?;
-            if let Some(sample) = sample {
-                let observed = output.get("sample_observed").ok_or_else(|| {
+
+            // The destination stays new-only and owner-workspace scoped. A
+            // native failure or unknown outcome is propagated, never replayed.
+            let mut saved = native(
+                channel,
+                "persist",
+                json!({"island":input.island,"path":input.path}),
+            )
+            .await?;
+            if saved["source_fingerprint"].as_str() != Some(source_before.fingerprint.as_str())
+                || saved["island"].as_str() != Some(input.island.as_str())
+            {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Native save completed with mismatched source evidence; reconcile receipt",
+                )
+                .uncertain());
+            }
+            saved
+                .as_object_mut()
+                .ok_or_else(|| {
                     Error::new(
                         ErrorCode::PluginProtocolError,
-                        "sampled native measurement omitted observed frame metadata",
+                        "Native persist receipt is not a JSON object",
                     )
-                })?;
-                if observed.get("frame").and_then(Value::as_i64) != Some(i64::from(sample.frame)) {
-                    return Err(Error::new(
-                        ErrorCode::PluginProtocolError,
-                        "sampled native measurement returned a different frame",
-                    ));
-                }
-                let exact_time = sample
-                    .rate
-                    .at(i64::from(sample.frame))
-                    .map_err(common_error)?;
-                output
-                    .as_object_mut()
-                    .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "measure output"))?
-                    .insert(
-                        "sample_time".into(),
-                        json!({
-                            "frame": sample.frame,
-                            "rate": sample.rate,
-                            "time": exact_time,
-                            "domain": "media-time"
-                        }),
-                    );
-            }
-            if !checks.is_empty() {
-                let assessed = authoring_spatial::assess(&checks, &output)?;
-                output
-                    .as_object_mut()
-                    .ok_or_else(|| {
-                        Error::new(ErrorCode::PluginProtocolError, "native measure output")
-                    })?
-                    .insert("spatial_rules".into(), assessed);
-            }
-            if let Some(before) = source_before {
-                // One broker command can return both independent native
-                // observations without the agent coordinating two calls.
-                // Fingerprint the source again to detect intervening drift.
-                let after = snapshot(channel, Some(&input.island)).await?;
-                if before.native_session != after.native_session
-                    || before.fingerprint != after.fingerprint
-                    || before.island != after.island
-                    || output["native_session"].as_str() != Some(before.native_session.as_str())
-                {
-                    return Err(Error::new(
-                        ErrorCode::StaleReference,
-                        "Native source changed during combined semantic readback; reobserve before another attempt",
-                    ).uncertain());
-                }
-                let hierarchical = if parent_checks.is_empty() {
-                    None
-                } else {
-                    Some(authoring_structure::assess(
-                        &authoring_structure::CheckInput {
-                            island: input.island.clone(),
-                            checks: parent_checks,
-                        },
-                        &before,
-                    )?)
-                };
-                let object = output.as_object_mut().ok_or_else(|| {
-                    Error::new(ErrorCode::PluginProtocolError, "native measure output")
-                })?;
-                if let Some(hierarchical) = hierarchical {
-                    object.insert(
-                        "structural_rules".into(),
-                        serde_json::to_value(hierarchical)?,
-                    );
-                }
-                if let Some(manifest) = declared_manifest {
-                    object.insert(
-                        "declared_intent".into(),
-                        json!({
-                            "schema":"semantic-intent/v1",
-                            "manifest_sha256":manifest.digest,
-                            "roles":manifest.roles,
-                            "source_fingerprint":before.fingerprint,
-                            "native_session":before.native_session,
-                            "inferred_rules":false,
-                            "stored_in_native_scene":false
-                        }),
-                    );
-                }
-                object.insert(
-                    "combined_source_fingerprint".into(),
-                    serde_json::to_value(&before.fingerprint)?,
-                );
-                object.insert("combined_source_consistent".into(), json!(true));
-            }
-            Ok(output)
+                })?
+                .insert("semantic_guard".into(), guard);
+            Ok(saved)
         }
-        "persist" => native(channel, "persist", args).await,
         "reopen" => native(channel, "reopen", args).await,
         "validate" | "verify" => {
             let plan_ref = args["plan_ref"]
@@ -1258,6 +1385,95 @@ pub(super) async fn execute(
             ErrorCode::Unsupported,
             "authoring phase not implemented",
         )),
+    }
+}
+
+#[cfg(test)]
+mod guarded_persist_input_tests {
+    use super::*;
+
+    #[test]
+    fn default_legacy_new_only_persist_remains_available() {
+        let input: PersistInput = serde_json::from_value(json!({
+            "island":"managed-test",
+            "path":"persisted-scene.blend"
+        }))
+        .unwrap();
+        assert!(input.validate().is_ok());
+        assert!(input.intent_manifest.is_none());
+        let descriptor = capability("driver.blender.composition.persist").unwrap();
+        assert_eq!(descriptor.descriptor.risk, Risk::Mutating);
+        assert_eq!(
+            descriptor.descriptor.idempotency,
+            Idempotency::NonIdempotent
+        );
+    }
+
+    #[test]
+    fn hierarchy_only_guards_are_supported_without_spatial_dispatch() {
+        let input: PersistInput = serde_json::from_value(json!({
+            "island":"managed-test",
+            "path":"safe-scene.blend",
+            "intent_manifest":{
+                "version":1,"resource":"managed-test",
+                "roles":[{"entity":"tree","role":"tree.trunk"},
+                         {"entity":"branch","role":"tree.branch"}],
+                "invariants":[{"kind":"direct_parent",
+                    "child":"branch","parent":"tree"}]
+            }
+        }))
+        .unwrap();
+        assert!(input.validate().is_ok());
+        assert!(
+            input
+                .intent_manifest
+                .unwrap()
+                .prepare()
+                .unwrap()
+                .spatial_checks
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn mismatched_resource_or_unbounded_guard_denies_before_native_save() {
+        let mut input: PersistInput = serde_json::from_value(json!({
+            "island":"managed-test",
+            "path":"safe-scene.blend",
+            "intent_manifest":{
+                "version":1,"resource":"different-resource",
+                "roles":[{"entity":"tree","role":"tree.trunk"},
+                         {"entity":"branch","role":"tree.branch"}],
+                "invariants":[{"kind":"direct_parent",
+                    "child":"branch","parent":"tree"}]
+            }
+        }))
+        .unwrap();
+        assert!(input.validate().is_err());
+        input.intent_manifest.as_mut().unwrap().resource = input.island.clone();
+        input.path = "short".into();
+        assert!(input.validate().is_err());
+        input.path = "safe-scene.blend".into();
+        assert!(input.validate().is_ok());
+    }
+
+    #[test]
+    fn guarded_persist_rejects_unknown_fields_at_transport_boundary() {
+        let input: std::result::Result<PersistInput, _> = serde_json::from_value(json!({
+            "island":"managed-test","path":"safe-scene.blend",
+            "arbitrary_python":"bpy.ops.wm.save_as_mainfile"
+        }));
+        assert!(input.is_err());
+        let schema = capability("driver.blender.composition.persist")
+            .unwrap()
+            .descriptor
+            .input_schema;
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        assert!(validator.is_valid(&json!({"island":"managed-test","path":"safe-scene.blend"})));
+        assert!(!validator.is_valid(&json!({
+            "island":"managed-test","path":"safe-scene.blend",
+            "bpy_script":"import os"
+        })));
     }
 }
 

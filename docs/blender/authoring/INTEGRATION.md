@@ -119,6 +119,56 @@ Roles such as `magnet`, `tree.branch` or
 of polarity, physical joints, contact or attachment. Other drivers may reuse
 the manifest/digest and map rules to their own trusted native observations.
 
+### Optional save gate from verified declared invariants
+
+The existing `driver.blender.composition.persist` still supports
+unmodified `{island,path}` new-only Blender library saves. An owner
+may additionally pass the **same typed** `intent_manifest` already
+used by `composition.measure`:
+
+```json
+{
+  "island": "managed-scene",
+  "path": "verified-scene.blend",
+  "intent_manifest": {
+    "version": 1,
+    "resource": "managed-scene",
+    "roles": [
+      {"entity": "trunk", "role": "tree.trunk"},
+      {"entity": "branch", "role": "tree.branch"},
+      {"entity": "magnet-a", "role": "magnet"},
+      {"entity": "magnet-b", "role": "magnet"}
+    ],
+    "invariants": [
+      {"kind": "direct_parent", "child": "branch", "parent": "trunk"},
+      {"kind": "minimum_clearance", "a": "magnet-a",
+       "b": "magnet-b", "minimum_gap_m": 0.02}
+    ]
+  }
+}
+```
+
+The guard reobserves the owner-authorized native source and evaluates
+every explicitly requested rule. For a manifest containing geometric
+separation, it reuses the existing native `measure` readback;
+hierarchy-only manifests use the source hierarchy without any evaluated
+spatial dispatch. A `FAIL`, `UNKNOWN`, absent/malformed
+evidence, foreign resource or changed source fingerprint prevents the
+native save. Only all-`PASS` evidence permits the existing
+new-only native `libraries.write` path.
+
+An acknowledged guarded save receipt includes the existing native file
+SHA-256, byte count, island and source fingerprint, plus
+`semantic_guard` with the original declared manifest, its
+canonical digest, verified native session/fingerprint, verdict PASS and
+`stored_in_native_scene:false`. The caller/Platform must preserve
+that manifest and receipt externally if it wants to recheck after reloading.
+This is a **save-time check**, not an event listener, automatic re-enforcement
+after every edit or a promise of physical welding/contact. If the native
+save result is lost, or its returned fingerprint differs after dispatch,
+the outcome is uncertain: reconcile the destination rather than retrying.
+No new filesystem, Python, Blender operator or policy authority is granted.
+
 ### Combined spatial and structural context in one request
 
 The existing `driver.blender.composition.measure` accepts optional
