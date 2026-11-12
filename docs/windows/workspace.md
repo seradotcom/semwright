@@ -104,8 +104,9 @@ closed platform launch. The generic sealed-tool path has no Blender fallback;
 the native session rejects driver-supplied arguments and CWD. Preparation is
 bounded, cancellable, hashed and separate from the driver process. The child
 uses a nonce-bound readiness marker with a bounded timeout and owner-process
-cleanup on failure. Fixed source assets are pinned to first-party donor commit
-a63deb7a542876af0656b4b398ff5463ad6c5ee5, not resolved from user scripts.
+cleanup on failure. Fixed source assets originate at first-party donor commit
+a63deb7a542876af0656b4b398ff5463ad6c5ee5 with tracked Core fixes. The embedded
+manifest binds their exact current bytes; they are not resolved from user scripts.
 
 The native runtime grant belongs to the Host. The generic driver process receives
 its workspace without mounting the vendor installation; it requests the fixed
@@ -151,6 +152,18 @@ the separately trusted private workspace; this is not a general save/overwrite
 API or protection against a hostile simultaneous owner writer. Existing
 `driver.blender.file.save` and `driver.blender.file.open` remain destructive and
 require their existing human approval. Linux's lifecycle catalog is unchanged.
+
+### Reference lifetime
+
+Blender RNA references are opaque and belong to one loaded semantic state.
+A new session or file load creates a fresh reference identity, even if its
+numeric generation and object names match the previous state. Counter wrap
+also renews that identity. References from another state, an older generation
+or the older unscoped format return `StaleReference` before native object lookup.
+Clients must refresh references after reopening; matching a name does not
+authorize reusing an old reference. This identity is not a grant or a replacement
+for broker policy, and the public reference prefix and command schemas remain
+unchanged.
 
 Platform compilation and simulated/negative tests are not proof of an
 installed Blender 5.2.1 running under the broker. Physical scene Save/Reopen

@@ -34,8 +34,8 @@
       "file": "semantic.py",
       "canonical": "../driver-blender/src/semantic.py",
       "private_target": "semwright_blender_runtime/semantic.py",
-      "bytes": 166730,
-      "sha256": "8f3f00b72167e9bd6e1a8d2772f340dfa06183ba0149964d9037f45089993dee"
+      "bytes": 167713,
+      "sha256": "e3b4c9d253cf7b23cbcdb64d42dbdbafdc34cab722875f853d5005cb14453ee6"
     },
     {
       "file": "authoring_native.py",

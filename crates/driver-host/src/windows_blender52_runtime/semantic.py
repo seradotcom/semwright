@@ -10,6 +10,7 @@ import base64
 import json
 import math
 import re
+import secrets
 import stat
 from pathlib import Path
 
@@ -299,10 +300,13 @@ class SemanticStore:
         if not self.workspace.is_absolute() or self.workspace == Path("/") or self.workspace.resolve(strict=True) != self.workspace:
             raise ValueError("Blender semantic workspace must be canonical and absolute")
         self.generation = 1
+        # Reference identity is local to this loaded state, not an authority token.
+        self._reference_scope = secrets.token_hex(16)
 
     def changed(self):
         self.generation += 1
         if self.generation > 2_147_483_647:
+            self._reference_scope = secrets.token_hex(16)
             self.generation = 1
 
     def _root(self, root):
@@ -315,7 +319,7 @@ class SemanticStore:
 
     def _ref(self, root, name, path=None):
         suffix = "" if not path else "/" + _path_token(path)
-        return f"{REF_PREFIX}/{root}/{_token(name)}{suffix}@{self.generation}"
+        return f"{REF_PREFIX}/{root}/{_token(name)}{suffix}@{self._reference_scope}:{self.generation}"
 
     def _parse_ref(self, reference):
         if not isinstance(reference, str) or len(reference) > 1536:
@@ -323,18 +327,28 @@ class SemanticStore:
         prefix = REF_PREFIX + "/"
         if not reference.startswith(prefix) or "@" not in reference:
             raise SemanticError("InvalidArgument", "RNA reference is malformed")
-        body, raw_generation = reference[len(prefix):].rsplit("@", 1)
+        body, revision = reference[len(prefix):].rsplit("@", 1)
         parts = body.split("/")
         if len(parts) not in (2, 3):
             raise SemanticError("InvalidArgument", "RNA reference is malformed")
         root, token = parts[0], parts[1]
+        scope, separator, raw_generation = revision.partition(":")
+        if not separator:
+            # Older references have no instance identity and cannot be re-adopted.
+            if re.fullmatch(r"[1-9][0-9]{0,9}", revision):
+                raise SemanticError("StaleReference", "Blender RNA session changed; refresh semantic references")
+            raise SemanticError("InvalidArgument", "RNA reference is malformed")
         try:
+            if not re.fullmatch(r"[0-9a-f]{32}", scope) or not re.fullmatch(r"[1-9][0-9]{0,9}", raw_generation):
+                raise ValueError("invalid reference revision")
             generation = int(raw_generation)
+            if generation > 2_147_483_647:
+                raise ValueError("reference generation exceeds bound")
             name = _untoken(token)
             path = _path_from_token(parts[2]) if len(parts) == 3 else []
         except Exception as error:
             raise SemanticError("InvalidArgument", "RNA reference is malformed") from error
-        if generation != self.generation:
+        if scope != self._reference_scope or generation != self.generation:
             raise SemanticError("StaleReference", "Blender RNA state changed; refresh semantic references")
         return root, name, path
 
