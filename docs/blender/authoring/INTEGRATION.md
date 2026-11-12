@@ -57,6 +57,46 @@ constraints and separate geometric readback. Other drivers can supply their
 own native measurements to the same generic evaluator instead of
 duplicating application-specific rules.
 
+### Combined spatial and structural context in one request
+
+The existing `driver.blender.composition.measure` accepts optional
+`parent_checks` alongside `checks` for spatial clearance. This reduces
+agent round-trips without adding an arbitrary Python or generic operator
+surface. Example (each entity ID is explicitly specified, never inferred
+from a visual label or semantic category):
+
+```json
+{
+  "island": "managed-scene",
+  "evaluated": true,
+  "checks": [
+    {"a": "magnet-left", "b": "magnet-right", "minimum_gap_m": 0.02}
+  ],
+  "parent_checks": [
+    {"child": "branch-left", "parent": "trunk"}
+  ]
+}
+```
+
+The driver reads the same native managed source **before and after** the
+evaluated spatial measurement, validates its session/fingerprint consistency
+and returns existing `spatial_rules` plus `structural_rules`,
+`combined_source_fingerprint` and `combined_source_consistent:true`.
+A changed native source yields an uncertain stale-reference result that must
+be reconciled; never automatically retry effects. The returned evidence
+still concerns one evaluated frame and one source-hierarchy observation;
+it is not a guarantee across motion, nor a claim that a branch is physically
+welded to its trunk. Missing/ambiguous source evidence remains UNKNOWN.
+
+`parent_checks` is only allowed with at least one spatial `checks` rule;
+for hierarchy alone use the read-only `composition.structure.check` instead.
+The combined query retains `composition.measure`'s existing mutating-risk
+classification because native evaluated/sampled measurements can temporarily
+change the playback frame before restoring it. All grants and approvals
+are unchanged. An intent such as "magnets must not touch" or "branches must
+remain attached" must be supplied as explicit checks; the runtime cannot
+derive those physical assertions solely from object names.
+
 ### Direct structural relationships from managed Blender objects
 
 The read-only `driver.blender.composition.structure.check`

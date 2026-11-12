@@ -86,6 +86,10 @@ struct MeasureInput {
     /// Optional bounded readback rules, not native execution instructions.
     #[serde(default)]
     checks: Vec<composition::SpatialClearanceRule>,
+    /// Optional source-hierarchy assertions evaluated with the same spatial
+    /// request, not forwarded as new Blender Python/operation authority.
+    #[serde(default)]
+    parent_checks: Vec<composition::DirectParentRule>,
 }
 impl MeasureInput {
     fn validate(&self) -> composition::Result<()> {
@@ -122,6 +126,21 @@ impl MeasureInput {
             }
         }
         composition::ensure(native_pair_count <= 64, "native pair measurement budget")?;
+        composition::ensure(
+            self.parent_checks.len() <= 16,
+            "combined hierarchy rule count exceeds 16",
+        )?;
+        if !self.parent_checks.is_empty() {
+            composition::ensure(
+                !self.checks.is_empty(),
+                "use read-only structure.check for hierarchy-only queries",
+            )?;
+            authoring_structure::CheckInput {
+                island: self.island.clone(),
+                checks: self.parent_checks.clone(),
+            }
+            .validate()?;
+        }
         if let Some(sample) = self.sample {
             composition::ensure(
                 self.evaluated,
@@ -1017,6 +1036,12 @@ pub(super) async fn execute(
             input.validate().map_err(common_error)?;
             let sample = input.sample;
             let checks = input.checks.clone();
+            let parent_checks = input.parent_checks.clone();
+            let source_before = if parent_checks.is_empty() {
+                None
+            } else {
+                Some(snapshot(channel, Some(&input.island)).await?)
+            };
             let mut native_input = serde_json::to_value(&input)?;
             let forwarded = native_input
                 .as_object_mut()
@@ -1024,6 +1049,7 @@ pub(super) async fn execute(
             // The first-party Python runtime only accepts native measurement
             // fields. Rules are checked after real readback in the Rust driver.
             forwarded.remove("checks");
+            forwarded.remove("parent_checks");
             if !checks.is_empty() {
                 let pairs = forwarded
                     .get_mut("pairs")
@@ -1077,6 +1103,41 @@ pub(super) async fn execute(
                         Error::new(ErrorCode::PluginProtocolError, "native measure output")
                     })?
                     .insert("spatial_rules".into(), assessed);
+            }
+            if let Some(before) = source_before {
+                // One broker command can return both independent native
+                // observations without the agent coordinating two calls.
+                // Fingerprint the source again to detect intervening drift.
+                let after = snapshot(channel, Some(&input.island)).await?;
+                if before.native_session != after.native_session
+                    || before.fingerprint != after.fingerprint
+                    || before.island != after.island
+                    || output["native_session"].as_str() != Some(before.native_session.as_str())
+                {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Native source changed during combined semantic readback; reobserve before another attempt",
+                    ).uncertain());
+                }
+                let hierarchical = authoring_structure::assess(
+                    &authoring_structure::CheckInput {
+                        island: input.island.clone(),
+                        checks: parent_checks,
+                    },
+                    &before,
+                )?;
+                let object = output.as_object_mut().ok_or_else(|| {
+                    Error::new(ErrorCode::PluginProtocolError, "native measure output")
+                })?;
+                object.insert(
+                    "structural_rules".into(),
+                    serde_json::to_value(hierarchical)?,
+                );
+                object.insert(
+                    "combined_source_fingerprint".into(),
+                    serde_json::to_value(&before.fingerprint)?,
+                );
+                object.insert("combined_source_consistent".into(), json!(true));
             }
             Ok(output)
         }
@@ -1177,6 +1238,62 @@ mod spatial_input_contract_tests {
         input.pairs = (0..64)
             .map(|i| [format!("obj-{i}-a"), format!("obj-{i}-b")])
             .collect();
+        assert!(input.validate().is_err());
+    }
+
+    #[test]
+    fn one_measure_request_accepts_both_spatial_and_parent_rules() {
+        let input: MeasureInput = serde_json::from_value(json!({
+            "island":"managed-test",
+            "evaluated":true,
+            "checks":[{"a":"magnet-a","b":"magnet-b","minimum_gap_m":0.025}],
+            "parent_checks":[{"child":"magnet-a","parent":"magnet-b"}]
+        }))
+        .unwrap();
+        assert!(input.validate().is_ok());
+        assert_eq!(input.parent_checks.len(), 1);
+        assert_eq!(input.checks.len(), 1);
+    }
+
+    #[test]
+    fn combined_measure_rejects_hierarchy_without_geometry_and_cycles() {
+        let mut input: MeasureInput = serde_json::from_value(json!({
+            "island":"managed-test",
+            "evaluated":true,
+            "parent_checks":[{"child":"magnet-a","parent":"magnet-b"}]
+        }))
+        .unwrap();
+        assert!(
+            input.validate().is_err(),
+            "hierarchy-only uses read-only structure.check"
+        );
+        input.checks = basic().checks;
+        input.parent_checks.push(composition::DirectParentRule {
+            child: "magnet-b".into(),
+            parent: "magnet-a".into(),
+        });
+        assert!(
+            input.validate().is_err(),
+            "cyclic rule inputs fail before any native call"
+        );
+    }
+
+    #[test]
+    fn combined_measure_rejects_untrusted_extra_parent_rule_fields() {
+        let value: std::result::Result<MeasureInput, _> = serde_json::from_value(json!({
+            "island":"managed-test",
+            "evaluated":true,
+            "checks":[{"a":"magnet-a","b":"magnet-b","minimum_gap_m":0.02}],
+            "parent_checks":[{"child":"magnet-a","parent":"magnet-b","python":"bpy.ops"}]
+        }));
+        assert!(value.is_err());
+        let input: MeasureInput = serde_json::from_value(json!({
+            "island":"managed-test",
+            "evaluated":false,
+            "checks":[{"a":"magnet-a","b":"magnet-b","minimum_gap_m":0.02}],
+            "parent_checks":[{"child":"magnet-a","parent":"magnet-b"}]
+        }))
+        .unwrap();
         assert!(input.validate().is_err());
     }
 
