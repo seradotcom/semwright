@@ -1649,6 +1649,81 @@ fn prepare_tool_staging_traverse(staging_root: &Path) -> Result<PreparedMountGra
     })
 }
 
+fn native_mount_root_security_context(root: &Path) -> serde_json::Value {
+    use windows::Win32::Security::TOKEN_QUERY;
+    use windows::Win32::System::Threading::{GetCurrentThread, OpenThreadToken};
+
+    // A thread impersonation token can produce different effective access
+    // from the normal broker process token used during private-tree staging.
+    let mut token = HANDLE::default();
+    let thread_impersonating =
+        unsafe { OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, true, &mut token) }.is_ok();
+    if thread_impersonating {
+        // SAFETY: successful OpenThreadToken transferred one owned token handle.
+        unsafe {
+            let _ = CloseHandle(token);
+        }
+    }
+
+    let mut options = std::fs::OpenOptions::new();
+    options
+        .read(true)
+        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0 | FILE_SHARE_DELETE.0)
+        .custom_flags((FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS).0);
+    let file = match options.open(root) {
+        Ok(file) => file,
+        Err(error) => {
+            return serde_json::json!({
+                "thread_impersonation_token_present":thread_impersonating,
+                "root_security_read_win32":error.raw_os_error(),
+            });
+        }
+    };
+    let owner_private_acl_verified =
+        verify_trusted_file_acl(&file, WindowsAclPurpose::PrivateData).is_ok();
+
+    let mut owner = PSID::default();
+    let mut dacl: *mut ACL = std::ptr::null_mut();
+    let mut descriptor = PSECURITY_DESCRIPTOR::default();
+    // SAFETY: the read-only file handle remains live throughout this query.
+    let result = unsafe {
+        GetSecurityInfo(
+            HANDLE(file.as_raw_handle()),
+            SE_FILE_OBJECT,
+            OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+            Some(&mut owner),
+            None,
+            Some(&mut dacl),
+            None,
+            Some(&mut descriptor),
+        )
+    };
+    if result.0 != 0 || descriptor.is_invalid() {
+        return serde_json::json!({
+            "thread_impersonation_token_present":thread_impersonating,
+            "owner_private_acl_verified":owner_private_acl_verified,
+            "root_security_read_win32":result.0,
+        });
+    }
+    let _descriptor = SecurityDescriptor(descriptor);
+    let expected = current_user_sid_bytes();
+    let owner_is_process_user = expected.as_ref().is_ok_and(|sid| sid_matches(owner, sid));
+    let system = well_known_sid(WinLocalSystemSid);
+    let owner_is_system = system.as_ref().is_ok_and(|sid| sid_matches(owner, sid));
+    let admins = well_known_sid(WinBuiltinAdministratorsSid);
+    let owner_is_administrators = admins.as_ref().is_ok_and(|sid| sid_matches(owner, sid));
+
+    serde_json::json!({
+        "thread_impersonation_token_present":thread_impersonating,
+        "owner_private_acl_verified":owner_private_acl_verified,
+        "owner_is_process_user":owner_is_process_user,
+        "owner_is_system":owner_is_system,
+        "owner_is_administrators":owner_is_administrators,
+        "root_explicit_dacl":!dacl.is_null(),
+        "root_security_read_win32":0,
+    })
+}
+
 /// A bounded, read-only inspection after an owner-granted native-runtime
 /// mount was denied by Windows. It NEVER alters a DACL, replays an operation,
 /// follows reparse points, or publishes private paths or principal identities.
@@ -1724,6 +1799,7 @@ fn native_mount_write_dac_audit(root: &Path) -> serde_json::Value {
     }
     serde_json::json!({
         "root_write_dac_status":root_write_dac_status,
+        "root_security_context":native_mount_root_security_context(root),
         "scanned":checked,
         "directories":directories,
         "write_dac_failures_by_win32":failures,
@@ -3226,6 +3302,21 @@ mod verifier_tests {
         std::fs::write(&file, content).unwrap();
         let audit = native_mount_write_dac_audit(&child);
         assert_eq!(audit["root_write_dac_status"], 0);
+        assert_eq!(
+            audit["root_security_context"]["root_security_read_win32"],
+            0
+        );
+        // Elevated runners may own a newly created directory through the
+        // Administrators group, rather than their interactive user SID.
+        assert!(
+            audit["root_security_context"]["owner_is_process_user"] == true
+                || audit["root_security_context"]["owner_is_administrators"] == true
+                || audit["root_security_context"]["owner_is_system"] == true
+        );
+        assert_eq!(
+            audit["root_security_context"]["thread_impersonation_token_present"],
+            false
+        );
         assert!(audit["scanned"].as_u64().unwrap() >= 2);
         assert_eq!(audit["metadata_errors"], 0);
         assert_eq!(audit["enumeration_errors"], 0);
