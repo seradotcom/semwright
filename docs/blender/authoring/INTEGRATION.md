@@ -57,6 +57,68 @@ constraints and separate geometric readback. Other drivers can supply their
 own native measurements to the same generic evaluator instead of
 duplicating application-specific rules.
 
+### Portable, explicitly authored semantic intent (v1)
+
+Instead of restating separate checks for every request, a caller may carry the
+same **versioned JSON manifest** across a workflow. The manifest binds native
+entity IDs to declared domain roles and names the rules that must be checked.
+It is a portable value with a canonical SHA-256 digest, implemented in the
+backend-neutral `semwright-semantic-composition` crate, not an engine
+that guesses physical rules from labels.
+
+For example, a Blender authoring scene can be measured with one request:
+
+```json
+{
+  "island": "scene-42",
+  "evaluated": true,
+  "intent_manifest": {
+    "version": 1,
+    "resource": "scene-42",
+    "roles": [
+      {"entity": "trunk", "role": "tree.trunk"},
+      {"entity": "branch", "role": "tree.branch"},
+      {"entity": "magnet-a", "role": "magnet"},
+      {"entity": "magnet-b", "role": "magnet"}
+    ],
+    "invariants": [
+      {"kind": "direct_parent", "child": "branch", "parent": "trunk"},
+      {"kind": "minimum_clearance", "a": "magnet-a",
+       "b": "magnet-b", "minimum_gap_m": 0.02}
+    ]
+  }
+}
+```
+
+`scene-42` is a placeholder: a real caller uses the exact current
+managed `island` issued by native authoring. The driver validates
+this resource binding, the explicitly declared roles, uniqueness, parent
+acyclicity and rule bounds **before dispatch**. It compiles only explicit typed
+invariants into existing bounded native checks; no new `bpy.ops` or
+Python input is accepted. The response includes `spatial_rules`,
+`structural_rules` and `declared_intent` with canonical
+`manifest_sha256`, the declared role bindings, native
+session/fingerprint and `inferred_rules:false`. This is one broker
+command, with the same snapshot consistency and UNKNOWN semantics described
+below. Missing or contradictory evidence is never promoted to PASS by role.
+
+A manifest cannot be mixed with separate ad-hoc `checks` /
+`parent_checks` in the same request, nor reused for another resource.
+Manifests with *only* structural rules should use the read-only
+`composition.structure.check` route, not evaluated measurement.
+
+The manifest is **serializable**: a Platform/Studio owner may persist exact
+bytes and digest in an authorized durable store; this Core implementation
+does **not** store it in the .blend, write a new file or automatically
+re-enforce it after every edit. The `strict_decode` helper rejects
+duplicate JSON keys when loading manifest bytes; other transports must enforce
+their own duplicate-key and authentication requirements.
+
+Roles such as `magnet`, `tree.branch` or
+`tree.trunk` remain author declarations, not verified knowledge
+of polarity, physical joints, contact or attachment. Other drivers may reuse
+the manifest/digest and map rules to their own trusted native observations.
+
 ### Combined spatial and structural context in one request
 
 The existing `driver.blender.composition.measure` accepts optional

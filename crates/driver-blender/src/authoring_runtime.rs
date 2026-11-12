@@ -90,8 +90,45 @@ struct MeasureInput {
     /// request, not forwarded as new Blender Python/operation authority.
     #[serde(default)]
     parent_checks: Vec<composition::DirectParentRule>,
+    /// Portable, versioned user-authored roles and explicit invariants.
+    /// This is evidence input, never a permission or an inferred ontology.
+    #[serde(default)]
+    intent_manifest: Option<composition::SemanticIntentManifest>,
 }
 impl MeasureInput {
+    fn prepared_checks(
+        &self,
+    ) -> composition::Result<(
+        Vec<composition::SpatialClearanceRule>,
+        Vec<composition::DirectParentRule>,
+        Option<composition::PreparedSemanticIntent>,
+    )> {
+        if let Some(declaration) = &self.intent_manifest {
+            composition::ensure(
+                self.checks.is_empty() && self.parent_checks.is_empty(),
+                "a semantic manifest cannot be mixed with ad-hoc rules",
+            )?;
+            composition::ensure(
+                declaration.resource == self.island,
+                "semantic manifest is not bound to this managed resource",
+            )?;
+            let prepared = declaration.prepare()?;
+            for role in &prepared.roles {
+                local_id(&role.entity)?;
+            }
+            composition::ensure(
+                !prepared.spatial_checks.is_empty(),
+                "hierarchy-only intent should use read-only structure.check",
+            )?;
+            return Ok((
+                prepared.spatial_checks.clone(),
+                prepared.direct_parents.clone(),
+                Some(prepared),
+            ));
+        }
+        Ok((self.checks.clone(), self.parent_checks.clone(), None))
+    }
+
     fn validate(&self) -> composition::Result<()> {
         local_id(&self.island)?;
         composition::ensure(self.pairs.len() <= 64, "measurement pair budget")?;
@@ -100,8 +137,9 @@ impl MeasureInput {
             local_id(&pair[1])?;
             composition::ensure(pair[0] != pair[1], "measurement pair requires distinct IDs")?;
         }
-        composition::ensure(self.checks.len() <= 16, "spatial rule count exceeds 16")?;
-        if !self.checks.is_empty() {
+        let (checks, parent_checks, _) = self.prepared_checks()?;
+        composition::ensure(checks.len() <= 16, "spatial rule count exceeds 16")?;
+        if !checks.is_empty() {
             composition::ensure(
                 self.evaluated,
                 "spatial clearance requires evaluated single-frame native geometry",
@@ -109,7 +147,7 @@ impl MeasureInput {
         }
         let mut distinct = BTreeSet::new();
         let mut native_pair_count = self.pairs.len();
-        for rule in &self.checks {
+        for rule in &checks {
             rule.validate()?;
             local_id(&rule.a)?;
             local_id(&rule.b)?;
@@ -127,17 +165,17 @@ impl MeasureInput {
         }
         composition::ensure(native_pair_count <= 64, "native pair measurement budget")?;
         composition::ensure(
-            self.parent_checks.len() <= 16,
+            parent_checks.len() <= 16,
             "combined hierarchy rule count exceeds 16",
         )?;
-        if !self.parent_checks.is_empty() {
+        if !parent_checks.is_empty() {
             composition::ensure(
-                !self.checks.is_empty(),
+                !checks.is_empty(),
                 "use read-only structure.check for hierarchy-only queries",
             )?;
             authoring_structure::CheckInput {
                 island: self.island.clone(),
-                checks: self.parent_checks.clone(),
+                checks: parent_checks.clone(),
             }
             .validate()?;
         }
@@ -1035,9 +1073,9 @@ pub(super) async fn execute(
             let input: MeasureInput = serde_json::from_value(args)?;
             input.validate().map_err(common_error)?;
             let sample = input.sample;
-            let checks = input.checks.clone();
-            let parent_checks = input.parent_checks.clone();
-            let source_before = if parent_checks.is_empty() {
+            let (checks, parent_checks, declared_manifest) =
+                input.prepared_checks().map_err(common_error)?;
+            let source_before = if parent_checks.is_empty() && declared_manifest.is_none() {
                 None
             } else {
                 Some(snapshot(channel, Some(&input.island)).await?)
@@ -1050,6 +1088,7 @@ pub(super) async fn execute(
             // fields. Rules are checked after real readback in the Rust driver.
             forwarded.remove("checks");
             forwarded.remove("parent_checks");
+            forwarded.remove("intent_manifest");
             if !checks.is_empty() {
                 let pairs = forwarded
                     .get_mut("pairs")
@@ -1119,20 +1158,40 @@ pub(super) async fn execute(
                         "Native source changed during combined semantic readback; reobserve before another attempt",
                     ).uncertain());
                 }
-                let hierarchical = authoring_structure::assess(
-                    &authoring_structure::CheckInput {
-                        island: input.island.clone(),
-                        checks: parent_checks,
-                    },
-                    &before,
-                )?;
+                let hierarchical = if parent_checks.is_empty() {
+                    None
+                } else {
+                    Some(authoring_structure::assess(
+                        &authoring_structure::CheckInput {
+                            island: input.island.clone(),
+                            checks: parent_checks,
+                        },
+                        &before,
+                    )?)
+                };
                 let object = output.as_object_mut().ok_or_else(|| {
                     Error::new(ErrorCode::PluginProtocolError, "native measure output")
                 })?;
-                object.insert(
-                    "structural_rules".into(),
-                    serde_json::to_value(hierarchical)?,
-                );
+                if let Some(hierarchical) = hierarchical {
+                    object.insert(
+                        "structural_rules".into(),
+                        serde_json::to_value(hierarchical)?,
+                    );
+                }
+                if let Some(manifest) = declared_manifest {
+                    object.insert(
+                        "declared_intent".into(),
+                        json!({
+                            "schema":"semantic-intent/v1",
+                            "manifest_sha256":manifest.digest,
+                            "roles":manifest.roles,
+                            "source_fingerprint":before.fingerprint,
+                            "native_session":before.native_session,
+                            "inferred_rules":false,
+                            "stored_in_native_scene":false
+                        }),
+                    );
+                }
                 object.insert(
                     "combined_source_fingerprint".into(),
                     serde_json::to_value(&before.fingerprint)?,
@@ -1292,6 +1351,81 @@ mod spatial_input_contract_tests {
             "evaluated":false,
             "checks":[{"a":"magnet-a","b":"magnet-b","minimum_gap_m":0.02}],
             "parent_checks":[{"child":"magnet-a","parent":"magnet-b"}]
+        }))
+        .unwrap();
+        assert!(input.validate().is_err());
+    }
+
+    #[test]
+    fn portable_declared_intent_generates_only_explicit_check_pairs() {
+        let input: MeasureInput = serde_json::from_value(json!({
+            "island":"managed-test",
+            "evaluated":true,
+            "intent_manifest":{
+                "version":1,
+                "resource":"managed-test",
+                "roles":[
+                    {"entity":"trunk","role":"tree.trunk"},
+                    {"entity":"branch","role":"tree.branch"},
+                    {"entity":"magnet-a","role":"magnet"},
+                    {"entity":"magnet-b","role":"magnet"}
+                ],
+                "invariants":[
+                    {"kind":"direct_parent","child":"branch","parent":"trunk"},
+                    {"kind":"minimum_clearance","a":"magnet-a","b":"magnet-b",
+                        "minimum_gap_m":0.025}
+                ]
+            }
+        }))
+        .unwrap();
+        assert!(input.validate().is_ok());
+        let (spatial, parents, declared) = input.prepared_checks().unwrap();
+        assert_eq!(spatial.len(), 1);
+        assert_eq!(parents.len(), 1);
+        let declared = declared.unwrap();
+        assert_eq!(declared.roles.len(), 4);
+        assert_eq!(declared.digest.as_str().len(), 64);
+        assert_eq!(spatial[0].minimum_gap_m, 0.025);
+    }
+
+    #[test]
+    fn manifest_resource_binding_and_no_mixed_instructions_fail_closed() {
+        let mut input: MeasureInput = serde_json::from_value(json!({
+            "island":"managed-test",
+            "evaluated":true,
+            "intent_manifest":{
+                "version":1,
+                "resource":"managed-test",
+                "roles":[{"entity":"magnet-a","role":"magnet"},
+                         {"entity":"magnet-b","role":"magnet"}],
+                "invariants":[{"kind":"minimum_clearance",
+                    "a":"magnet-a","b":"magnet-b","minimum_gap_m":0.01}]
+            }
+        }))
+        .unwrap();
+        assert!(input.validate().is_ok());
+        input.checks = basic().checks;
+        assert!(input.validate().is_err());
+        input.checks.clear();
+        input.island = "unrelated-island".into();
+        assert!(input.validate().is_err());
+        input.island = "managed-test".into();
+        input.evaluated = false;
+        assert!(input.validate().is_err());
+    }
+
+    #[test]
+    fn hierarchy_only_manifest_requires_read_only_structure_command() {
+        let input: MeasureInput = serde_json::from_value(json!({
+            "island":"managed-test",
+            "evaluated":true,
+            "intent_manifest":{
+                "version":1,"resource":"managed-test",
+                "roles":[{"entity":"branch","role":"tree.branch"},
+                         {"entity":"trunk","role":"tree.trunk"}],
+                "invariants":[{"kind":"direct_parent",
+                    "child":"branch","parent":"trunk"}]
+            }
         }))
         .unwrap();
         assert!(input.validate().is_err());

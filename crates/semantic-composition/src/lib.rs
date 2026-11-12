@@ -3,12 +3,14 @@ mod canonical;
 mod controller;
 mod direct_parent;
 mod model;
+mod semantic_intent;
 mod spatial_clearance;
 mod vault;
 pub use canonical::*;
 pub use controller::*;
 pub use direct_parent::*;
 pub use model::*;
+pub use semantic_intent::*;
 pub use spatial_clearance::*;
 pub use vault::*;
 

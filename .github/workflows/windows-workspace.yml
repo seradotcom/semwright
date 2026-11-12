@@ -66,8 +66,8 @@ jobs:
         run: rustfmt --edition 2024 --check crates/daemon/src/config.rs crates/daemon/src/server.rs crates/daemon/tests/windows_workspace.rs crates/cli/src/lib.rs crates/cli/src/semwright.rs crates/platform-services/src/lib.rs crates/platform-windows-sys/src/launch.rs crates/platform-windows-sys/src/job.rs crates/platform-windows-sys/src/launch/initial_attestation.rs crates/platform-windows-sys/src/launch/initial_lpac.rs crates/platform-windows-sys/src/launch/blender52_runtime.rs crates/platform-windows-sys/tests/private_data.rs crates/platform-windows-sys/src/paths.rs crates/platform-windows-sys/src/filesystem.rs crates/platform-windows-sys/src/window.rs crates/platform-windows/src/lib.rs crates/core/tests/project_graph.rs crates/protocol/src/lib.rs
       - name: Check native manifest/Host source formatting
         run: rustfmt --edition 2024 --check crates/driver-sdk/src/lib.rs crates/driver-host/src/lib.rs crates/daemon/src/semwrightd.rs
-      - name: Shared native spatial and structural semantic contracts formatting
-        run: rustfmt --edition 2024 --check crates/semantic-composition/src/spatial_clearance.rs crates/semantic-composition/src/direct_parent.rs crates/driver-blender/src/authoring_runtime.rs crates/driver-blender/src/authoring_spatial.rs crates/driver-blender/src/authoring_structure.rs
+      - name: Shared native spatial, hierarchy and intent contract formatting
+        run: rustfmt --edition 2024 --check crates/semantic-composition/src/spatial_clearance.rs crates/semantic-composition/src/direct_parent.rs crates/semantic-composition/src/semantic_intent.rs crates/driver-blender/src/authoring_runtime.rs crates/driver-blender/src/authoring_spatial.rs crates/driver-blender/src/authoring_structure.rs
       - name: Parse the interactive harness
         run: ./scripts/windows/validate-interactive-certification.ps1
       - name: Response-loss transport semantics
@@ -89,6 +89,8 @@ jobs:
           cargo test --locked -p semwright-semantic-composition --lib spatial_clearance::tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-semantic-composition --lib direct_parent::tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-semantic-composition --lib semantic_intent::tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver authoring_structure::tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
