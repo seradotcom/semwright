@@ -155,7 +155,14 @@ hierarchy-only manifests use the source hierarchy without any evaluated
 spatial dispatch. A `FAIL`, `UNKNOWN`, absent/malformed
 evidence, foreign resource or changed source fingerprint prevents the
 native save. Only all-`PASS` evidence permits the existing
-new-only native `libraries.write` path.
+new-only native `libraries.write` path. On Windows Blender writes an
+intermediate `.blend@` before renaming to the requested `.blend`: Semwright
+uses an exclusive private staging directory with an **uncreated** library
+target, avoiding the previously precreated `mkstemp` target which could
+block the rename in a confined native process. Publication still uses a
+new-only hard link and never overwrites an existing user file. A failed
+native save retains its private staging evidence for owner reconciliation;
+it does not authorize another save attempt at a different path.
 
 An acknowledged guarded save receipt includes the existing native file
 SHA-256, byte count, island and source fingerprint, plus

@@ -78,6 +78,8 @@ jobs:
         run: |
           python crates/driver-blender/tests/semantic_cross_version_parity.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python crates/driver-blender/tests/native_library_stage.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python crates/driver-blender/tests/semantic_references.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python crates/driver-blender/tests/semantic_security.py
@@ -270,6 +272,7 @@ jobs:
       - name: Shared setup, configuration and transport checks
         run: |
           python3 crates/driver-blender/tests/semantic_cross_version_parity.py
+          python3 crates/driver-blender/tests/native_library_stage.py
           python3 crates/driver-blender/tests/semantic_references.py
           python3 crates/driver-blender/tests/semantic_security.py
           python3 crates/driver-host/tests/windows_blender_checkpoint.py

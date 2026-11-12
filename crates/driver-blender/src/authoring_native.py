@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import os
+import stat
 import tempfile
 import uuid
 from pathlib import Path
@@ -25,6 +26,19 @@ MARKER = "sw_authoring_observed_v1"
 def check(ok, message, code="InvalidArgument"):
     if not ok:
         raise CommandError(code, message)
+
+
+def _private_library_stage(destination):
+    # Blender writes a <filepath>@ intermediate before renaming it to
+    # filepath. Do not precreate filepath: an existing mkstemp target in a
+    # Windows LPAC workspace can prevent Blender from completing that rename.
+    # An exclusive per-attempt directory also prevents staging-name collisions.
+    folder = tempfile.mkdtemp(
+        prefix=".semwright-authoring-", dir=os.path.dirname(destination)
+    )
+    candidate = os.path.join(folder, "library.blend")
+    check(not os.path.lexists(candidate), "new private library path unexpectedly exists", "Conflict")
+    return folder, candidate
 
 
 def local_id(value):
@@ -1216,24 +1230,32 @@ class AuthoringRuntime:
         check(not snapshot["drift"], "external edits need reconciliation before save", "StaleReference")
         destination = self.commands.workspace.path(relative, ".blend")
         check(not os.path.lexists(destination), "save-as destination exists", "Conflict")
-        handle, temporary = tempfile.mkstemp(prefix=".semwright-authoring-", suffix=".blend", dir=os.path.dirname(destination))
-        os.close(handle)
-        try:
-            # Blender expands indirect dependencies. _closed rejects external object/data/material
-            # references; inventory is returned and fresh-process tests must verify the actual file.
-            self.bpy.data.libraries.write(temporary, {collection}, path_remap="NONE", fake_user=False, compress=True)
-            size = os.stat(temporary).st_size
-            check(0 < size <= 33_554_432, "saved artifact exceeds 32 MiB budget", "Unsupported")
-            sha = hashlib.sha256(Path(temporary).read_bytes()).hexdigest()
-            self.commands.workspace.path(relative, ".blend")
-            os.chmod(temporary, 0o600)
-            try: os.link(temporary, destination)
-            except FileExistsError as error: raise CommandError("Conflict", "save target appeared; preserved") from error
-            return {"path":relative,"sha256":sha,"bytes":size,"island":island,"source_fingerprint":snapshot["fingerprint"],
-                    "inventory":{"collection":collection.name,"objects":[o.name for o in objects]},
-                    "method":"libraries-write-indirect-closure","fresh_process_verified":False}
-        finally:
-            if os.path.exists(temporary): os.unlink(temporary)
+        staging, temporary = _private_library_stage(destination)
+        # Keep the private stage if Blender or publication fails: a caller must
+        # reconcile an uncertain native write, not repeat it at another path.
+        # Never expand this cleanup into user files or other staging roots.
+        # Blender expands indirect dependencies. _closed rejects external object/data/material
+        # references; inventory is returned and fresh-process tests must verify the actual file.
+        self.bpy.data.libraries.write(temporary, {collection}, path_remap="NONE", fake_user=False, compress=True)
+        metadata = os.lstat(temporary)
+        check(stat.S_ISREG(metadata.st_mode) and metadata.st_nlink == 1,
+              "saved artifact is not a private regular file", "BackendFailed")
+        check(not getattr(metadata, "st_file_attributes", 0) & 0x400,
+              "saved artifact is a reparse point", "BackendFailed")
+        size = metadata.st_size
+        check(0 < size <= 33_554_432, "saved artifact exceeds 32 MiB budget", "Unsupported")
+        sha = hashlib.sha256(Path(temporary).read_bytes()).hexdigest()
+        self.commands.workspace.path(relative, ".blend")
+        os.chmod(temporary, 0o600)
+        try: os.link(temporary, destination)
+        except FileExistsError as error: raise CommandError("Conflict", "save target appeared; preserved") from error
+        # Only the known newly-created private stage is eligible for cleanup
+        # after the new-only destination has been atomically published.
+        os.unlink(temporary)
+        os.rmdir(staging)
+        return {"path":relative,"sha256":sha,"bytes":size,"island":island,"source_fingerprint":snapshot["fingerprint"],
+                "inventory":{"collection":collection.name,"objects":[o.name for o in objects]},
+                "method":"libraries-write-indirect-closure","fresh_process_verified":False}
 
     def reopen(self, relative, expected_sha, island):
         local_id(island)
