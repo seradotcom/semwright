@@ -97,7 +97,10 @@ jobs:
       - name: Native executable ACL permits only untrusted read and execute
         run: cargo test --locked -p semwright-platform-windows-sys --lib executable_acl_
       - name: Windows owner-authorized native runtime source confinement
-        run: cargo test --locked -p semwright-platform-windows-sys --lib native_runtime_tests
+        run: |
+          cargo test --locked -p semwright-platform-windows-sys --lib native_runtime_acl_accepts_only_exact_trusted_installer_and_inherit_only_templates
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-platform-windows-sys --lib native_runtime_tests
       - name: Workspace configuration and native confinement
         run: |
           cargo test --locked -p semwright-daemon --test windows_workspace

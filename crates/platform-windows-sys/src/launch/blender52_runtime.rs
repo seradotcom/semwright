@@ -75,7 +75,7 @@ fn locked(path: &Path) -> Result<(File, BY_HANDLE_FILE_INFORMATION)> {
             "Native runtime cannot contain reparse points",
         ));
     }
-    verify_trusted_file_acl(&file, "native runtime", false)?;
+    verify_trusted_file_acl(&file, WindowsAclPurpose::NativeRuntime)?;
     Ok((file, metadata))
 }
 
@@ -378,6 +378,75 @@ mod native_runtime_tests {
         );
         assert!(rejected.is_err(), "{rejected:?}");
         assert_eq!(std::fs::read(file).unwrap(), b"preserve");
+    }
+
+    #[test]
+    fn native_runtime_acl_accepts_only_exact_trusted_installer_and_inherit_only_templates() {
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("vendor-runtime");
+        std::fs::create_dir(&source).unwrap();
+        let user = std::env::var("USERNAME").expect("Windows test username");
+        let principal = match std::env::var("USERDOMAIN") {
+            Ok(domain) if !domain.is_empty() => format!(r"{domain}\{user}"),
+            _ => user,
+        };
+        let run_icacls = |args: &[&str]| {
+            let status = std::process::Command::new("icacls")
+                .arg(&source)
+                .args(args)
+                .status()
+                .expect("Windows icacls");
+            assert!(
+                status.success(),
+                "icacls rejected fixture arguments: {args:?}"
+            );
+        };
+        // No source-installation changes: all ACL operations target only a
+        // fresh disposable CI directory owned by this test process.
+        run_icacls(&["/inheritance:r"]);
+        let owner = format!("{principal}:(F)");
+        run_icacls(&["/grant:r", &owner]);
+        run_icacls(&[
+            "/grant",
+            "*S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464:(F)",
+        ]);
+        run_icacls(&["/grant", "*S-1-3-0:(OI)(CI)(IO)(F)"]);
+        let (handle, _) = locked(&source).expect(
+            "TrustedInstaller plus inherit-only CREATOR OWNER must not block owner-pinned runtime",
+        );
+        assert_eq!(
+            verify_trusted_file_acl(&handle, WindowsAclPurpose::Executable)
+                .unwrap_err()
+                .code,
+            ErrorCode::PermissionDenied,
+            "Generic executables must not inherit native TrustedInstaller exception"
+        );
+        assert_eq!(
+            verify_trusted_file_acl(&handle, WindowsAclPurpose::PrivateData)
+                .unwrap_err()
+                .code,
+            ErrorCode::PermissionDenied,
+            "Private user data must never inherit vendor runtime ACL exception"
+        );
+        drop(handle);
+
+        // The exception must never allow unrelated principals to mutate.
+        run_icacls(&["/grant:r", "*S-1-5-32-545:(M)"]);
+        let denied = locked(&source);
+        assert_eq!(
+            denied.err().unwrap().code,
+            ErrorCode::PermissionDenied,
+            "An effective Windows Users Modify ACE is untrusted in native runtime"
+        );
+        // SID equality must be exact, not any member of S-1-5-80-*.
+        let exact = trusted_installer_sid_bytes();
+        assert_eq!(exact.len(), 32);
+        let mut different_service = exact.clone();
+        *different_service.last_mut().unwrap() ^= 1;
+        assert!(
+            !sid_matches(PSID(different_service.as_mut_ptr().cast()), &exact,),
+            "An unrelated service SID must not match TrustedInstaller"
+        );
     }
 
     #[test]

@@ -358,7 +358,40 @@ fn untrusted_acl_restricted_mask(private_data: bool) -> u32 {
     }
 }
 
-fn verify_trusted_file_acl(file: &File, kind: &str, private_data: bool) -> Result<()> {
+/// Choose the accepted ACL authority explicitly. Vendor-installed native
+/// runtimes may be serviced by exactly NT SERVICE\\TrustedInstaller; this
+/// exception must never extend to private user data or generic executables.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum WindowsAclPurpose {
+    PrivateData,
+    Executable,
+    NativeRuntime,
+}
+
+fn trusted_installer_sid_bytes() -> Vec<u8> {
+    // Exact NT SERVICE\\TrustedInstaller service SID, not an S-1-5-80
+    // service-SID prefix or a generic Windows service group.
+    // S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464.
+    let mut sid = vec![1u8, 6, 0, 0, 0, 0, 0, 5];
+    for part in [
+        80u32,
+        956_008_885,
+        3_418_522_649,
+        1_831_038_044,
+        1_853_292_631,
+        2_271_478_464,
+    ] {
+        sid.extend_from_slice(&part.to_le_bytes());
+    }
+    sid
+}
+
+fn verify_trusted_file_acl(file: &File, purpose: WindowsAclPurpose) -> Result<()> {
+    let (kind, private_data) = match purpose {
+        WindowsAclPurpose::PrivateData => ("private data file", true),
+        WindowsAclPurpose::Executable => ("executable", false),
+        WindowsAclPurpose::NativeRuntime => ("native runtime", false),
+    };
     let mut owner = PSID::default();
     let mut dacl: *mut ACL = std::ptr::null_mut();
     let mut descriptor = PSECURITY_DESCRIPTOR::default();
@@ -395,6 +428,10 @@ fn verify_trusted_file_acl(file: &File, kind: &str, private_data: bool) -> Resul
     let system = well_known_sid(WinLocalSystemSid)?;
     let admins = well_known_sid(WinBuiltinAdministratorsSid)?;
     let trusted = [&current[..], &system[..], &admins[..]];
+    let native_installer =
+        (purpose == WindowsAclPurpose::NativeRuntime).then(trusted_installer_sid_bytes);
+    // TrustedInstaller can service a vendor runtime, but may NOT become the
+    // owner of Semwright private data or the broad executable verifier.
     if !trusted.iter().any(|expected| sid_matches(owner, expected)) {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
@@ -472,8 +509,20 @@ fn verify_trusted_file_acl(file: &File, kind: &str, private_data: bool) -> Resul
                     format!("Complex Windows {kind} restricted ACEs are fail-closed"),
                 ));
             }
+            // An INHERIT_ONLY ACE (0x08) grants no access to this handle.
+            // The native copy verifies every descendant ACL separately;
+            // skipping this template does not authorize creating children.
+            // Unknown/complex allow ACE types still fail closed above.
+            const INHERIT_ONLY_ACE_FLAG: u8 = 0x08;
+            if header.AceFlags & INHERIT_ONLY_ACE_FLAG != 0 {
+                continue;
+            }
             let sid = PSID((&ace.SidStart as *const u32).cast_mut().cast());
-            if !trusted.iter().any(|expected| sid_matches(sid, expected)) {
+            if !trusted.iter().any(|expected| sid_matches(sid, expected))
+                && !native_installer
+                    .as_ref()
+                    .is_some_and(|expected| sid_matches(sid, expected))
+            {
                 return Err(Error::new(
                     ErrorCode::PermissionDenied,
                     format!(
@@ -607,7 +656,7 @@ pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
             "Windows private data source identity changed during validation",
         ));
     }
-    verify_trusted_file_acl(&file, "private data file", true)?;
+    verify_trusted_file_acl(&file, WindowsAclPurpose::PrivateData)?;
     let size = (u64::from(before.nFileSizeHigh) << 32) | u64::from(before.nFileSizeLow);
     if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
         || before.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 != 0
@@ -669,7 +718,7 @@ fn verify_windows_executable(
         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
     let mut file = options.open(path)?;
     let before = info(&file)?;
-    verify_trusted_file_acl(&file, "executable", false)?;
+    verify_trusted_file_acl(&file, WindowsAclPurpose::Executable)?;
     if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
         || before.nNumberOfLinks != 1
         || before.nFileSizeHigh != 0
@@ -3081,10 +3130,10 @@ mod verifier_tests {
             .expect("grant read/execute only to Windows Users");
         assert!(rx.success());
         let file = File::open(&file_path).unwrap();
-        verify_trusted_file_acl(&file, "executable", false)
+        verify_trusted_file_acl(&file, WindowsAclPurpose::Executable)
             .expect("Untrusted read/execute is not executable mutation");
         assert!(
-            verify_trusted_file_acl(&file, "private data", true).is_err(),
+            verify_trusted_file_acl(&file, WindowsAclPurpose::PrivateData).is_err(),
             "Private data must still reject the same untrusted RX authority"
         );
         drop(file);
@@ -3100,7 +3149,7 @@ mod verifier_tests {
         assert!(modified.success());
         let file = File::open(&file_path).unwrap();
         assert_eq!(
-            verify_trusted_file_acl(&file, "executable", false)
+            verify_trusted_file_acl(&file, WindowsAclPurpose::Executable)
                 .unwrap_err()
                 .code,
             ErrorCode::PermissionDenied
