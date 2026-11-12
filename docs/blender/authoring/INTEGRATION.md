@@ -57,6 +57,34 @@ constraints and separate geometric readback. Other drivers can supply their
 own native measurements to the same generic evaluator instead of
 duplicating application-specific rules.
 
+### Direct structural relationships from managed Blender objects
+
+The read-only `driver.blender.composition.structure.check`
+accepts a bounded named `island` and up to 16 explicit
+`checks` containing direct `child` / `parent`
+managed IDs. It uses one existing source-only Blender snapshot and the
+backend-neutral `semwright-semantic-composition` DirectParentRule.
+
+```json
+{"island":"tree", "checks":[{"child":"branch-left","parent":"trunk"}]}
+```
+
+`PASS` means the native Blender object explicitly parents
+the managed branch under the managed trunk in that observed source snapshot.
+`FAIL` means the native child is a known root or names another
+direct parent. `UNKNOWN` covers missing identities, drift or an
+incomplete observation. Malformed/duplicate object identities, cycles in
+requested rules and foreign-island data are rejected. Results retain native
+session and source fingerprint. The output always records
+`geometric_attachment_verified:false`: a hierarchy edge
+cannot prove that branch and trunk meshes touch or are welded.
+Use the existing evaluated spatial measurement for separate geometry evidence.
+
+The feature is shared by the Linux 4.5.14 and Windows 5.2.1 drivers through
+their common Rust authoring runtime; the Windows native owner opt-in, exact
+version pin and Host policy checks remain unchanged. No arbitrary Python,
+generic Blender operator execution or implicit geometric mutation is added.
+
 `mesh_instance` intentionally shares a native mesh datablock and rejects material/modifier writes. `mesh_copy` is the explicit copy-on-write variant and receives an independent datablock before material-slot/modifier mutation.
 
 `composition.persist` creates a new blend library file. `composition.reopen` must run in a fresh driver process for persistence evidence. GLB export remains the single existing `driver.blender.export.glb` implementation from #154, preceded by the Blender dependency-closure preflight.

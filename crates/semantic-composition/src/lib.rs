@@ -1,11 +1,13 @@
 //! Backend-neutral contracts. No I/O, native APIs, media clocks or execution authority.
 mod canonical;
 mod controller;
+mod direct_parent;
 mod model;
 mod spatial_clearance;
 mod vault;
 pub use canonical::*;
 pub use controller::*;
+pub use direct_parent::*;
 pub use model::*;
 pub use spatial_clearance::*;
 pub use vault::*;

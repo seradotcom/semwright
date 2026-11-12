@@ -11,6 +11,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[path = "authoring_spatial.rs"]
 mod authoring_spatial;
+#[path = "authoring_structure.rs"]
+mod authoring_structure;
 
 type Plan = composition::PreparedPlan<AuthoringIntent, NativeOperation>;
 
@@ -268,6 +270,12 @@ pub(super) fn capabilities() -> Vec<Capability> {
                 .expect("measure schema serializes"),
             json!({"type":"object"}),
             Risk::Mutating,
+        ),
+        (
+            "structure.check",
+            authoring_structure::input_schema(),
+            authoring_structure::output_schema(),
+            Risk::ReadOnly,
         ),
         (
             "validate",
@@ -993,6 +1001,16 @@ pub(super) async fn execute(
                     Err(error)
                 }
             }
+        }
+        "structure.check" => {
+            let input: authoring_structure::CheckInput = serde_json::from_value(args)?;
+            input.validate().map_err(common_error)?;
+            // Observes native Blender's existing source hierarchy once. This is
+            // advisory only; geometry contact is NOT inferred from parenting.
+            let observed = snapshot(channel, Some(&input.island)).await?;
+            Ok(serde_json::to_value(authoring_structure::assess(
+                &input, &observed,
+            )?)?)
         }
         "measure" => {
             let input: MeasureInput = serde_json::from_value(args)?;
