@@ -274,7 +274,7 @@ impl Builder {
         clip: bool,
     ) -> String {
         let (parent, plane) = attachment;
-        let id = format!("{}-{alias}", self.fixture.key);
+        let id = format!("{}-{}", self.fixture.key, alias.to_ascii_lowercase());
         let layer = match plane {
             Plane::Under => self.under.clone(),
             Plane::Text => self.text.clone(),
