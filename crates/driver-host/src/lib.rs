@@ -323,6 +323,7 @@ trait HostToolExecutor: Send + Sync {
         name: &str,
         args: Vec<RuntimeToolArg>,
         cwd: Option<RuntimeToolCwd>,
+        cancellation: CancellationToken,
     ) -> Result<SandboxProcess>;
 }
 
@@ -923,7 +924,14 @@ impl HostToolExecutor for HostToolBroker {
         name: &str,
         args: Vec<RuntimeToolArg>,
         cwd: Option<RuntimeToolCwd>,
+        cancellation: CancellationToken,
     ) -> Result<SandboxProcess> {
+        if cancellation.is_cancelled() {
+            return Err(Error::new(
+                ErrorCode::Cancelled,
+                "Runtime-tool session parent cancelled before launch",
+            ));
+        }
         validate_runtime_tool_args(&args)?;
         if self.operation_cpu_seconds != 0 {
             return Err(Error::new(
@@ -956,12 +964,7 @@ impl HostToolExecutor for HostToolBroker {
                     "Native Blender profile was not owner-granted and prepared",
                 )
             })?;
-            return windows_blender52::start(
-                prepared,
-                self.template.clone(),
-                CancellationToken::new(),
-            )
-            .await;
+            return windows_blender52::start(prepared, self.template.clone(), cancellation).await;
         }
         let _ = semwright_platform_services::verify_sealed_tool_executable(
             tool.staged_path()?,
@@ -1443,7 +1446,14 @@ impl HostToolExecutor for LinuxHostToolBroker {
         name: &str,
         args: Vec<RuntimeToolArg>,
         cwd: Option<RuntimeToolCwd>,
+        cancellation: CancellationToken,
     ) -> Result<SandboxProcess> {
+        if cancellation.is_cancelled() {
+            return Err(Error::new(
+                ErrorCode::Cancelled,
+                "Runtime-tool session parent cancelled before launch",
+            ));
+        }
         validate_runtime_tool_args(&args)?;
         if self.operation_cpu_seconds != 0 {
             return Err(Error::new(
@@ -3086,11 +3096,14 @@ fn spawn_v2_reader(
                     } else {
                         false
                     };
-                    if !registered {
-                        terminate.cancel();
-                        closed.cancel();
-                        break;
-                    }
+                    let parent_cancellation = match parent_state {
+                        Some((cancellation, _, _)) if registered => cancellation,
+                        _ => {
+                            terminate.cancel();
+                            closed.cancel();
+                            break;
+                        }
+                    };
 
                     let input = input.clone();
                     let pending = pending.clone();
@@ -3121,7 +3134,15 @@ fn spawn_v2_reader(
                                         ),
                                     }
                                 } else {
-                                    match broker.start_session(&name, args, cwd).await {
+                                    match broker
+                                        .start_session(
+                                            &name,
+                                            args,
+                                            cwd,
+                                            parent_cancellation.clone(),
+                                        )
+                                        .await
+                                    {
                                         Err(error) => Request::ToolSessionFailure {
                                             id: id.clone(),
                                             error: Error::new(
@@ -3129,6 +3150,17 @@ fn spawn_v2_reader(
                                                 "Host-mediated runtime-tool session failed to start",
                                             ),
                                         },
+                                        Ok(mut process) if parent_cancellation.is_cancelled() => {
+                                            let _ = process.kill().await;
+                                            let _ = process.wait().await;
+                                            Request::ToolSessionFailure {
+                                                id: id.clone(),
+                                                error: Error::new(
+                                                    ErrorCode::Cancelled,
+                                                    "Runtime-tool session parent ended before publication",
+                                                ),
+                                            }
+                                        }
                                         Ok(mut process) => {
                                             let stdin = process.take_stdin();
                                             let stdout = process.take_stdout();
@@ -4970,6 +5002,149 @@ mod host_tool_protocol_tests {
             cancellation: CancellationToken::new(),
             charged_tool_cpu_seconds: Arc::new(Mutex::new(0)),
         }
+    }
+
+    struct StartupTestChild {
+        killed: CancellationToken,
+        waited: CancellationToken,
+    }
+
+    #[async_trait]
+    impl semwright_platform_api::launch::SandboxChildControl for StartupTestChild {
+        fn id(&self) -> Option<u32> {
+            None
+        }
+
+        async fn kill(&mut self) -> Result<()> {
+            self.killed.cancel();
+            Ok(())
+        }
+
+        async fn wait(&mut self) -> Result<()> {
+            assert!(
+                self.killed.is_cancelled(),
+                "late session must be killed before wait"
+            );
+            self.waited.cancel();
+            Ok(())
+        }
+    }
+
+    struct StartupTestBroker {
+        started: CancellationToken,
+        killed: CancellationToken,
+        waited: CancellationToken,
+    }
+
+    #[async_trait]
+    impl HostToolExecutor for StartupTestBroker {
+        async fn execute(
+            &self,
+            _name: &str,
+            _args: HostToolArgs,
+            _stdin: Vec<u8>,
+            _timeout_ms: u64,
+            _cwd: Option<RuntimeToolCwd>,
+            _detached: bool,
+            _cancellation: CancellationToken,
+            _charged_cpu_seconds: Arc<Mutex<u64>>,
+        ) -> Result<ToolExecutionOutput> {
+            Err(Error::new(ErrorCode::Unsupported, "session-start fixture"))
+        }
+
+        async fn start_session(
+            &self,
+            _name: &str,
+            _args: Vec<RuntimeToolArg>,
+            _cwd: Option<RuntimeToolCwd>,
+            cancellation: CancellationToken,
+        ) -> Result<SandboxProcess> {
+            self.started.cancel();
+            cancellation.cancelled().await;
+            // Model a blocking platform launch returning just after its parent
+            // ended. The Host must reap this process instead of publishing it.
+            Ok(SandboxProcess::from_parts(
+                Box::new(tokio::io::sink()),
+                Box::new(tokio::io::empty()),
+                Box::new(StartupTestChild {
+                    killed: self.killed.clone(),
+                    waited: self.waited.clone(),
+                }),
+            ))
+        }
+    }
+
+    #[tokio::test]
+    async fn runtime_tool_session_start_inherits_parent_cancel_and_reaps_late_process() {
+        let (mut driver_output, host_output) = tokio::io::duplex(8192);
+        let (host_input, mut driver_input) = tokio::io::duplex(8192);
+        let input: Arc<Mutex<SandboxStdin>> = Arc::new(Mutex::new(Box::new(host_input)));
+        let pending = Arc::new(Mutex::new(BTreeMap::from([(
+            "execute-parent".into(),
+            pending_entry(true),
+        )])));
+        let io = V2Io {
+            input: input.clone(),
+            pending: pending.clone(),
+        };
+        let started = CancellationToken::new();
+        let killed = CancellationToken::new();
+        let waited = CancellationToken::new();
+        let broker = Arc::new(StartupTestBroker {
+            started: started.clone(),
+            killed: killed.clone(),
+            waited: waited.clone(),
+        });
+        let (signals, _) = broadcast::channel(4);
+        let closed = CancellationToken::new();
+        spawn_v2_reader(
+            Box::new(host_output),
+            input,
+            pending,
+            signals,
+            DriverInterfaces {
+                host_tools: true,
+                ..Default::default()
+            },
+            8,
+            Some(broker),
+            closed.clone(),
+            CancellationToken::new(),
+        );
+        write_frame(
+            &mut driver_output,
+            &Response::ToolSessionStartV8 {
+                id: "start".into(),
+                parent: "execute-parent".into(),
+                name: "probe".into(),
+                args: vec![],
+                lifetime_ms: 60_000,
+                cwd: None,
+            },
+        )
+        .await
+        .unwrap();
+        tokio::time::timeout(Duration::from_secs(1), started.cancelled())
+            .await
+            .unwrap();
+        io.cancel_pending("execute-parent").await;
+        tokio::time::timeout(Duration::from_secs(1), waited.cancelled())
+            .await
+            .expect("parent cancellation must reach startup and reap its late process");
+        assert!(killed.is_cancelled());
+        assert!(
+            tokio::time::timeout(
+                Duration::from_millis(25),
+                read_frame::<_, Request>(&mut driver_input),
+            )
+            .await
+            .is_err(),
+            "a cancelled parent must receive no late session publication",
+        );
+        drop(driver_output);
+        tokio::time::timeout(Duration::from_secs(1), closed.cancelled())
+            .await
+            .unwrap();
     }
 
     #[test]

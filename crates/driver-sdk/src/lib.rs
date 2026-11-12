@@ -39,6 +39,7 @@ const MAX_TOOL_OUTPUT_BYTES: usize = 256 * 1024;
 const MAX_TOOL_SESSION_FRAME_BYTES: usize = 256 * 1024;
 const MAX_TOOL_TIMEOUT_MS: u64 = 30_000;
 pub const MAX_TOOL_SESSION_REQUEST_TIMEOUT_MS: u64 = 300_000;
+pub const MAX_TOOL_SESSION_START_TIMEOUT_MS: u64 = 60_000;
 const MAX_TOOL_JOB_TIMEOUT_MS: u64 = 3_600_000;
 
 fn runtime_mount(class: MountClass, logical_name: &str) -> Result<PathBuf> {
@@ -2253,6 +2254,7 @@ impl DriverExecutionContext {
     /// Start a persistent protocol-v8 runtime-tool session.
     ///
     /// The Host owns the process and resolves all path-bearing arguments before launch.
+    /// This compatibility entry retains its five-second startup budget.
     pub async fn start_runtime_tool_session_args(
         &self,
         name: &str,
@@ -2260,6 +2262,36 @@ impl DriverExecutionContext {
         lifetime: std::time::Duration,
         cwd: Option<RuntimeToolCwd>,
     ) -> Result<RuntimeToolSession> {
+        self.start_runtime_tool_session_args_with_startup_timeout(
+            name,
+            args,
+            lifetime,
+            cwd,
+            std::time::Duration::from_secs(5),
+        )
+        .await
+    }
+
+    /// Start a session with an explicit, bounded wait for Host preparation and readiness.
+    ///
+    /// Startup is separate from the session lifetime. The enclosing command and owner
+    /// manifest must also allow this budget; their cancellation remains authoritative.
+    /// A timeout is not permission to retry a possibly dispatched native operation.
+    pub async fn start_runtime_tool_session_args_with_startup_timeout(
+        &self,
+        name: &str,
+        args: Vec<RuntimeToolArg>,
+        lifetime: std::time::Duration,
+        cwd: Option<RuntimeToolCwd>,
+        startup_timeout: std::time::Duration,
+    ) -> Result<RuntimeToolSession> {
+        if startup_timeout < std::time::Duration::from_millis(1)
+            || startup_timeout > std::time::Duration::from_millis(MAX_TOOL_SESSION_START_TIMEOUT_MS)
+        {
+            return Err(Error::invalid(
+                "Runtime-tool session startup timeout exceeds bounded contract",
+            ));
+        }
         if self.protocol < 8 || !self.interfaces.host_tools || !valid_tool_name(name) {
             return Err(Error::new(
                 ErrorCode::Unsupported,
@@ -2294,7 +2326,7 @@ impl DriverExecutionContext {
                     cwd,
                 },
                 false,
-                std::time::Duration::from_secs(5),
+                startup_timeout,
             )
             .await?;
         match reply {
@@ -3923,6 +3955,120 @@ mod tests {
             cleanup.await.unwrap().unwrap(),
             RuntimeToolJobStatus::Cancelled
         ));
+    }
+
+    fn session_start_test_context() -> (DriverExecutionContext, mpsc::UnboundedReceiver<Response>) {
+        let (output, receiver) = mpsc::unbounded_channel();
+        (
+            DriverExecutionContext {
+                request_id: "native-startup".into(),
+                session: "owner-session".into(),
+                native_target: None,
+                cancellation: CancellationToken::new(),
+                output,
+                interfaces: DriverInterfaces {
+                    host_tools: true,
+                    ..Default::default()
+                },
+                protocol: 8,
+                tool_calls: Arc::new(Mutex::new(BTreeMap::new())),
+                tool_jobs: Arc::new(Mutex::new(BTreeMap::new())),
+                tool_sessions: Arc::new(Mutex::new(BTreeMap::new())),
+            },
+            receiver,
+        )
+    }
+
+    async fn begin_session_start_test(
+        context: &DriverExecutionContext,
+        receiver: &mut mpsc::UnboundedReceiver<Response>,
+    ) -> (tokio::task::JoinHandle<Result<RuntimeToolSession>>, String) {
+        let context = context.clone();
+        let start = tokio::spawn(async move {
+            context
+                .start_runtime_tool_session_args_with_startup_timeout(
+                    "probe",
+                    vec![],
+                    std::time::Duration::from_secs(3_600),
+                    None,
+                    std::time::Duration::from_secs(60),
+                )
+                .await
+        });
+        let Response::ToolSessionStartV8 {
+            id, lifetime_ms, ..
+        } = receiver.recv().await.expect("session startup request")
+        else {
+            panic!("expected session start");
+        };
+        assert_eq!(lifetime_ms, 3_600_000, "lifetime is not the startup wait");
+        (start, id)
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn runtime_tool_session_start_budget_is_explicit_and_bounded() {
+        use std::time::Duration;
+        let (context, mut receiver) = session_start_test_context();
+        for budget in [
+            Duration::ZERO,
+            Duration::from_nanos(1),
+            Duration::from_secs(61),
+            Duration::MAX,
+        ] {
+            let error = context
+                .start_runtime_tool_session_args_with_startup_timeout(
+                    "probe",
+                    vec![],
+                    Duration::from_secs(3_600),
+                    None,
+                    budget,
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(error.code, ErrorCode::InvalidArgument);
+            assert!(context.tool_sessions.lock().await.is_empty());
+            assert!(
+                receiver.try_recv().is_err(),
+                "invalid budget must not dispatch"
+            );
+        }
+
+        let (start, id) = begin_session_start_test(&context, &mut receiver).await;
+        tokio::time::advance(Duration::from_secs(6)).await;
+        assert!(
+            !start.is_finished(),
+            "native readiness may exceed the legacy five seconds"
+        );
+        let session = RuntimeToolSession {
+            id: "native-ready".into(),
+        };
+        context
+            .tool_sessions
+            .lock()
+            .await
+            .remove(&id)
+            .unwrap()
+            .send(Ok(ToolSessionReply::Started(session.clone())))
+            .unwrap();
+        assert_eq!(start.await.unwrap().unwrap(), session);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn runtime_tool_session_start_timeout_and_cancel_remove_waiters() {
+        let (context, mut receiver) = session_start_test_context();
+        let (start, _) = begin_session_start_test(&context, &mut receiver).await;
+        tokio::time::advance(std::time::Duration::from_secs(61)).await;
+        assert_eq!(start.await.unwrap().unwrap_err().code, ErrorCode::Timeout);
+        assert!(context.tool_sessions.lock().await.is_empty());
+
+        let (start, _) = begin_session_start_test(&context, &mut receiver).await;
+        context.cancellation.cancel();
+        assert_eq!(start.await.unwrap().unwrap_err().code, ErrorCode::Cancelled);
+        assert!(context.tool_sessions.lock().await.is_empty());
+        assert!(
+            receiver.try_recv().is_err(),
+            "neither timeout nor cancellation retries startup"
+        );
     }
 
     #[tokio::test]

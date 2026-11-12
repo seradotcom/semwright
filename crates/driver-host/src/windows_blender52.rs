@@ -278,11 +278,33 @@ pub(super) async fn start(
         mount_arg("native-bootstrap")?,
         mount_arg("blender-runtime")?,
     ];
-    let mut process = semwright_platform_services::sandbox_spawn_blender52_initial(
-        &spec,
-        &prepared.runtime.source,
-        &prepared.executable_sha256,
-    )?;
+    // Mount ACL propagation and executable verification are blocking filesystem
+    // work. Keep the protocol reader and parent cancellation runnable, and retain
+    // the private tree until the launch finishes even if the caller has ended.
+    let launch_started = Instant::now();
+    let launch_prepared = prepared.clone();
+    let launch_cancellation = cancellation.clone();
+    let mut process = tokio::task::spawn_blocking(move || {
+        if launch_cancellation.is_cancelled() {
+            return Err(Error::new(
+                ErrorCode::Cancelled,
+                "Native session parent cancelled before platform launch",
+            ));
+        }
+        semwright_platform_services::sandbox_spawn_blender52_initial(
+            &spec,
+            &launch_prepared.runtime.source,
+            &launch_prepared.executable_sha256,
+        )
+    })
+    .await
+    .map_err(|_| Error::unavailable("Native Blender launch task did not complete"))??;
+    eprintln!(
+        "{}",
+        serde_json::json!({"component":"driver-host","phase":"native_launch_finished",
+        "pid":process.id(),"launch_ms":launch_started.elapsed().as_millis(),
+        "parent_cancelled":cancellation.is_cancelled()})
+    );
     let input = match process.take_stdin() {
         Ok(stream) => stream,
         Err(error) => {

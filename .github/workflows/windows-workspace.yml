@@ -77,6 +77,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-sdk --lib windows_native_profile_tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-driver-sdk --lib runtime_tool_session_
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-driver-host --lib host_tool_protocol_tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-host --lib windows_native_profile_tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-daemon --lib windows_blender_native_owner_opt_in_defaults_off_and_is_independent
@@ -119,7 +123,7 @@ jobs:
         run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins
       - name: Build Blender 5.2.1 native acceptance binary (not a release)
         run: |
-          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver native_initial_session_never_uses_legacy_runner_or_driver_flags
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver native_initial_session_
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo build --locked -p semwright-driver-blender --bin semwright-blender-driver
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -237,4 +241,6 @@ jobs:
           cargo test --locked -p semwright-protocol --lib transport_outcome_tests
           cargo test --locked -p semwright-core --lib scoped_snapshot_tests
           cargo test --locked -p semwright-driver-sdk --lib windows_native_profile_tests
-          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver native_initial_session_never_uses_legacy_runner_or_driver_flags
+          cargo test --locked -p semwright-driver-sdk --lib runtime_tool_session_
+          cargo test --locked -p semwright-driver-host --lib host_tool_protocol_tests
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver native_initial_session_

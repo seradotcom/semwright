@@ -114,6 +114,15 @@ verified private runtime snapshot. Core does not require changing the installed
 Blender directory's DACL or elevating the broker to grant the driver access.
 Legacy driver manifests keep their existing mount contract.
 
+Native session startup has its own 60-second wait, separate from the one-hour
+session lifetime and the 20-second initial version probe. Windows command
+descriptors include this startup/probe allowance (at most 300 seconds total);
+operation frame budgets and the owner's manifest timeout remain authoritative.
+The SDK's existing session-start API still uses five seconds. The Windows Host
+performs blocking launch work off the protocol reader, propagates parent
+cancellation through native readiness, and reaps a process that arrives after
+its parent ends. No timed-out start is automatically retried.
+
 Platform compilation and simulated/negative tests are not proof of an
 installed Blender 5.2.1 running under the broker. Physical scene Save/Reopen
 in an independent process, input mutation/readback and release admission

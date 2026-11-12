@@ -23,6 +23,11 @@ const FONT_CONFIG_MOUNT: &str = "font-config";
 const BLENDER_TOOL: &str = "blender";
 const SESSION_RUNNER_TOOL: &str = "blender-session-runner";
 const MAX_DRIVER_SESSIONS: usize = 2;
+#[cfg(target_os = "windows")]
+const SESSION_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
+#[cfg(not(target_os = "windows"))]
+const SESSION_STARTUP_TIMEOUT: Duration = Duration::from_secs(5);
+const SESSION_PROBE_TIMEOUT_MS: u64 = 20_000;
 // The two first-party initial profiles are intentionally distinct. Do not
 // accept a different Blender release because it happens to answer the same
 // JSON transport: native data and RNA compatibility are version-bound.
@@ -1346,12 +1351,41 @@ fn semantic_capabilities() -> Vec<Capability> {
     ]
 }
 
-fn capabilities() -> Result<Vec<Capability>> {
+fn operation_capabilities() -> Result<Vec<Capability>> {
     let mut values = curated_capabilities()?;
     values.extend(introspection_capabilities());
     values.extend(semantic_capabilities());
     values.extend(authoring_runtime::capabilities());
     Ok(values)
+}
+
+fn capabilities() -> Result<Vec<Capability>> {
+    let values = operation_capabilities()?;
+    #[cfg(target_os = "windows")]
+    let values = values
+        .into_iter()
+        .map(|mut capability| {
+            // The first command also prepares and probes the native session.
+            // Keep the operation's own frame budget separate and preserve the
+            // owner's manifest ceiling in Driver Host.
+            capability.descriptor.timeout_ms = capability
+                .descriptor
+                .timeout_ms
+                .saturating_add(SESSION_STARTUP_TIMEOUT.as_millis() as u64)
+                .saturating_add(SESSION_PROBE_TIMEOUT_MS)
+                .min(semwright_driver_sdk::MAX_TOOL_SESSION_REQUEST_TIMEOUT_MS);
+            capability
+        })
+        .collect();
+    Ok(values)
+}
+
+fn operation_timeout_ms(command: &str) -> Result<u64> {
+    operation_capabilities()?
+        .into_iter()
+        .find(|capability| capability.descriptor.name == command)
+        .map(|capability| capability.descriptor.timeout_ms)
+        .ok_or_else(|| Error::new(ErrorCode::NotFound, "Blender capability is not registered"))
 }
 
 fn capability(command: &str) -> Result<Capability> {
@@ -1605,7 +1639,13 @@ impl BlenderDriver {
         }
         let (tool, args, cwd) = initial_session_spec();
         let session = context
-            .start_runtime_tool_session_args(tool, args, Duration::from_secs(3_600), cwd)
+            .start_runtime_tool_session_args_with_startup_timeout(
+                tool,
+                args,
+                Duration::from_secs(3_600),
+                cwd,
+                SESSION_STARTUP_TIMEOUT,
+            )
             .await?;
 
         let summary = match Self::exchange(
@@ -1613,7 +1653,7 @@ impl BlenderDriver {
             &session,
             "driver.blender.introspect.summary",
             json!({}),
-            20_000,
+            SESSION_PROBE_TIMEOUT_MS,
         )
         .await
         {
@@ -1779,7 +1819,7 @@ impl Driver for BlenderDriver {
             &session,
             command,
             args,
-            capability.descriptor.timeout_ms,
+            operation_timeout_ms(command)?,
         )
         .await;
         let value = match result {
@@ -2044,6 +2084,44 @@ mod tests {
             256
         );
         assert_eq!(output["properties"]["fallback"]["maxLength"], 1024);
+    }
+
+    #[test]
+    fn native_initial_session_budget_includes_startup_without_extending_operations() {
+        let advertised = capabilities().unwrap();
+        let operations = operation_capabilities().unwrap();
+        assert_eq!(advertised.len(), operations.len());
+        for (advertised, operation) in advertised.iter().zip(&operations) {
+            assert_eq!(advertised.descriptor.name, operation.descriptor.name);
+            assert_eq!(
+                operation_timeout_ms(&advertised.descriptor.name).unwrap(),
+                operation.descriptor.timeout_ms,
+            );
+            let mut expected = operation.descriptor.clone();
+            if cfg!(target_os = "windows") {
+                expected.timeout_ms = (expected.timeout_ms + 60_000 + 20_000).min(300_000);
+            }
+            assert_eq!(
+                serde_json::to_value(&advertised.descriptor).unwrap(),
+                serde_json::to_value(&expected).unwrap(),
+                "startup must not change command authority, schema or operation budget",
+            );
+        }
+        assert_eq!(
+            capability("driver.blender.introspect.summary")
+                .unwrap()
+                .descriptor
+                .timeout_ms,
+            if cfg!(target_os = "windows") {
+                90_000
+            } else {
+                10_000
+            },
+        );
+        assert_eq!(
+            SESSION_STARTUP_TIMEOUT,
+            Duration::from_secs(if cfg!(target_os = "windows") { 60 } else { 5 }),
+        );
     }
 
     #[test]
