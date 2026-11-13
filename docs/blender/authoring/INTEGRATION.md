@@ -157,9 +157,11 @@ evidence, foreign resource or changed source fingerprint prevents the
 native save. Only all-`PASS` evidence permits the existing
 new-only native `libraries.write` path. On Windows Blender writes an
 intermediate `.blend@` before renaming to the requested `.blend`: Semwright
-uses an exclusive private staging directory with an **uncreated** library
-target, avoiding the previously precreated `mkstemp` target which could
-block the rename in a confined native process. Publication still uses a
+uses an unpredictable, uncreated 128-bit-random filename directly inside
+the existing **owner-granted workspace mount**, avoiding both the
+previously precreated `mkstemp` target and a nested LPAC directory
+that failed to inherit its AppContainer permissions. The native target is
+never precreated, and no sandbox ACLs are broadened or user files replaced. Publication still uses a
 new-only hard link and never overwrites an existing user file. A failed
 native save retains its private staging evidence for owner reconciliation;
 it does not authorize another save attempt at a different path.

@@ -9,6 +9,7 @@ from __future__ import annotations
 import ast
 import os
 from pathlib import Path
+import secrets
 import tempfile
 import unittest
 
@@ -23,18 +24,18 @@ def load_stage_helper(path: Path):
     tree=ast.parse(path.read_text(encoding="utf-8"))
     functions=[node for node in tree.body
                if isinstance(node,ast.FunctionDef)
-               and node.name=="_private_library_stage"]
+               and node.name=="_fresh_library_target"]
     if len(functions)!=1:
-        raise AssertionError("Expected one source-bound private stage helper")
+        raise AssertionError("Expected one source-bound flat native file helper")
     function=functions[0]
     module=ast.Module(body=[function],type_ignores=[])
     built=compile(module,str(path),"exec")
     def check(condition,message,code="InvalidArgument"):
         if not condition:
             raise RuntimeError(code+": "+message)
-    env={"os":os,"tempfile":tempfile,"check":check}
+    env={"os":os,"secrets":secrets,"check":check}
     exec(built,env)
-    return env["_private_library_stage"]
+    return env["_fresh_library_target"]
 
 
 class NativeBlenderPrivateLibraryStaging(unittest.TestCase):
@@ -48,12 +49,10 @@ class NativeBlenderPrivateLibraryStaging(unittest.TestCase):
             with self.subTest(source=path.name,relative=str(path.parent)):
                 helper=load_stage_helper(path)
                 destination=self.workspace/"example.blend"
-                root, target=helper(str(destination))
-                root, target=Path(root),Path(target)
-                self.assertTrue(root.is_dir())
-                self.assertEqual(root.parent,self.workspace)
-                self.assertEqual(target.parent,root)
-                self.assertEqual(target.name,"library.blend")
+                target=Path(helper(str(destination)))
+                self.assertEqual(target.parent,self.workspace)
+                self.assertRegex(target.name,r"^\.semwright-authoring-[a-f0-9]{32}\.blend$")
+                self.assertFalse(list(self.workspace.iterdir()), "No helper-created private subdirectory")
                 self.assertFalse(target.exists())
                 self.assertFalse(destination.exists())
                 # Blender's @ intermediate must be able to rename to a
@@ -65,7 +64,6 @@ class NativeBlenderPrivateLibraryStaging(unittest.TestCase):
                 os.link(target,destination)
                 self.assertEqual(destination.read_bytes(),target.read_bytes())
                 target.unlink()
-                root.rmdir()
                 destination.unlink()
 
     def test_exclusive_stages_and_no_clobber_publishing(self):
@@ -76,17 +74,17 @@ class NativeBlenderPrivateLibraryStaging(unittest.TestCase):
                 destination.write_bytes(b"owner existing data")
                 created=[]
                 for _ in range(3):
-                    root,target=map(Path,helper(str(destination)))
+                    target=Path(helper(str(destination)))
+                    self.assertEqual(target.parent,self.workspace)
                     self.assertFalse(target.exists())
                     target.write_bytes(b"new staged data")
                     with self.assertRaises(FileExistsError):
                         os.link(target,destination)
                     self.assertEqual(destination.read_bytes(),b"owner existing data")
-                    created.append((root,target))
-                self.assertEqual(len({str(root) for root,_ in created}),3)
-                for root,target in created:
+                    created.append(target)
+                self.assertEqual(len({str(target) for target in created}),3)
+                for target in created:
                     target.unlink()
-                    root.rmdir()
                 destination.unlink()
 
 
@@ -95,7 +93,7 @@ def load_persist_method(path: Path):
     tree=ast.parse(path.read_text(encoding="utf-8"))
     stages=[node for node in tree.body
             if isinstance(node,ast.FunctionDef)
-            and node.name=="_private_library_stage"]
+            and node.name=="_fresh_library_target"]
     methods=[node for node in ast.walk(tree)
              if isinstance(node,ast.FunctionDef) and node.name=="persist"]
     assert len(stages)==len(methods)==1
@@ -114,7 +112,7 @@ def load_persist_method(path: Path):
             raise CommandError(code,message)
 
     environment={
-        "os":os,"stat":stat,"tempfile":tempfile,"hashlib":hashlib,
+        "os":os,"stat":stat,"secrets":secrets,"hashlib":hashlib,
         "Path":Path,"CommandError":CommandError,"check":check,
     }
     exec(compiled,environment)
@@ -206,12 +204,12 @@ class NativePersistRealBodyTests(unittest.TestCase):
                     persist(runtime,"managed-test","failing.blend")
                 self.assertEqual(libraries.calls,1)
                 self.assertFalse((self.workspace/"failing.blend").exists())
-                staged=list(self.workspace.glob(".semwright-authoring-*"))
+                staged=list(self.workspace.glob(".semwright-authoring-*.blend@"))
                 self.assertEqual(len(staged),1)
-                self.assertTrue((staged[0]/"library.blend@").exists())
-                self.assertFalse((staged[0]/"library.blend").exists())
-                (staged[0]/"library.blend@").unlink()
-                staged[0].rmdir()
+                self.assertFalse(Path(str(staged[0])[:-1]).exists())
+                self.assertTrue(staged[0].is_file())
+                self.assertEqual(staged[0].read_bytes(),b"BLENDER-fake-library-test")
+                staged[0].unlink()
 
 
 if __name__=="__main__":

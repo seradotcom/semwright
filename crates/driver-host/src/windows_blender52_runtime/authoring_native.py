@@ -8,7 +8,7 @@ import json
 import math
 import os
 import stat
-import tempfile
+import secrets
 import uuid
 from pathlib import Path
 
@@ -28,17 +28,23 @@ def check(ok, message, code="InvalidArgument"):
         raise CommandError(code, message)
 
 
-def _private_library_stage(destination):
-    # Blender writes a <filepath>@ intermediate before renaming it to
-    # filepath. Do not precreate filepath: an existing mkstemp target in a
-    # Windows LPAC workspace can prevent Blender from completing that rename.
-    # An exclusive per-attempt directory also prevents staging-name collisions.
-    folder = tempfile.mkdtemp(
-        prefix=".semwright-authoring-", dir=os.path.dirname(destination)
+def _fresh_library_target(destination):
+    # A Windows AppContainer-created *subdirectory* does not necessarily
+    # inherit this owner-granted workspace mount's per-process ACL. Use the
+    # already granted directory, never a nested directory whose access may
+    # be denied. Blender first creates a <filepath>@ intermediate; the final
+    # filepath must NOT preexist or Blender's internal rename can fail.
+    #
+    # No staging name or parent directory is provided by the caller.
+    # 128 bits of CSPRNG entropy prevents practical name collisions. Both
+    # the target and Blender's @ intermediate must be absent before writing.
+    target = os.path.join(
+        os.path.dirname(destination),
+        ".semwright-authoring-" + secrets.token_hex(16) + ".blend"
     )
-    candidate = os.path.join(folder, "library.blend")
-    check(not os.path.lexists(candidate), "new private library path unexpectedly exists", "Conflict")
-    return folder, candidate
+    check(not os.path.lexists(target) and not os.path.lexists(target + "@"),
+          "new private Blender library filename is not exclusive", "Conflict")
+    return target
 
 
 def local_id(value):
@@ -1230,10 +1236,10 @@ class AuthoringRuntime:
         check(not snapshot["drift"], "external edits need reconciliation before save", "StaleReference")
         destination = self.commands.workspace.path(relative, ".blend")
         check(not os.path.lexists(destination), "save-as destination exists", "Conflict")
-        staging, temporary = _private_library_stage(destination)
-        # Keep the private stage if Blender or publication fails: a caller must
-        # reconcile an uncertain native write, not repeat it at another path.
-        # Never expand this cleanup into user files or other staging roots.
+        temporary = _fresh_library_target(destination)
+        # Retain the exact randomly named temporary or Blender's @ intermediate
+        # when the native writer or no-clobber publication fails. This is
+        # evidence to reconcile, NOT permission to retry a failed mutation.
         # Blender expands indirect dependencies. _closed rejects external object/data/material
         # references; inventory is returned and fresh-process tests must verify the actual file.
         self.bpy.data.libraries.write(temporary, {collection}, path_remap="NONE", fake_user=False, compress=True)
@@ -1249,10 +1255,10 @@ class AuthoringRuntime:
         os.chmod(temporary, 0o600)
         try: os.link(temporary, destination)
         except FileExistsError as error: raise CommandError("Conflict", "save target appeared; preserved") from error
-        # Only the known newly-created private stage is eligible for cleanup
-        # after the new-only destination has been atomically published.
+        # Only our exact single linked source file is cleaned after the
+        # destination has been published. Never touch an unrelated filename,
+        # a private parent directory, or an earlier failed attempt.
         os.unlink(temporary)
-        os.rmdir(staging)
         return {"path":relative,"sha256":sha,"bytes":size,"island":island,"source_fingerprint":snapshot["fingerprint"],
                 "inventory":{"collection":collection.name,"objects":[o.name for o in objects]},
                 "method":"libraries-write-indirect-closure","fresh_process_verified":False}
