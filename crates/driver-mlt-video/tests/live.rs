@@ -19,6 +19,107 @@ fn digest(path: &Path) -> String {
     hex::encode(Sha256::digest(std::fs::read(path).unwrap()))
 }
 
+/// A small, independent PCM16 RIFF parser for the hosted full-source tail
+/// oracle. This is TEST-ONLY, not a media decoder or provider capability.
+fn read_stereo_pcm16_wav(path: &Path) -> Vec<[i16; 2]> {
+    let data = std::fs::read(path).expect("read bounded PCM16 source / decoded AAC WAV");
+    assert!(data.len() <= 2_000_000, "test-only PCM fixture size");
+    assert!(data.starts_with(b"RIFF") && &data[8..12] == b"WAVE");
+    let mut offset = 12usize;
+    let mut valid_fmt = false;
+    let mut samples = None;
+    while offset + 8 <= data.len() {
+        let label = &data[offset..offset + 4];
+        let size = u32::from_le_bytes(data[offset + 4..offset + 8].try_into().unwrap()) as usize;
+        let payload = offset + 8;
+        let end = payload.checked_add(size).expect("bounded test WAV chunk");
+        assert!(end <= data.len(), "WAV chunk has incomplete payload");
+        if label == b"fmt " {
+            assert!(size >= 16);
+            let channels = u16::from_le_bytes(data[payload + 2..payload + 4].try_into().unwrap());
+            let rate = u32::from_le_bytes(data[payload + 4..payload + 8].try_into().unwrap());
+            let bits = u16::from_le_bytes(data[payload + 14..payload + 16].try_into().unwrap());
+            assert_eq!((channels, rate, bits), (2, 48_000, 16));
+            valid_fmt = true;
+        }
+        if label == b"data" {
+            assert_eq!(size % 4, 0, "16-bit stereo frame alignment");
+            samples = Some(
+                data[payload..end]
+                    .chunks_exact(4)
+                    .map(|frame| {
+                        [
+                            i16::from_le_bytes([frame[0], frame[1]]),
+                            i16::from_le_bytes([frame[2], frame[3]]),
+                        ]
+                    })
+                    .collect::<Vec<_>>(),
+            );
+        }
+        offset = end + (size % 2);
+    }
+    assert!(valid_fmt, "PCM16 stereo source/decoded format tag present");
+    samples.expect("WAV has audio data")
+}
+
+/// Compare the ENTIRE 48 kHz stereo source, including the final partial
+/// window and final 64 samples on both channels. AAC is lossy, so validate
+/// time-aligned correlation and active-channel energy rather than bit equality.
+fn assert_all_stereo_windows_survive_aac(
+    source_wav: &Path,
+    decoded_wav: &Path,
+    exact_authored_frames: usize,
+) {
+    let source = read_stereo_pcm16_wav(source_wav);
+    let decoded = read_stereo_pcm16_wav(decoded_wav);
+    assert_eq!(source.len(), exact_authored_frames);
+    assert!(
+        decoded.len() >= exact_authored_frames && decoded.len() <= exact_authored_frames + 2_048,
+        "AAC decoded PCM may contain bounded codec padding but cannot lose authored samples"
+    );
+    let mut checked = [0usize; 2];
+    for channel in [0, 1] {
+        for start in (0..exact_authored_frames).step_by(256) {
+            let end = (start + 256).min(exact_authored_frames);
+            let mut source_energy = 0_f64;
+            let mut decoded_energy = 0_f64;
+            let mut dot = 0_f64;
+            for i in start..end {
+                let original = f64::from(source[i][channel]);
+                let observed = f64::from(decoded[i][channel]);
+                source_energy += original * original;
+                decoded_energy += observed * observed;
+                dot += original * observed;
+            }
+            if source_energy > (end - start) as f64 * 600_f64.powi(2) {
+                checked[channel] += 1;
+                let energy_ratio = (decoded_energy / source_energy).sqrt();
+                let correlation = dot / (source_energy * decoded_energy).sqrt().max(1_f64);
+                assert!(
+                    energy_ratio >= 0.35 && correlation >= 0.55,
+                    "AAC stereo content lost or clock shifted: channel {channel}, authored frames {start}..{end}, RMS ratio {energy_ratio:.3}, corr {correlation:.3}"
+                );
+            }
+        }
+        assert!(checked[channel] > 10, "fixture must exercise both channels");
+        // The original reported MLT defect made the last 64 RIGHT samples
+        // literal zero while the LEFT remained active. Reject that specifically.
+        let first = exact_authored_frames - 64;
+        let src_tail = source[first..exact_authored_frames]
+            .iter()
+            .map(|v| f64::from(v[channel]).powi(2))
+            .sum::<f64>();
+        let dst_tail = decoded[first..exact_authored_frames]
+            .iter()
+            .map(|v| f64::from(v[channel]).powi(2))
+            .sum::<f64>();
+        assert!(
+            src_tail > 64_f64 * 600_f64.powi(2) && dst_tail > src_tail * 0.12,
+            "AAC right/left source tail must survive the last 64 authored samples, channel {channel}"
+        );
+    }
+}
+
 fn configured_tool(variable: &str) -> PathBuf {
     std::fs::canonicalize(
         std::env::var_os(variable)
@@ -313,6 +414,54 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         status.success(),
         "failed to produce bounded synthetic stereo WAV"
     );
+
+    // Causal 1.1-second source fixture: 33 FFV1 video frames at 30 fps,
+    // exactly 52,800 authored 48 kHz stereo PCM samples with BOTH channel
+    // tails active. The provider receives only these sealed source files and
+    // digests, never a forged success report or a defective MP4 as its input.
+    let tail_video = media.path().join("aac-tail-source-33ffv1.mkv");
+    let tail_video_result = Command::new(&ffmpeg)
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-nostdin",
+            "-n",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=red:s=160x90:r=30:d=1.1",
+            "-frames:v",
+            "33",
+            "-an",
+            "-c:v",
+            "ffv1",
+            "-pix_fmt",
+            "yuv420p",
+            "-f",
+            "matroska",
+        ])
+        .arg(&tail_video)
+        .status()
+        .unwrap();
+    assert!(
+        tail_video_result.success(),
+        "test FFV1 original could not be authored"
+    );
+
+    let tail_wav = media.path().join("aac-tail-source-52800.wav");
+    let original_wav = std::fs::read(media.path().join("sine.wav")).unwrap();
+    let authored_samples = 52_800_u32;
+    let authored_bytes = authored_samples * 4;
+    assert_eq!(&original_wav[..4], b"RIFF");
+    assert_eq!(&original_wav[8..12], b"WAVE");
+    assert_eq!(&original_wav[36..40], b"data");
+    assert!(original_wav.len() >= 44 + authored_bytes as usize);
+    let mut original_tail = original_wav[..44 + authored_bytes as usize].to_vec();
+    original_tail[4..8].copy_from_slice(&(36 + authored_bytes).to_le_bytes());
+    original_tail[40..44].copy_from_slice(&authored_bytes.to_le_bytes());
+    std::fs::write(&tail_wav, original_tail).unwrap();
+    assert_eq!(read_stereo_pcm16_wav(&tail_wav).len(), 52_800);
 
     let frame_rows = (0..6u64)
         .map(|index| {
@@ -838,6 +987,53 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         muxed["decoded_audio_sample_frames"]
             .as_u64()
             .is_some_and(|frames| frames > 0)
+    );
+
+    // Full-source 1.1-second AAC fidelity, including the original final 64
+    // samples on BOTH L/R channels. This is a distinct new-only owner output,
+    // not a re-dispatch of the earlier 2-second operation.
+    let tail_mux = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.av.mux",
+        json!({
+            "video_root":"media",
+            "video_path":"aac-tail-source-33ffv1.mkv",
+            "video_sha256":digest(&tail_video),
+            "audio_root":"media",
+            "audio_path":"aac-tail-source-52800.wav",
+            "audio_sha256":digest(&tail_wav),
+            "width":160,"height":90,"fps_num":30,"fps_den":1,
+            "frame_count":33,"sample_rate":48000,"channels":2,
+            "profile":"h264-aac-mp4",
+            "output_path":"aac-tail-verification-1p1.mp4",
+            "max_bytes":67108864
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(tail_mux["frame_count"], 33);
+    assert_eq!(tail_mux["audio_sha256"], digest(&tail_wav));
+    assert_eq!(tail_mux["video_sha256"], digest(&tail_video));
+    assert_eq!(
+        tail_mux["artifact"]["sha256"],
+        digest(&output.path().join("aac-tail-verification-1p1.mp4"))
+    );
+    assert_eq!(
+        tail_mux["decoded_audio"]["sha256"],
+        digest(&output.path().join("aac-tail-verification-1p1.decoded.wav"))
+    );
+    assert_all_stereo_windows_survive_aac(
+        &tail_wav,
+        &output.path().join("aac-tail-verification-1p1.decoded.wav"),
+        52_800,
+    );
+    // Existing 2-second source also requires every original window, including
+    // both tails, to survive the newly isolated typed H264/AAC mux.
+    assert_all_stereo_windows_survive_aac(
+        &media.path().join("sine.wav"),
+        &output.path().join("av-master.decoded.wav"),
+        96_000,
     );
 
     let stale_mux = call(

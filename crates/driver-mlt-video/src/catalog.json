@@ -1649,7 +1649,7 @@
     "descriptor": {
       "name": "driver.mlt-video.av.mux",
       "version": "0.1.0",
-      "description": "Mux one digest-pinned video-only Motion mezzanine and one digest-pinned audio-only final mix into a bounded H.264/AAC MP4 through the pinned confined MLT runtime, then publish a digest-bound 48 kHz stereo PCM WAV decoded from that exact master for post-encode analysis; no effects, gain, ducking, arbitrary argv or filter graph.",
+      "description": "Mux one digest-pinned video-only Motion mezzanine and one digest-pinned audio-only final mix into a bounded H.264/AAC MP4 using the MLT provider's pinned confined FFmpeg runtime directly on both sources, bypassing the MLT avformat audio timeline, then publish a digest-bound 48 kHz stereo PCM WAV decoded from that exact master for post-encode analysis; no effects, gain, ducking, arbitrary argv or filter graph.",
       "input_schema": {
         "type": "object",
         "properties": {

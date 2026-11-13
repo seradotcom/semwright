@@ -782,7 +782,31 @@ fn render_impl<F: FnOnce()>(
     inputs.seal("project.mlt")?;
     check_cancel(cancel)?;
     on_running();
-    runtime.render(inputs.path(), work.path(), profile, cancel)?;
+    if profile.id == "av-h264-aac" {
+        // Only the internal av.mux profile may take this path; retain
+        // source hash pins, read-only staging and new-only publication.
+        if asset_ids.len() != 2
+            || !asset_ids.contains("av-video")
+            || !asset_ids.contains("av-audio")
+            || profile.video_codec != Some("libx264")
+            || profile.audio_codec != Some("aac")
+            || profile.container != "mp4"
+            || p.profile.audio_channels != 2
+        {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Typed AV mux requires exactly the two verified source assets",
+            ));
+        }
+        runtime.mux_verified_av(
+            inputs.path(),
+            work.path(),
+            p.sequences[0].duration(),
+            cancel,
+        )?;
+    } else {
+        runtime.render(inputs.path(), work.path(), profile, cancel)?;
+    }
     check_cancel(cancel)?;
     let media = runtime.validate_output(
         work.path(),

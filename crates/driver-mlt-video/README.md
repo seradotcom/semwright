@@ -90,6 +90,23 @@ receives project/media roots read-only and the output root writable through type
 Host arguments. It never accepts arbitrary executables, environment or shell
 commands. Compatibility fixture `Runtime` paths do not select production tools.
 
+The specific typed `av.mux` final-master path now stages the two
+source-SHA-bound video-only FFV1 and 48 kHz stereo PCM WAV inputs as sealed
+read-only files, then feeds those ORIGINAL sources directly to the pinned
+Host-supervised FFmpeg executable. The previous MLT `avformat`
+consumer lost the last right-channel samples before the WAV ended. This
+targeted final-mux change retains the same provider descriptor authority,
+fixed H.264/AAC profile, source frame clock, cancellation/resource ceilings,
+FFprobe validation, decoded PCM readback and no-replace artifact publication.
+All other MLT rendering, including native graph/effect evaluation, continues
+to use the MLT consumer and is unaffected. There is no caller-supplied
+shell, FFmpeg filter graph, arbitrary executable or new filesystem grant.
+The hosted source-to-AAC-to-PCM regression checks the full stereo clock and
+every 256-frame window, including each channel's last 64 authored samples.
+Original downstream media require a separately authenticated owner run
+after adopting this exact new SDK pin; this synthetic fixture alone is
+not an original-asset or release certification.
+
 
 ## Explicit video-only lossless FFV1 for downstream native A/V mux
 
