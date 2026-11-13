@@ -164,12 +164,15 @@ configuration candidate for an existing project directory. Example on Windows:
 ```
 
 Read access is the default; add `--write` only when explicitly authorizing edits.
-The command validates the existing private `daemon.toml`, the name and local
-non-linked directory, then writes a **new** `daemon-workspace.toml` with the
-proposed named filesystem grant. It preserves the original policy and any existing
-MCP-client configuration. An existing candidate is never replaced, and a dry run
-creates nothing. Protected config/runtime/state overlap is refused where it can
-be verified; broker startup still performs its full independent policy validation.
+For this first-use flow, the source `daemon.toml` must still be the **unmodified
+observe-only file created by `semwright setup`**. Customized policies are refused
+rather than copied (they may contain private or wider authority settings). The
+command validates the named existing non-linked directory and writes a **new**
+`daemon-workspace.toml` containing the single proposed grant. It leaves the source
+and MCP-client configuration unchanged. An existing candidate is never replaced,
+and a dry run creates nothing or initializes no runtime. Known owner data/config
+root overlap is rejected before staging; broker startup still performs its full
+independent validation of runtime, state and grant boundaries.
 
 Review the candidate before stopping the current broker. To activate it, start
 a **new** broker using `--config 'D:\SemwrightData\config\daemon-workspace.toml'`

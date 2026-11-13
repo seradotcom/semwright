@@ -180,7 +180,7 @@ def run(binary_dir: Path, output: Path):
         source_config = config.read_bytes()
         workspace_command = [
             str(binary_dir / "semwright.exe"), "--json", "workspace",
-            "--name", "workspace", "--path", str(workspace), "--write",
+            "--name", "workspace", "--path", str(workspace),
             "--config-dir", str(config_dir),
         ]
         planned = subprocess.run(
@@ -202,7 +202,7 @@ def run(binary_dir: Path, output: Path):
         import tomllib
         candidate_policy = tomllib.loads(candidate.read_text(encoding="utf-8"))["policy"]
         assert candidate_policy["filesystem"] == [{
-            "name": "workspace", "path": str(workspace), "read": True, "write": True,
+            "name": "workspace", "path": str(workspace), "read": True, "write": False,
         }]
         candidate_bytes = candidate.read_bytes()
         duplicate = subprocess.run(
@@ -236,9 +236,13 @@ def run(binary_dir: Path, output: Path):
         with (output / "daemon.log").open("w", encoding="utf-8") as daemon_log, (
             output / "mcp.log"
         ).open("w", encoding="utf-8") as mcp_log:
-            def start_broker():
+            def start_broker(selected_config=None):
+                command = list(setup_report["next"]["broker"])
+                if selected_config is not None:
+                    assert "--config" in command
+                    command[command.index("--config") + 1] = str(selected_config)
                 process = subprocess.Popen(
-                    setup_report["next"]["broker"], env=environment,
+                    command, env=environment,
                     stdin=subprocess.DEVNULL, stdout=daemon_log, stderr=daemon_log,
                 )
                 deadline = time.monotonic() + 20
@@ -268,6 +272,24 @@ def run(binary_dir: Path, output: Path):
                     raise
 
             try:
+                # The owner may explicitly start a NEW broker with this candidate.
+                # Observe-only is preserved: read succeeds, write is denied.
+                daemon = start_broker(candidate)
+                client = McpClient(snippet, mcp_log, environment)
+                candidate_args = {"root": "workspace", "path": "settings.json"}
+                assert check_ok(client.execute("filesystem.read", candidate_args))["text"] == before
+                check_denied(client.execute("filesystem.write", dict(
+                    candidate_args, text="must-not-write",
+                )))
+                assert data.read_bytes() == before.encode("utf-8")
+                client.close()
+                client = None
+                daemon.terminate()
+                daemon.wait(timeout=5)
+                daemon = None
+                assert config.read_bytes() == source_config
+                assert candidate.read_bytes() == candidate_bytes
+
                 write_config(True)
                 daemon = start_broker()
                 assert (data_root / "state" / "audit").is_dir()
@@ -370,6 +392,8 @@ def run(binary_dir: Path, output: Path):
                     "hosted": os.environ.get("GITHUB_ACTIONS") == "true",
                     "setup_dry_run_and_non_overwrite": True,
                     "workspace_candidate_generated_without_activation": True,
+                    "workspace_candidate_accepted_by_real_broker": True,
+                    "workspace_candidate_read_only_write_denied": True,
                     "workspace_candidate_original_unchanged": True,
                     "workspace_candidate_duplicate_denied": True,
                     "generated_mcp_configuration_used": True,

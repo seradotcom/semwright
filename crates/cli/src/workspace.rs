@@ -67,6 +67,12 @@ pub(super) fn prepare_workspace(
     let original = config_dir.join("daemon.toml");
     validate_existing_private_file(&original)?;
     let source = read_file(&original, MAX_CONFIG_BYTES)?;
+    if source != crate::OBSERVE_CONFIG {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Owner policy has been customized; workspace preparation only accepts the unmodified setup baseline",
+        ));
+    }
     let mut policy = parse_policy(&source)?;
 
     let resolved = existing_owner_root(path)?;
@@ -109,8 +115,8 @@ pub(super) fn prepare_workspace(
     policy.filesystem.push(grant.clone());
     Policy::new(policy)?;
 
-    // Preserve every existing owner setting and comment. A new table is appended
-    // only to a new candidate file; the original source is never rewritten.
+    // Only the unmodified, secret-free setup baseline can be copied. A new
+    // grant is appended to a separate file, never to the original policy.
     let grant_toml = toml::to_string(&grant)
         .map_err(|_| Error::invalid("Unable to serialize the named workspace grant"))?;
     let candidate_content = format!(
@@ -223,21 +229,31 @@ mod tests {
     }
 
     #[test]
-    fn explicit_write_requires_owner_request_and_preserves_other_settings() {
+    fn explicit_write_requires_owner_request_on_pristine_setup() {
         let (_dir, config, root) = fixture();
-        let existing =
-            "# Owner's settings\n[policy]\nprofile = \"observe\"\nconfirm_mutations = true\n";
-        std::fs::write(config.join("daemon.toml"), existing).unwrap();
+        let baseline = std::fs::read(config.join("daemon.toml")).unwrap();
         let report = prepare_workspace(&cli(false), "notes", &root, true, Some(&config)).unwrap();
         assert_eq!(report["workspace"]["write"], true);
-        assert_eq!(
-            std::fs::read_to_string(config.join("daemon.toml")).unwrap(),
-            existing
-        );
+        assert_eq!(std::fs::read(config.join("daemon.toml")).unwrap(), baseline);
         let policy =
             parse_policy(&std::fs::read_to_string(config.join(CANDIDATE)).unwrap()).unwrap();
-        assert!(policy.confirm_mutations);
         assert!(policy.filesystem[0].write);
+    }
+
+    #[test]
+    fn customized_owner_policy_is_not_copied_to_a_candidate() {
+        let (_dir, config, root) = fixture();
+        let customized =
+            "# Owner's settings\n[policy]\nprofile = \"observe\"\nconfirm_mutations = true\n";
+        std::fs::write(config.join("daemon.toml"), customized).unwrap();
+        let refused =
+            prepare_workspace(&cli(false), "notes", &root, true, Some(&config)).unwrap_err();
+        assert_eq!(refused.code, ErrorCode::Conflict);
+        assert_eq!(
+            std::fs::read_to_string(config.join("daemon.toml")).unwrap(),
+            customized
+        );
+        assert!(!config.join(CANDIDATE).exists());
     }
 
     #[test]
