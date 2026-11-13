@@ -70,14 +70,26 @@ pub(super) fn prepare_workspace(
     let mut policy = parse_policy(&source)?;
 
     let resolved = existing_owner_root(path)?;
-    let protected = semwright_platform_services::paths()?;
-    for private in [
-        config_dir.clone(),
-        protected.runtime,
-        protected.state,
-        protected.config,
-        protected.cache,
+    // Runtime-path discovery may create private directories (notably Linux XDG).
+    // A dry run must never invoke it. Check the existing config location and
+    // explicit owner data paths without activating any runtime or broker.
+    let mut protected = vec![config_dir.clone()];
+    #[cfg(target_os = "windows")]
+    if let Some(data) = std::env::var_os("SEMWRIGHT_DATA_DIR") {
+        protected.push(data.into());
+    }
+    #[cfg(unix)]
+    for name in [
+        "XDG_RUNTIME_DIR",
+        "XDG_STATE_HOME",
+        "XDG_CONFIG_HOME",
+        "XDG_CACHE_HOME",
     ] {
+        if let Some(path) = std::env::var_os(name) {
+            protected.push(path.into());
+        }
+    }
+    for private in protected {
         if let Ok(private) = private.canonicalize()
             && overlaps(&resolved, &private)
         {
