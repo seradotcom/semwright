@@ -1109,8 +1109,9 @@ fn audio_live_tool_stream(
     (Some(bytes), observed, error)
 }
 
-// Instrument the SIX existing fixture/oracle Command objects. Their process
-// is spawned once, with original bytes written directly to exclusive files.
+// Instrument the eight closed fixture/oracle Command objects, including the
+// distinct-stereo tail regression. Every process is spawned at most once,
+// with original bytes written directly to exclusive owner files.
 // This does not add a runtime executor, sandbox, decoder, timeout or retry.
 // File snapshots do not assert pipe EOF or descendant closure. The existing
 // outer CI owner must supply and observe the finite deadline/filesystem budget.
@@ -1127,6 +1128,8 @@ fn audio_live_command(
             "fixture-motion-frames",
             "fixture-caption-overlay",
             "fixture-caption-audio",
+            "fixture-aac-tail-33ffv1",
+            "fixture-aac-tail-distinct-stereo",
             "oracle-video-only-ffprobe",
         ]
         .contains(&label),
