@@ -159,12 +159,22 @@ new-only native `libraries.write` path. On Windows Blender writes an
 intermediate `.blend@` before renaming to the requested `.blend`: Semwright
 uses an unpredictable, uncreated 128-bit-random filename directly inside
 the existing **owner-granted workspace mount**, avoiding both the
-previously precreated `mkstemp` target and a nested LPAC directory
-that failed to inherit its AppContainer permissions. The native target is
-never precreated, and no sandbox ACLs are broadened or user files replaced. Publication still uses a
-new-only hard link and never overwrites an existing user file. A failed
-native save retains its private staging evidence for owner reconciliation;
-it does not authorize another save attempt at a different path.
+previously precreated `mkstemp` target and a nested LPAC directory.
+In the Windows Blender 5.2.1 initial profile only, the Platform preflight
+requires that the workspace is owned by the current Windows user with
+**pre-existing Full Control**. If that owner ACL is not inheritable,
+the Platform adds inheritance for that SAME user to newly created files;
+it does not add AppContainer rights, change other mounts or touch vendor
+Blender ACLs. The owner inheritance on the approved workspace remains
+after closing Blender so the owner can open published files. Workspaces
+not owned by the user or without full owner rights fail closed.
+
+The native staging file is never precreated. Publication uses a new-only
+hard link and never overwrites an existing user file. A failed native save
+retains private staging evidence for owner reconciliation; it does not
+authorize another save attempt. Blender can save compressed Zstandard
+`.blend` files; a verifier must validate the decompressed BLENDER
+format rather than demand uncompressed magic bytes at offset zero.
 
 An acknowledged guarded save receipt includes the existing native file
 SHA-256, byte count, island and source fingerprint, plus

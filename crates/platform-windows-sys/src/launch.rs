@@ -2005,9 +2005,107 @@ fn revoke_mount_grants(grants: &mut [WindowsMountGrant]) -> Result<()> {
     }
 }
 
+/// A native Blender writer uses a new .blend@ file before publishing the
+/// .blend from an LPAC child token. Windows checks both the user and the
+/// AppContainer SID. A private workspace may grant the user Full Control
+/// without inheritance; inherited AppContainer ACEs alone cannot authorize
+/// the native file operation.
+///
+/// This strictly scoped native Blender writable-workspace fix requires an
+/// already owner-approved directory and an existing full-control owner ACE.
+/// It only extends those EXISTING user rights to the owner's newly generated
+/// files. It does not change the allowed AppContainer rights, other driver
+/// mounts, the native executable, or the installed Blender vendor tree.
+/// Owner inheritance remains so written artifacts can be read after the
+/// unique temporary AppContainer SID is revoked.
+fn ensure_native_blender_workspace_owner_inheritance(prepared: &PreparedMountGrant) -> Result<()> {
+    if prepared.materialized.logical_name != "workspace"
+        || prepared.materialized.read_only
+        || prepared.inheritance != SUB_CONTAINERS_AND_OBJECTS_INHERIT
+    {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Native Blender owner inheritance requires an authorized writable workspace directory",
+        ));
+    }
+    let mut owner = PSID::default();
+    let mut descriptor = PSECURITY_DESCRIPTOR::default();
+    // SAFETY: the path is NUL-terminated and both output slots are live.
+    let status = unsafe {
+        GetNamedSecurityInfoW(
+            PCWSTR(prepared.path.as_ptr()),
+            SE_FILE_OBJECT,
+            OWNER_SECURITY_INFORMATION,
+            Some(&mut owner),
+            None,
+            None,
+            None,
+            &mut descriptor,
+        )
+    };
+    if status.0 != 0 || descriptor.is_invalid() || owner.is_invalid() {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Native Blender writable workspace owner could not be verified",
+        ));
+    }
+    let _descriptor = SecurityDescriptor(descriptor);
+    let current_user = current_user_sid_bytes()?;
+    if !sid_matches(owner, &current_user) {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Native Blender writable workspace must be owned by the active user",
+        ));
+    }
+    let user = PSID(current_user.as_ptr().cast_mut().cast());
+    // The user must have Full Control already. This path may NOT turn
+    // deliberately restricted owner rights into unrestricted rights.
+    let full_control = FILE_GENERIC_READ.0
+        | FILE_GENERIC_WRITE.0
+        | FILE_GENERIC_EXECUTE.0
+        | FILE_DELETE_CHILD.0
+        | DELETE.0
+        | WRITE_DAC.0
+        | WRITE_OWNER.0;
+    if dacl_has_grant(
+        &prepared.path,
+        user,
+        full_control,
+        SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+    )? {
+        return Ok(());
+    }
+    if !dacl_has_grant(&prepared.path, user, full_control, NO_INHERITANCE)? {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Native Blender workspace owner must already have explicit Full Control",
+        ));
+    }
+    set_mount_ace(
+        &prepared.path,
+        user,
+        GRANT_ACCESS,
+        full_control,
+        SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+    )?;
+    if !dacl_has_grant(
+        &prepared.path,
+        user,
+        full_control,
+        SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+    )? {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Native Blender owner inheritance could not be verified",
+        ));
+    }
+    Ok(())
+}
+
 fn prepare_windows_mounts(
     spec: &SandboxSpec,
     profile: &AppContainerProfile,
+    native_blender_initial: bool,
 ) -> Result<(Vec<WindowsMountGrant>, Option<String>)> {
     if spec.mounts.is_empty() {
         return Ok((Vec::new(), None));
@@ -2044,6 +2142,20 @@ fn prepare_windows_mounts(
         }
         materialized.push(plan.materialized.clone());
         prepared.push(plan);
+    }
+    // Validate ALL mounts before any native-workspace ACL adjustment. Do
+    // not mutate other mounts or general Windows Plugin/Driver workspaces.
+    if native_blender_initial {
+        let owner_workspace = prepared
+            .iter()
+            .find(|plan| plan.materialized.logical_name == "workspace")
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Native Blender workspace mount missing",
+                )
+            })?;
+        ensure_native_blender_workspace_owner_inheritance(owner_workspace)?;
     }
     let encoded = encode_materialized_mounts(&materialized)?;
     let mut grants = Vec::with_capacity(prepared.len());
@@ -2939,7 +3051,11 @@ impl WindowsSandbox {
                 Attributes: SE_GROUP_ENABLED as u32,
             });
         }
-        let (mut mount_grants, mount_table) = prepare_windows_mounts(spec, &profile)?;
+        let (mut mount_grants, mount_table) = prepare_windows_mounts(
+            spec,
+            &profile,
+            matches!(&mode, WindowsLaunchMode::Blender521Initial { .. }),
+        )?;
         let (tool_grants, tool_table) = prepare_windows_tools(spec, &profile)?;
         mount_grants.extend(tool_grants);
         let materialized_mounts = mount_table
@@ -3517,6 +3633,155 @@ mod verifier_tests {
                 .expect("verify inherited workspace revocation"),
             "revocation must remove inherited AppContainer authority from existing children"
         );
+    }
+}
+
+#[cfg(test)]
+mod native_blender_owner_inheritance_tests {
+    use super::*;
+
+    fn owner_private_workspace() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("isolated Windows workspace");
+        let output = std::process::Command::new("whoami")
+            .output()
+            .expect("query current account");
+        assert!(output.status.success());
+        let user = String::from_utf8(output.stdout)
+            .expect("valid principal")
+            .trim()
+            .to_string();
+        assert!(!user.is_empty());
+
+        let protected = std::process::Command::new("icacls")
+            .arg(dir.path())
+            .arg("/inheritance:r")
+            .arg("/grant:r")
+            .arg(format!("{user}:(F)"))
+            .status()
+            .expect("make temporary workspace owner-private");
+        assert!(protected.success());
+        // Hosted Windows runners may create temp directories owned by the
+        // Administrators group. Explicitly bind the test-only owner to the
+        // current user; production must NOT change an unrelated owner.
+        let owner = std::process::Command::new("icacls")
+            .arg(dir.path())
+            .arg("/setowner")
+            .arg(user)
+            .status()
+            .expect("set test-only directory owner");
+        assert!(owner.success());
+        dir
+    }
+
+    fn plan(directory: &Path, read_only: bool) -> PreparedMountGrant {
+        prepare_mount_grant(&Mount {
+            source: directory.to_path_buf(),
+            class: MountClass::Workspace,
+            logical_name: "workspace".into(),
+            read_only,
+            execute: false,
+        })
+        .expect("validate test-only owner workspace")
+    }
+
+    fn full_owner_mask() -> u32 {
+        FILE_GENERIC_READ.0
+            | FILE_GENERIC_WRITE.0
+            | FILE_GENERIC_EXECUTE.0
+            | FILE_DELETE_CHILD.0
+            | DELETE.0
+            | WRITE_DAC.0
+            | WRITE_OWNER.0
+    }
+
+    #[test]
+    fn blender_owner_inheritance_is_verified_and_keeps_the_native_sid_scoped() {
+        let workspace = owner_private_workspace();
+        let prepared = plan(workspace.path(), false);
+        let owner = current_user_sid_bytes().expect("user SID");
+        let sid = PSID(owner.as_ptr().cast_mut().cast());
+        assert!(
+            dacl_has_grant(&prepared.path, sid, full_owner_mask(), NO_INHERITANCE)
+                .expect("noninheritable owner Full Control")
+        );
+        assert!(
+            !dacl_has_grant(
+                &prepared.path,
+                sid,
+                full_owner_mask(),
+                SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+            )
+            .expect("no inheritable owner Full Control before setup"),
+            "the test must reproduce a noninheritable private owner ACL",
+        );
+
+        ensure_native_blender_workspace_owner_inheritance(&prepared)
+            .expect("enable inheritance solely for this existing owner");
+        ensure_native_blender_workspace_owner_inheritance(&prepared)
+            .expect("idempotent owner ACL, no double expansion");
+        assert!(
+            dacl_has_grant(
+                &prepared.path,
+                sid,
+                full_owner_mask(),
+                SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+            )
+            .expect("verify owner inheritance before native launch")
+        );
+
+        let profile = AppContainerProfile::create(&[]).expect("unique LPAC profile");
+        let mut granted =
+            WindowsMountGrant::grant(&prepared, profile.sid).expect("native workspace SID mount");
+        let output = workspace.path().join("owner-readable-native.blend");
+        std::fs::write(&output, b"owner-file-fixture")
+            .expect("create sample under active owner+LPAC grant");
+        let output_path = wide_null(output.as_os_str()).unwrap();
+        assert!(dacl_has_sid(&output_path, sid).expect("owner ACE inherited"));
+        assert!(dacl_has_sid(&output_path, profile.sid).expect("LPAC ACE inherited"));
+        granted.revoke().expect("revoke LPAC identity");
+        assert!(!dacl_has_sid(&output_path, profile.sid).expect("unique LPAC ACE revoked"));
+        assert!(dacl_has_sid(&output_path, sid).expect("owner access retained after LPAC exit"));
+        assert_eq!(std::fs::read(&output).unwrap(), b"owner-file-fixture");
+        // Existing owner access was not expanded to any new principal.
+    }
+
+    #[test]
+    fn owner_inheritance_denies_readonly_and_owner_restricted_workspaces() {
+        let workspace = owner_private_workspace();
+        let readonly = plan(workspace.path(), true);
+        assert!(matches!(
+            ensure_native_blender_workspace_owner_inheritance(&readonly),
+            Err(error) if error.code == ErrorCode::PolicyDenied
+        ));
+
+        let output = std::process::Command::new("whoami")
+            .output()
+            .expect("whoami for temporary ACL");
+        assert!(output.status.success());
+        let user = String::from_utf8(output.stdout)
+            .expect("principal")
+            .trim()
+            .to_string();
+        let changed = std::process::Command::new("icacls")
+            .arg(workspace.path())
+            .arg("/grant:r")
+            .arg(format!("{user}:(RX)"))
+            .status()
+            .expect("restrict test-only owner ACL");
+        assert!(changed.success());
+        let writable = plan(workspace.path(), false);
+        assert!(matches!(
+            ensure_native_blender_workspace_owner_inheritance(&writable),
+            Err(error) if error.code == ErrorCode::PermissionDenied
+        ));
+        // Restore owner rights so tempfile can dispose its own directory.
+        let restored = std::process::Command::new("icacls")
+            .arg(workspace.path())
+            .arg("/grant:r")
+            .arg(format!("{user}:(F)"))
+            .status()
+            .expect("restore test fixture");
+        assert!(restored.success());
     }
 }
 

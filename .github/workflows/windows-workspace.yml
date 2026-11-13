@@ -124,6 +124,8 @@ jobs:
           cargo test --locked -p semwright-core --test project_graph windows_project_reopen_preserves_owner_and_reconciles_offline_edit
       - name: Closed Windows native Blender launch refuses authority drift
         run: cargo test --locked -p semwright-platform-windows-sys --lib closed_blender_initial_launch_tests
+      - name: Closed Blender native workspace preserves verified owner inheritance
+        run: cargo test --locked -p semwright-platform-windows-sys --lib native_blender_owner_inheritance_tests
       - name: Verify real Windows initial-process identity before resume
         run: |
           cargo test --locked -p semwright-platform-windows-sys --lib initial_attestation
