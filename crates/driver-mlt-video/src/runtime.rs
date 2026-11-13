@@ -3366,6 +3366,62 @@ impl Runtime {
         Ok(info)
     }
 
+    /// Encode only the typed final AV mux from two verified, sealed source
+    /// assets. All application-native MLT renders still use render_observed.
+    ///
+    /// The prior MLT avformat consumer clipped authored right-channel AAC
+    /// samples. The confined FFmpeg tool reads both sources directly,
+    /// preserving their own clock without -shortest or an MLT audio tractor.
+    /// Use the EXISTING native process-custody wrapper so real argv,
+    /// stdout/stderr, exit, cancellation, limits and failure precedence are
+    /// retained with the original single process. No caller controls a
+    /// subprocess or supplies unbounded filters.
+    pub(crate) fn mux_verified_av_observed(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        frame_count: u64,
+        cancel: &AtomicBool,
+        deadline: Instant,
+        custody: Option<&Ffv1ProcessCustody<'_>>,
+    ) -> Result<ProcessResult> {
+        if !(1..=36_000).contains(&frame_count) || cancel.load(Ordering::Acquire) {
+            return Err(Error::invalid(
+                "Native AV mux source clock or cancellation differs",
+            ));
+        }
+        let args = verified_av_mux_argv(
+            self.input_path(
+                inputs,
+                &format!("asset-{}.bin", &crate::hash::sha256(b"av-video")[..24]),
+            )
+            .into_os_string(),
+            self.input_path(
+                inputs,
+                &format!("asset-{}.bin", &crate::hash::sha256(b"av-audio")[..24]),
+            )
+            .into_os_string(),
+            self.work_path(work, "partial.mp4").into_os_string(),
+            frame_count,
+        )?;
+        let spec = self.spec(
+            "ffmpeg",
+            args,
+            inputs,
+            work,
+            remaining_color_budget(deadline)?,
+        )?;
+        run_checked_ffv1_original(
+            custody,
+            "render",
+            &spec,
+            cancel,
+            RETAIN_LOG,
+            TOTAL_LOG,
+            crate::jobs::MAX_ARTIFACT_BYTES,
+        )
+    }
+
     pub fn render(
         &self,
         inputs: &Path,
@@ -3588,6 +3644,136 @@ pub fn validate_render_media(
         ));
     }
     Ok(())
+}
+
+/// Only the typed, SHA-pinned provider AV mux may call this private,
+/// fixed-command recipe. FFmpeg and its boundaries are owned by Runtime.
+fn verified_av_mux_argv(
+    video: OsString,
+    audio: OsString,
+    output: OsString,
+    frame_count: u64,
+) -> Result<Vec<OsString>> {
+    if !(1..=36_000).contains(&frame_count) {
+        return Err(Error::limit(
+            "Native AV mux frame count exceeds its closed bounds",
+        ));
+    }
+    Ok(vec![
+        "-hide_banner".into(),
+        "-loglevel".into(),
+        "error".into(),
+        "-nostdin".into(),
+        "-n".into(),
+        "-i".into(),
+        video,
+        "-i".into(),
+        audio,
+        "-map".into(),
+        "0:v:0".into(),
+        "-map".into(),
+        "1:a:0".into(),
+        "-map_metadata".into(),
+        "-1".into(),
+        "-map_chapters".into(),
+        "-1".into(),
+        "-frames:v".into(),
+        frame_count.to_string().into(),
+        "-fps_mode:v".into(),
+        "passthrough".into(),
+        "-c:v".into(),
+        "libx264".into(),
+        "-preset".into(),
+        "veryfast".into(),
+        "-crf".into(),
+        "18".into(),
+        "-pix_fmt".into(),
+        "yuv420p".into(),
+        "-color_primaries:v".into(),
+        "bt709".into(),
+        "-color_trc:v".into(),
+        "bt709".into(),
+        "-colorspace:v".into(),
+        "bt709".into(),
+        "-color_range:v".into(),
+        "tv".into(),
+        "-threads:v".into(),
+        "2".into(),
+        "-c:a".into(),
+        "aac".into(),
+        "-b:a".into(),
+        "192k".into(),
+        "-ar:a".into(),
+        "48000".into(),
+        "-ac:a".into(),
+        "2".into(),
+        "-movflags".into(),
+        "+faststart".into(),
+        "-f".into(),
+        "mp4".into(),
+        output,
+    ])
+}
+
+#[cfg(test)]
+mod typed_native_av_mux_tests {
+    use super::*;
+
+    #[test]
+    fn typed_mux_maps_exact_two_sources_without_trimming_audio() {
+        let args = verified_av_mux_argv(
+            "/inputs/source-ffv1.bin".into(),
+            "/inputs/source-stereo.wav".into(),
+            "/work/partial.mp4".into(),
+            33,
+        )
+        .expect("source-pinned native mux argv");
+        let values = args
+            .iter()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        let pair = |key: &str, value: &str| {
+            values
+                .windows(2)
+                .any(|window| window[0] == key && window[1] == value)
+        };
+        assert_eq!(values.iter().filter(|value| *value == "-i").count(), 2);
+        assert!(pair("-map", "0:v:0"));
+        assert!(pair("-map", "1:a:0"));
+        assert!(pair("-frames:v", "33"));
+        assert!(pair("-fps_mode:v", "passthrough"));
+        assert!(pair("-c:v", "libx264"));
+        assert!(pair("-c:a", "aac"));
+        assert!(pair("-ar:a", "48000"));
+        assert!(pair("-ac:a", "2"));
+        assert!(pair("-f", "mp4"));
+        assert!(values.iter().any(|value| value == "-n"));
+        assert!(!values.iter().any(|value| {
+            value.contains("shortest")
+                || value.contains("filter_complex")
+                || value == "-af"
+                || value == "-vf"
+                || value.contains("aresample")
+                || value.contains("anullsrc")
+                || value.contains("melt")
+        }));
+        assert_eq!(values.last().map(String::as_str), Some("/work/partial.mp4"));
+    }
+
+    #[test]
+    fn zero_and_unbounded_video_frame_counts_fail_before_native_spawn() {
+        for frames in [0, 36_001, u64::MAX] {
+            assert!(
+                verified_av_mux_argv(
+                    "source-ffv1".into(),
+                    "source-stereo".into(),
+                    "partial.mp4".into(),
+                    frames,
+                )
+                .is_err()
+            );
+        }
+    }
 }
 
 pub fn render_argv(

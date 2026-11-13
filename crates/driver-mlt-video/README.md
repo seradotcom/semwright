@@ -90,6 +90,21 @@ receives project/media roots read-only and the output root writable through type
 Host arguments. It never accepts arbitrary executables, environment or shell
 commands. Compatibility fixture `Runtime` paths do not select production tools.
 
+The typed `av.mux` final-master path consumes exactly two original SHA-pinned,
+sealed sources (video-only FFV1 and 48 kHz stereo WAV) directly through the
+existing Host-pinned FFmpeg process supervisor. MLT's `avformat` audio timeline
+previously lost the right-channel tail on a 52,800-sample original WAV.
+The source is encoded without `-shortest`, silence insertion, cropping,
+or caller-selected filters. The original native MLT project XML is retained
+as an audited plan, NOT claimed as the executable input. The actually
+consumed FFV1 is the visual source binding, and the original-process receipt
+captures effective FFmpeg argv, stdout, stderr, exit and one-shot custody.
+Complete observed color/PTS/decoded RGBA, input hashes, process/Host limits,
+cancellation and no-clobber publication remain mandatory. All other MLT
+renders still execute their native MLT graphs. Downstream owner-native
+acceptance on original distinct-channel media is separate from Host CI.
+
+
 
 ## Explicit video-only lossless FFV1 for downstream native A/V mux
 

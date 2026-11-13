@@ -1,5 +1,5 @@
 {
-  "catalog_sha256": "9be1a19f4026b77ba672bc0fe9ac4952779c08ba469ffddd404f9d1d780b821b",
+  "catalog_sha256": "4f635afaadb22cadc550950dba0f33be67536f44c43d01bd9c8427919dc6c433",
   "descriptor_sha256": {
     "driver.mlt-video.asset.import": "4de33c901da0526cc8fc503defa3e303e05ff12634a1acb2861fffecd8f01f8e",
     "driver.mlt-video.asset.inspect": "3e5a56169385238784bfcc2e8a761715ce40bce487c867a4f3fb058c2856cd98",
@@ -12,7 +12,7 @@
     "driver.mlt-video.audio.volume.get": "fe6d591186d8dc3279b1529afcb904d656d49f6d1a71d83e3bd0ba988112d88b",
     "driver.mlt-video.audio.volume.set": "3759795d25fd368c0008fb288332f8f83fbe987fc68a5bb508994f070b2d3bb6",
     "driver.mlt-video.av.caption_pixels.verify": "553fb45f6cb079d87fdbf84105188a0963cd24eda3a08d74d339429f6260e41d",
-    "driver.mlt-video.av.mux": "d1ef03ac16647e9f131fd29f1128c022026689db4cc00ee6b1d3479f44733eb4",
+    "driver.mlt-video.av.mux": "f5f8d4179cbd399f0fae754d73d0851491effaa6dd39d47d82ee9bb6482264cd",
     "driver.mlt-video.clip.duplicate": "914a419656566c2b94f7681df0acb14e77216bff2dcf147d6b74c75a20d56f05",
     "driver.mlt-video.clip.insert": "1c0b8a267af6ce98e8f10b2c6e6c74c9c67132aafa41b58e6dd5aef13611e619",
     "driver.mlt-video.clip.inspect": "5468a35c07fcfd1e12a447c7df3f1080f493588f167f714f9c6e4e1a67ae6cf0",

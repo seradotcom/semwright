@@ -1050,14 +1050,42 @@ fn render_impl<F: FnOnce(&Path)>(
             let deadline = Instant::now() + runtime.timeout;
             on_running(inputs.path());
             verify_native_inputs()?;
-            runtime.render_observed(
-                inputs.path(),
-                work.path(),
-                profile,
-                cancel,
-                deadline,
-                custody.as_ref(),
-            )?;
+            if profile.id == "av-h264-aac" {
+                // Only the existing av.mux source-pinned recipe can request
+                // this closed internal profile. Retain the older SDK's
+                // complete native stdin/stdout/stderr/exit and source custody.
+                if expected_sha256.is_none()
+                    || asset_ids.len() != 2
+                    || !asset_ids.contains("av-video")
+                    || !asset_ids.contains("av-audio")
+                    || profile.video_codec != Some("libx264")
+                    || profile.audio_codec != Some("aac")
+                    || profile.container != "mp4"
+                    || p.profile.audio_channels != 2
+                {
+                    return Err(Error::new(
+                        "PermissionDenied",
+                        "Native AV mux requires exactly two source-pinned video/audio assets",
+                    ));
+                }
+                runtime.mux_verified_av_observed(
+                    inputs.path(),
+                    work.path(),
+                    p.sequences[0].duration(),
+                    cancel,
+                    deadline,
+                    custody.as_ref(),
+                )?;
+            } else {
+                runtime.render_observed(
+                    inputs.path(),
+                    work.path(),
+                    profile,
+                    cancel,
+                    deadline,
+                    custody.as_ref(),
+                )?;
+            }
             check_cancel(cancel)?;
             verify_native_inputs()?;
             let validated = runtime.validate_output_observed(
@@ -1099,10 +1127,34 @@ fn render_impl<F: FnOnce(&Path)>(
                         "Actual native XML retention changed",
                     ));
                 }
-                let source_binding = serde_json::json!({
-                    "source_kind":"mlt_render_project_bytes","root":"output","path":retained.path,
-                    "sha256":retained.sha256,"bytes":retained.bytes,"source_first_frame":0,
-                });
+                // The exact native MLT plan remains retained for review,
+                // but typed AV mux does not execute that XML. Bind its visual
+                // observation to the actually consumed original FFV1 source
+                // while native_input_sources retains BOTH original digests.
+                let source_binding = if profile.id == "av-h264-aac" {
+                    let video_pin = expected_sha256
+                        .and_then(|pins| pins.get("av-video"))
+                        .ok_or_else(|| Error::invalid("Native AV video pin missing"))?;
+                    let video = native_sources
+                        .iter()
+                        .find(|source| &source.sha256 == video_pin)
+                        .ok_or_else(|| {
+                            Error::new(
+                                "StaleReference",
+                                "Native AV video source is not the retained original",
+                            )
+                        })?;
+                    serde_json::json!({
+                        "source_kind":"verified_ffv1_video_source_bytes",
+                        "root":video.root,"path":video.path,
+                        "sha256":video.sha256,"bytes":video.bytes,"source_first_frame":0,
+                    })
+                } else {
+                    serde_json::json!({
+                        "source_kind":"mlt_render_project_bytes","root":"output","path":retained.path,
+                        "sha256":retained.sha256,"bytes":retained.bytes,"source_first_frame":0,
+                    })
+                };
                 verify_native_inputs()?;
                 color_observation = Some(crate::color::publish_observation(
                     observed,

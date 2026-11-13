@@ -19,6 +19,109 @@ fn digest(path: &Path) -> String {
     hex::encode(Sha256::digest(std::fs::read(path).unwrap()))
 }
 
+/// A small, independent PCM16 RIFF parser for the hosted full-source tail
+/// oracle. This is TEST-ONLY, not a media decoder or provider capability.
+fn read_stereo_pcm16_wav(path: &Path) -> Vec<[i16; 2]> {
+    let data = std::fs::read(path).expect("read bounded PCM16 source / decoded AAC WAV");
+    assert!(data.len() <= 2_000_000, "test-only PCM fixture size");
+    assert!(data.starts_with(b"RIFF") && &data[8..12] == b"WAVE");
+    let mut offset = 12usize;
+    let mut valid_fmt = false;
+    let mut samples = None;
+    while offset + 8 <= data.len() {
+        let label = &data[offset..offset + 4];
+        let size = u32::from_le_bytes(data[offset + 4..offset + 8].try_into().unwrap()) as usize;
+        let payload = offset + 8;
+        let end = payload.checked_add(size).expect("bounded test WAV chunk");
+        assert!(end <= data.len(), "WAV chunk has incomplete payload");
+        if label == b"fmt " {
+            assert!(size >= 16);
+            let channels = u16::from_le_bytes(data[payload + 2..payload + 4].try_into().unwrap());
+            let rate = u32::from_le_bytes(data[payload + 4..payload + 8].try_into().unwrap());
+            let bits = u16::from_le_bytes(data[payload + 14..payload + 16].try_into().unwrap());
+            assert_eq!((channels, rate, bits), (2, 48_000, 16));
+            valid_fmt = true;
+        }
+        if label == b"data" {
+            assert_eq!(size % 4, 0, "16-bit stereo frame alignment");
+            samples = Some(
+                data[payload..end]
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .map(|frame| {
+                        [
+                            i16::from_le_bytes([frame[0], frame[1]]),
+                            i16::from_le_bytes([frame[2], frame[3]]),
+                        ]
+                    })
+                    .collect::<Vec<_>>(),
+            );
+        }
+        offset = end + (size % 2);
+    }
+    assert!(valid_fmt, "PCM16 stereo source/decoded format tag present");
+    samples.expect("WAV has audio data")
+}
+
+/// Compare the ENTIRE 48 kHz stereo source, including the final partial
+/// window and final 64 samples on both channels. AAC is lossy, so validate
+/// time-aligned correlation and active-channel energy rather than bit equality.
+fn assert_all_stereo_windows_survive_aac(
+    source_wav: &Path,
+    decoded_wav: &Path,
+    exact_authored_frames: usize,
+) {
+    let source = read_stereo_pcm16_wav(source_wav);
+    let decoded = read_stereo_pcm16_wav(decoded_wav);
+    assert_eq!(source.len(), exact_authored_frames);
+    assert!(
+        decoded.len() >= exact_authored_frames && decoded.len() <= exact_authored_frames + 2_048,
+        "AAC decoded PCM may contain bounded codec padding but cannot lose authored samples"
+    );
+    let mut checked = [0usize; 2];
+    for channel in [0, 1] {
+        for start in (0..exact_authored_frames).step_by(256) {
+            let end = (start + 256).min(exact_authored_frames);
+            let mut source_energy = 0_f64;
+            let mut decoded_energy = 0_f64;
+            let mut dot = 0_f64;
+            for i in start..end {
+                let original = f64::from(source[i][channel]);
+                let observed = f64::from(decoded[i][channel]);
+                source_energy += original * original;
+                decoded_energy += observed * observed;
+                dot += original * observed;
+            }
+            if source_energy > (end - start) as f64 * 600_f64.powi(2) {
+                checked[channel] += 1;
+                let energy_ratio = (decoded_energy / source_energy).sqrt();
+                let correlation = dot / (source_energy * decoded_energy).sqrt().max(1_f64);
+                assert!(
+                    energy_ratio >= 0.35 && correlation >= 0.55,
+                    "AAC stereo content lost or clock shifted: channel {channel}, authored frames {start}..{end}, RMS ratio {energy_ratio:.3}, corr {correlation:.3}"
+                );
+            }
+        }
+        assert!(checked[channel] > 10, "fixture must exercise both channels");
+        // The original reported MLT defect made the last 64 RIGHT samples
+        // literal zero while the LEFT remained active. Reject that specifically.
+        let first = exact_authored_frames - 64;
+        let src_tail = source[first..exact_authored_frames]
+            .iter()
+            .map(|v| f64::from(v[channel]).powi(2))
+            .sum::<f64>();
+        let dst_tail = decoded[first..exact_authored_frames]
+            .iter()
+            .map(|v| f64::from(v[channel]).powi(2))
+            .sum::<f64>();
+        assert!(
+            src_tail > 64_f64 * 600_f64.powi(2) && dst_tail > src_tail * 0.12,
+            "AAC right/left source tail must survive the last 64 authored samples, channel {channel}"
+        );
+    }
+}
+
 fn configured_tool(variable: &str) -> PathBuf {
     std::fs::canonicalize(
         std::env::var_os(variable)
@@ -3418,6 +3521,102 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
         "failed to produce bounded synthetic stereo WAV"
     );
 
+    // Two genuinely distinct left/right PCM signals, including the terminal
+    // partial window. The old provider lost the right-channel AAC tail even
+    // while the source right channel remained active. Original source media
+    // are generated via the already captured test harness, not via the
+    // provider or untrusted user arguments.
+    let tail_video = media.path().join("aac-tail-33ffv1.mkv");
+    let tail_video_result = audio_live_command(
+        &audio_originals,
+        "fixture-aac-tail-33ffv1",
+        Command::new(&ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-nostdin",
+                "-n",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=red:s=160x90:r=30:d=1.1",
+                "-frames:v",
+                "33",
+                "-c:v",
+                "ffv1",
+                "-pix_fmt",
+                "yuv420p",
+                "-an",
+                "-f",
+                "matroska",
+            ])
+            .arg(&tail_video),
+    )?;
+    assert!(
+        tail_video_result.status.success(),
+        "33 FFV1 frame fixture generation failed"
+    );
+
+    let tail_wav = media.path().join("aac-tail-distinct-stereo-52800.wav");
+    let tail_wav_result = audio_live_command(
+        &audio_originals,
+        "fixture-aac-tail-distinct-stereo",
+        Command::new(&ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-nostdin",
+                "-n",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=48000:duration=1.1",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=660:sample_rate=48000:duration=1.1",
+                "-filter_complex",
+                "[0:a][1:a]amerge=inputs=2[a]",
+                "-map",
+                "[a]",
+                "-c:a",
+                "pcm_s16le",
+                "-ar",
+                "48000",
+                "-ac",
+                "2",
+                "-f",
+                "wav",
+            ])
+            .arg(&tail_wav),
+    )?;
+    assert!(
+        tail_wav_result.status.success(),
+        "Original distinct L/R WAV generation failed"
+    );
+    let tail_samples = read_stereo_pcm16_wav(&tail_wav);
+    assert_eq!(tail_samples.len(), 52_800);
+    assert!(
+        tail_samples[..256]
+            .iter()
+            .filter(|sample| sample[0] != sample[1])
+            .count()
+            > 240,
+        "A source with identical channels cannot detect channel swap",
+    );
+    for channel in [0, 1] {
+        assert!(
+            tail_samples[52_736..]
+                .iter()
+                .map(|sample| f64::from(sample[channel]).powi(2))
+                .sum::<f64>()
+                > 64.0 * 600.0_f64.powi(2),
+            "The source tail must contain information in both channels",
+        );
+    }
+
     let manifest = Manifest {
         manifest_version: 1,
         protocol: DRIVER_PROTOCOL_VERSION,
@@ -3934,6 +4133,55 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
             muxed["decoded_audio_sample_frames"]
                 .as_u64()
                 .is_some_and(|frames| frames > 0)
+        );
+
+        // Source-to-AAC-to-PCM inside the REAL authenticated DriverProvider
+        // and native process-custody path. 33 FFV1 frames at 30 fps align
+        // with exactly 52,800 authored PCM16 stereo samples at 48 kHz.
+        // No input is reused from the defective master or copied from the
+        // downstream product. The original two distinct channels are kept.
+        let tail_mux = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.av.mux",
+            json!({
+                "video_root":"media",
+                "video_path":"aac-tail-33ffv1.mkv",
+                "video_sha256":digest(&tail_video),
+                "audio_root":"media",
+                "audio_path":"aac-tail-distinct-stereo-52800.wav",
+                "audio_sha256":digest(&tail_wav),
+                "width":160,"height":90,"fps_num":30,"fps_den":1,
+                "frame_count":33,"sample_rate":48000,"channels":2,
+                "profile":"h264-aac-mp4",
+                "output_path":"aac-tail-native-1p1.mp4",
+                "max_bytes":67108864
+            }),
+        )
+        .await?;
+        assert_eq!(tail_mux["frame_count"], 33);
+        assert_eq!(tail_mux["video_sha256"], digest(&tail_video));
+        assert_eq!(tail_mux["audio_sha256"], digest(&tail_wav));
+        assert_eq!(
+            tail_mux["artifact"]["sha256"],
+            digest(&output.path().join("aac-tail-native-1p1.mp4"))
+        );
+        assert_eq!(
+            tail_mux["decoded_audio"]["sha256"],
+            digest(&output.path().join("aac-tail-native-1p1.decoded.wav"))
+        );
+        assert_all_stereo_windows_survive_aac(
+            &tail_wav,
+            &output.path().join("aac-tail-native-1p1.decoded.wav"),
+            52_800,
+        );
+        // The existing source is 96,000 stereo samples; no AV path may
+        // regress in a longer final master or hide an empty right tail.
+        assert_all_stereo_windows_survive_aac(
+            &media.path().join("sine.wav"),
+            &output.path().join("av-master.decoded.wav"),
+            96_000,
         );
 
         negative_plans.push(AudioLiveNegativePlan {

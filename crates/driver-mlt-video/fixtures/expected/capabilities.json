@@ -2032,7 +2032,7 @@
     "descriptor": {
       "name": "driver.mlt-video.av.mux",
       "version": "0.2.0",
-      "description": "Mux digest-pinned native video and 48 kHz stereo final mix through the existing confined MLT runtime; retain the exact consumed project.mlt, original staged source identities, all decoded RGBA frames with actual color/PTS and the original post-master PCM audio observation. Unknown color/presentation fails without retagging or retiming.",
+      "description": "Mux digest-pinned native FFV1 video and 48 kHz stereo WAV directly through pinned confined FFmpeg; retain both original source identities, the audited but unexecuted project.mlt plan, actual FFmpeg argv/stdout/stderr/exit, all decoded RGBA frames with observed color/PTS and the original post-master PCM audio observation. Unknown color/presentation fails without retagging, retiming or fallback.",
       "input_schema": {
         "type": "object",
         "properties": {
