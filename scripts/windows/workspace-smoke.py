@@ -175,6 +175,44 @@ def run(binary_dir: Path, output: Path):
         assert json.loads(again.stdout)["config"]["status"] == "kept-existing"
         assert snippet_path.read_bytes() == snippet_bytes
         assert not data_root.exists(), "Setup must not start or initialize the runtime"
+
+        # Owner CLI prepares a NEW reviewable workspace policy, not a live grant.
+        source_config = config.read_bytes()
+        workspace_command = [
+            str(binary_dir / "semwright.exe"), "--json", "workspace",
+            "--name", "workspace", "--path", str(workspace), "--write",
+            "--config-dir", str(config_dir),
+        ]
+        planned = subprocess.run(
+            workspace_command + ["--dry-run"], env=environment,
+            capture_output=True, text=True, encoding="utf-8", check=True, timeout=15,
+        )
+        assert json.loads(planned.stdout)["status"] == "would-create"
+        candidate = config_dir / "daemon-workspace.toml"
+        assert not candidate.exists()
+        prepared = subprocess.run(
+            workspace_command, env=environment,
+            capture_output=True, text=True, encoding="utf-8", check=True, timeout=15,
+        )
+        prepared_report = json.loads(prepared.stdout)
+        assert prepared_report["status"] == "created"
+        assert prepared_report["authority_granted"] is False
+        assert prepared_report["broker_started"] is False
+        assert config.read_bytes() == source_config
+        import tomllib
+        candidate_policy = tomllib.loads(candidate.read_text(encoding="utf-8"))["policy"]
+        assert candidate_policy["filesystem"] == [{
+            "name": "workspace", "path": str(workspace), "read": True, "write": True,
+        }]
+        candidate_bytes = candidate.read_bytes()
+        duplicate = subprocess.run(
+            workspace_command, env=environment,
+            capture_output=True, text=True, encoding="utf-8", timeout=15,
+        )
+        assert duplicate.returncode != 0
+        assert candidate.read_bytes() == candidate_bytes
+        assert config.read_bytes() == source_config
+        assert not data_root.exists(), "Workspace preparation must not initialize broker state"
         junction = workspace / "escape"
         subprocess.run(
             ["cmd", "/C", "mklink", "/J", str(junction), str(outside)],
@@ -331,6 +369,9 @@ def run(binary_dir: Path, output: Path):
                     "evidence": "native-broker-mcp",
                     "hosted": os.environ.get("GITHUB_ACTIONS") == "true",
                     "setup_dry_run_and_non_overwrite": True,
+                    "workspace_candidate_generated_without_activation": True,
+                    "workspace_candidate_original_unchanged": True,
+                    "workspace_candidate_duplicate_denied": True,
                     "generated_mcp_configuration_used": True,
                     "explicit_runtime_data_directory": True,
                     "fake": False,

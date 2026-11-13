@@ -1,3 +1,5 @@
+mod workspace;
+
 use clap::{CommandFactory, Parser};
 use semwright_cli::*;
 use semwright_driver_host::conformance as driver_conformance;
@@ -1247,6 +1249,16 @@ async fn local(cli: &Cli) -> Result<bool> {
         Command::Setup { config_dir } => {
             let result = setup_result(cli, config_dir.as_deref())?;
             print_setup(&result, cli.json)?;
+        }
+        Command::Workspace {
+            name,
+            path,
+            write,
+            config_dir,
+        } => {
+            let result =
+                workspace::prepare_workspace(cli, name, path, *write, config_dir.as_deref())?;
+            print_result(&result, cli.json)?;
         }
         Command::Completions { shell } => {
             clap_complete::generate(

@@ -153,6 +153,31 @@ broker policy, change TCC/portal settings, or approve sensitive operations. Thos
 explicit owner/OS actions. This keeps one simple setup command without turning onboarding into an
 authority escalation.
 
+### Prepare an owner-selected workspace without editing the live policy
+
+After `semwright setup`, run this **local owner CLI** command to create a *separate*
+configuration candidate for an existing project directory. Example on Windows:
+
+```powershell
+& 'D:\Semwright\bin\semwright.exe' --json --dry-run workspace --name project --path 'D:\Projects\Example' --config-dir 'D:\SemwrightData\config'
+& 'D:\Semwright\bin\semwright.exe' --json workspace --name project --path 'D:\Projects\Example' --config-dir 'D:\SemwrightData\config'
+```
+
+Read access is the default; add `--write` only when explicitly authorizing edits.
+The command validates the existing private `daemon.toml`, the name and local
+non-linked directory, then writes a **new** `daemon-workspace.toml` with the
+proposed named filesystem grant. It preserves the original policy and any existing
+MCP-client configuration. An existing candidate is never replaced, and a dry run
+creates nothing. Protected config/runtime/state overlap is refused where it can
+be verified; broker startup still performs its full independent policy validation.
+
+Review the candidate before stopping the current broker. To activate it, start
+a **new** broker using `--config 'D:\SemwrightData\config\daemon-workspace.toml'`
+and the intended socket, or switch to it during a deliberate restart. Neither
+preparation nor CLI reconnection reloads a running broker or installs client
+settings. Avoid treating a proposed grant as effective permission before a
+fresh broker has accepted it.
+
 ### Windows data and connection locations
 
 To keep broker data on a chosen drive, set `SEMWRIGHT_DATA_DIR` in the current process

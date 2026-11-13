@@ -55,6 +55,21 @@ pub enum Command {
         #[arg(long)]
         config_dir: Option<PathBuf>,
     },
+    /// Prepare a separate owner-reviewed workspace config; never activate or overwrite grants.
+    Workspace {
+        /// Named filesystem grant in the proposed configuration.
+        #[arg(long)]
+        name: String,
+        /// Existing absolute directory to grant, excluding private runtime paths.
+        #[arg(long)]
+        path: PathBuf,
+        /// Explicitly include write authority; the default is read-only.
+        #[arg(long)]
+        write: bool,
+        /// Directory containing an existing daemon.toml, normally made by setup.
+        #[arg(long)]
+        config_dir: Option<PathBuf>,
+    },
     Doctor,
     #[command(visible_alias = "capability")]
     Capabilities {
@@ -1269,6 +1284,7 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
             command: Audit::Tail { limit },
         } => ("audit.tail".into(), json!({"limit":limit})),
         Command::Setup { .. }
+        | Command::Workspace { .. }
         | Command::Watch { .. }
         | Command::Driver { .. }
         | Command::Mcp { .. }
