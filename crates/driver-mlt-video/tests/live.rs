@@ -46,7 +46,9 @@ fn read_stereo_pcm16_wav(path: &Path) -> Vec<[i16; 2]> {
             assert_eq!(size % 4, 0, "16-bit stereo frame alignment");
             samples = Some(
                 data[payload..end]
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .map(|frame| {
                         [
                             i16::from_le_bytes([frame[0], frame[1]]),
