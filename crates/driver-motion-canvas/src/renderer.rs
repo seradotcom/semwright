@@ -158,6 +158,49 @@ impl RenderFailureClass {
     }
 }
 
+/// Finite categories assigned only from an original Driver Host job failure.
+/// Resource exhaustion is not an OOM diagnosis; it also covers transport bounds.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum HostFailureKind {
+    Timeout,
+    ResourceExhausted,
+    AccessDenied,
+    Unavailable,
+    ProtocolFailure,
+    Other,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct HostFailure {
+    pub kind: HostFailureKind,
+    /// Copy the Host's original certainty; an absent flag stays unknown.
+    #[serde(default)]
+    pub outcome_known: bool,
+}
+
+impl HostFailure {
+    fn from_error(error: &Error) -> Self {
+        let kind = match error.code {
+            ErrorCode::Timeout => HostFailureKind::Timeout,
+            ErrorCode::ResourceExhausted => HostFailureKind::ResourceExhausted,
+            ErrorCode::PermissionDenied | ErrorCode::PolicyDenied | ErrorCode::SandboxDenied => {
+                HostFailureKind::AccessDenied
+            }
+            ErrorCode::Unavailable => HostFailureKind::Unavailable,
+            ErrorCode::ProtocolMismatch | ErrorCode::PluginProtocolError => {
+                HostFailureKind::ProtocolFailure
+            }
+            _ => HostFailureKind::Other,
+        };
+        Self {
+            kind,
+            outcome_known: error.outcome_known,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ArtifactSummary {
@@ -177,6 +220,9 @@ pub struct JobView {
     pub state: RenderState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_class: Option<RenderFailureClass>,
+    /// Separate from renderer-controlled errorClass strings and never reconstructed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host_failure: Option<HostFailure>,
     pub error: Option<String>,
     pub artifact: Option<ArtifactSummary>,
 }
@@ -273,6 +319,7 @@ impl RenderManager {
             job_ref: job_ref.clone(),
             state: RenderState::Starting,
             failure_class: None,
+            host_failure: None,
             error: None,
             artifact: None,
         };
@@ -455,6 +502,7 @@ impl RenderManager {
             },
             RuntimeToolJobStatus::Failed { error } => JobView {
                 state: RenderState::Failed,
+                host_failure: Some(HostFailure::from_error(&error)),
                 error: Some(error.message.chars().take(16_384).collect()),
                 ..current
             },
@@ -1589,7 +1637,7 @@ mod runtime_path_tests {
                 Some(RenderFailureClass::RuntimePermission),
             ),
             (
-                br#"{"ok":false,"errorClass":"../../private"}"#.as_slice(),
+                br#"{"ok":false,"errorClass":"../../private","host_failure":{"kind":"timeout","outcome_known":true}}"#.as_slice(),
                 b"unclassified private local text".as_slice(),
                 None,
             ),
@@ -1604,6 +1652,7 @@ mod runtime_path_tests {
                         job_ref: job_ref.clone(),
                         state: RenderState::Rendering,
                         failure_class: None,
+                        host_failure: None,
                         error: None,
                         artifact: None,
                     },
@@ -1630,6 +1679,7 @@ mod runtime_path_tests {
                 .unwrap();
             assert_eq!(view.state, RenderState::Failed);
             assert_eq!(view.failure_class, expected);
+            assert!(view.host_failure.is_none());
             assert!(view.artifact.is_none());
             assert!(
                 view.error
@@ -1655,6 +1705,7 @@ mod runtime_path_tests {
             job_ref: job_ref.clone(),
             state: RenderState::Failed,
             failure_class: Some(RenderFailureClass::RendererStateMotionCore),
+            host_failure: None,
             error: Some("Motion Canvas render failed".into()),
             artifact: None,
         };
@@ -1682,6 +1733,128 @@ mod runtime_path_tests {
             Some("renderer_state_motion_core")
         );
         assert!(wire.get("failure_code").is_none());
+        assert!(wire.get("host_failure").is_none());
+        assert!(
+            serde_json::from_value::<JobView>(wire)
+                .unwrap()
+                .host_failure
+                .is_none()
+        );
+    }
+    #[test]
+    fn host_failure_metadata_is_finite_private_and_conservative() {
+        for (code, kind) in [
+            (ErrorCode::Timeout, HostFailureKind::Timeout),
+            (
+                ErrorCode::ResourceExhausted,
+                HostFailureKind::ResourceExhausted,
+            ),
+            (ErrorCode::PolicyDenied, HostFailureKind::AccessDenied),
+            (ErrorCode::PermissionDenied, HostFailureKind::AccessDenied),
+            (ErrorCode::SandboxDenied, HostFailureKind::AccessDenied),
+            (ErrorCode::Unavailable, HostFailureKind::Unavailable),
+            (
+                ErrorCode::ProtocolMismatch,
+                HostFailureKind::ProtocolFailure,
+            ),
+            (
+                ErrorCode::PluginProtocolError,
+                HostFailureKind::ProtocolFailure,
+            ),
+            (ErrorCode::BackendFailed, HostFailureKind::Other),
+        ] {
+            for known in [false, true] {
+                let mut original = Error::new(code, "private arbitrary Host detail");
+                original.outcome_known = known;
+                let metadata = HostFailure::from_error(&original);
+                assert_eq!(metadata.kind, kind);
+                assert_eq!(metadata.outcome_known, known);
+                let wire = serde_json::to_value(&metadata).unwrap();
+                assert_eq!(wire.as_object().unwrap().len(), 2);
+                assert_eq!(wire["outcome_known"], known);
+                assert!(wire.get("code").is_none());
+                assert!(wire.get("message").is_none());
+                assert!(!wire.to_string().contains("private"));
+                assert_eq!(
+                    serde_json::from_value::<HostFailure>(wire).unwrap(),
+                    metadata
+                );
+            }
+        }
+        assert!(
+            !serde_json::from_value::<HostFailure>(json!({"kind":"timeout"}))
+                .unwrap()
+                .outcome_known
+        );
+        for invalid in [
+            json!({"kind":"arbitrary","outcome_known":true}),
+            json!({"kind":"timeout","outcome_known":"true"}),
+            json!({"kind":"timeout","outcome_known":true,"message":"private"}),
+        ] {
+            assert!(serde_json::from_value::<HostFailure>(invalid).is_err());
+        }
+        // Host classes are not accepted as renderer-authored errorClass values.
+        assert_eq!(
+            renderer_failure_class(br#"{"ok":false,"errorClass":"timeout"}"#),
+            None
+        );
+    }
+
+    #[tokio::test]
+    async fn host_failure_preserves_original_certainty_and_terminal_identity() {
+        for known in [false, true] {
+            let manager = RenderManager::new(false, PathBuf::from("/tmp/not-used"));
+            let job_ref = format!("job:test-host-failure-{known}");
+            manager.jobs.lock().await.insert(
+                job_ref.clone(),
+                Job {
+                    source_sha256: "a".repeat(64),
+                    view: JobView {
+                        job_ref: job_ref.clone(),
+                        state: RenderState::Rendering,
+                        failure_class: None,
+                        host_failure: None,
+                        error: None,
+                        artifact: None,
+                    },
+                    failure_code: None,
+                    host_job: None,
+                    authoring: false,
+                    render_input_digest: "b".repeat(64),
+                    plan: serde_json::from_value(json!({"renderer":"motion-canvas-core-renderer-v3.17.2","project_duration_ms":34,"width":32,"height":32,"fps":30,"first_frame":0,"end_frame_exclusive":1,"frame_count":1,"alpha":false,"color_space":"srgb","timeout_ms":1000})).unwrap(),
+                    output: PathBuf::from("/tmp/not-used"),
+                },
+            );
+            let mut original = Error::new(ErrorCode::Timeout, "Host-redacted failure");
+            original.outcome_known = known;
+            let view = manager
+                .apply_host_status(&job_ref, RuntimeToolJobStatus::Failed { error: original })
+                .await
+                .unwrap();
+            assert_eq!(view.job_ref, job_ref);
+            assert_eq!(view.state, RenderState::Failed);
+            assert!(view.artifact.is_none());
+            assert!(view.failure_class.is_none());
+            assert_eq!(
+                view.host_failure,
+                Some(HostFailure {
+                    kind: HostFailureKind::Timeout,
+                    outcome_known: known,
+                })
+            );
+            assert_eq!(
+                manager.failure_code(&job_ref).await,
+                Some(ErrorCode::Timeout)
+            );
+            let stable = manager
+                .apply_host_status(&job_ref, RuntimeToolJobStatus::Running)
+                .await
+                .unwrap();
+            assert_eq!(
+                serde_json::to_value(stable).unwrap(),
+                serde_json::to_value(view).unwrap()
+            );
+        }
     }
 }
 
