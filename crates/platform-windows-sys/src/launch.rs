@@ -3670,6 +3670,10 @@ mod native_blender_owner_inheritance_tests {
             .status()
             .expect("set test-only directory owner");
         assert!(owner.success());
+        // Runner temp ACLs can contain other explicit owner inheritable
+        // entries even after icacls /grant:r. Use one precise protected
+        // owner-only fixture DACL instead of assuming the runner layout.
+        replace_test_owner_acl(dir.path(), full_owner_mask());
         dir
     }
 
@@ -3692,6 +3696,51 @@ mod native_blender_owner_inheritance_tests {
             | DELETE.0
             | WRITE_DAC.0
             | WRITE_OWNER.0
+    }
+
+    fn replace_test_owner_acl(path: &Path, rights: u32) {
+        let current = current_user_sid_bytes().expect("current test user SID");
+        let system = well_known_sid(WinLocalSystemSid).expect("SYSTEM SID");
+        let admins = well_known_sid(WinBuiltinAdministratorsSid).expect("admins SID");
+        let grants = [
+            explicit_sid_grant(
+                PSID(current.as_ptr().cast_mut().cast()),
+                rights,
+                NO_INHERITANCE,
+            ),
+            explicit_sid_grant(
+                PSID(system.as_ptr().cast_mut().cast()),
+                GENERIC_ALL.0,
+                NO_INHERITANCE,
+            ),
+            explicit_sid_grant(
+                PSID(admins.as_ptr().cast_mut().cast()),
+                GENERIC_ALL.0,
+                NO_INHERITANCE,
+            ),
+        ];
+        let mut dacl: *mut ACL = std::ptr::null_mut();
+        // SAFETY: grants/SIDs remain valid for this test-only synchronous
+        // Windows ACL construction; LocalAcl frees the resulting allocation.
+        let status = unsafe { SetEntriesInAclW(Some(&grants), None, &mut dacl) };
+        assert_eq!(status.0, 0, "construct exact owner-only fixture ACL");
+        assert!(!dacl.is_null());
+        let dacl = LocalAcl(dacl);
+        let wide = wide_null(path.as_os_str()).expect("test path");
+        // SAFETY: path is NUL-terminated and ACL remains live. This only
+        // changes an owner-private disposable tempfile test directory.
+        let status = unsafe {
+            SetNamedSecurityInfoW(
+                PCWSTR(wide.as_ptr()),
+                SE_FILE_OBJECT,
+                DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                None,
+                None,
+                Some(dacl.0),
+                None,
+            )
+        };
+        assert_eq!(status.0, 0, "apply exact protected test fixture DACL");
     }
 
     #[test]
@@ -3754,34 +3803,19 @@ mod native_blender_owner_inheritance_tests {
             Err(error) if error.code == ErrorCode::PolicyDenied
         ));
 
-        let output = std::process::Command::new("whoami")
-            .output()
-            .expect("whoami for temporary ACL");
-        assert!(output.status.success());
-        let user = String::from_utf8(output.stdout)
-            .expect("principal")
-            .trim()
-            .to_string();
-        let changed = std::process::Command::new("icacls")
-            .arg(workspace.path())
-            .arg("/grant:r")
-            .arg(format!("{user}:(RX)"))
-            .status()
-            .expect("restrict test-only owner ACL");
-        assert!(changed.success());
+        // An exact restricted DACL on a disposable owner-private directory
+        // proves that helper refuses to widen existing owner permissions.
+        replace_test_owner_acl(
+            workspace.path(),
+            FILE_GENERIC_READ.0 | FILE_GENERIC_EXECUTE.0,
+        );
         let writable = plan(workspace.path(), false);
         assert!(matches!(
             ensure_native_blender_workspace_owner_inheritance(&writable),
             Err(error) if error.code == ErrorCode::PermissionDenied
         ));
-        // Restore owner rights so tempfile can dispose its own directory.
-        let restored = std::process::Command::new("icacls")
-            .arg(workspace.path())
-            .arg("/grant:r")
-            .arg(format!("{user}:(F)"))
-            .status()
-            .expect("restore test fixture");
-        assert!(restored.success());
+        // Restore owner rights only on this test-owned fixture.
+        replace_test_owner_acl(workspace.path(), full_owner_mask());
     }
 }
 
