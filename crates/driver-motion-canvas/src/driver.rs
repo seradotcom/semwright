@@ -1935,7 +1935,7 @@ mod tests {
         let composed_digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
         assert_eq!(
             composed_digest,
-            "4f5e39b2c0ac105620ea04aa9540a6d56d22ce5e79006b9ec78409f16e490c37"
+            "f6de5045c2e5b54d1df99ae928d2533f71364f2c062a0367aa45f99bde217206"
         );
         let observed_doctor = catalog
             .iter()
@@ -1952,10 +1952,82 @@ mod tests {
             })
         );
 
+        // Recover the exact prior catalog by removing only the five optional
+        // Host diagnostics and their two definitions. No other schema or
+        // permission change can inherit the previous catalog's golden.
+        let mut observer_catalog = catalog.clone();
+        let mut expected_failure = embedded_scalar::<crate::renderer::HostFailure>();
+        let expected_definitions = expected_failure
+            .as_object_mut()
+            .unwrap()
+            .remove("$defs")
+            .expect("Host failure kind definition");
+        assert_eq!(expected_definitions.as_object().unwrap().len(), 1);
+        let expected_kind = expected_definitions["HostFailureKind"].clone();
+        assert!(!expected_kind.is_null());
+        let mut expected_field = embedded_scalar::<Option<crate::renderer::HostFailure>>();
+        expected_field.as_object_mut().unwrap().remove("$defs");
+        expected_field["description"] =
+            json!("Separate from renderer-controlled errorClass strings and never reconstructed.");
+        let mut terminal_owners = Vec::new();
+        for capability in &mut observer_catalog {
+            for (direction, schema) in [
+                ("input", &mut capability.descriptor.input_schema),
+                ("output", &mut capability.descriptor.output_schema),
+            ] {
+                if schema.pointer("/properties/host_failure").is_none() {
+                    continue;
+                }
+                assert_eq!(direction, "output");
+                assert_eq!(schema["title"], "JobView");
+                assert!(
+                    !schema
+                        .get("required")
+                        .and_then(Value::as_array)
+                        .is_some_and(|required| required
+                            .iter()
+                            .any(|field| { field.as_str() == Some("host_failure") }))
+                );
+                assert_eq!(
+                    schema["properties"]
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("host_failure"),
+                    Some(expected_field.clone())
+                );
+                let definitions = schema["$defs"].as_object_mut().unwrap();
+                assert_eq!(
+                    definitions.remove("HostFailure"),
+                    Some(expected_failure.clone())
+                );
+                assert_eq!(
+                    definitions.remove("HostFailureKind"),
+                    Some(expected_kind.clone())
+                );
+                terminal_owners.push(capability.descriptor.name.clone());
+            }
+        }
+        terminal_owners.sort_unstable();
+        assert_eq!(
+            terminal_owners,
+            [
+                "driver.motion-canvas.render.cancel",
+                "driver.motion-canvas.render.execute",
+                "driver.motion-canvas.render.result",
+                "driver.motion-canvas.render.start",
+                "driver.motion-canvas.render.status",
+            ]
+        );
+        assert_eq!(
+            semwright_driver_sdk::capabilities_digest(&observer_catalog).unwrap(),
+            "4f5e39b2c0ac105620ea04aa9540a6d56d22ce5e79006b9ec78409f16e490c37",
+            "catalog changes beyond the optional original Host failure metadata"
+        );
+
         // Recover the prior catalog by removing only the four optional frame
         // lists added for bounded native text-pixel observation. An unrelated
         // schema change must still fail the earlier digest and every old golden.
-        let mut font_catalog = catalog.clone();
+        let mut font_catalog = observer_catalog;
         let frame_schema = embedded_scalar::<Vec<u64>>();
         let mut profile_frame_schema = frame_schema.clone();
         profile_frame_schema["description"] = json!(concat!(
@@ -1963,9 +2035,21 @@ mod tests {
             "Empty retains the legacy profile and has no serialized field."
         ));
         for (name, direction, model_pointer) in [
-            ("driver.motion-canvas.render.plan", "input", "/$defs/RenderProfile"),
-            ("driver.motion-canvas.render.start", "input", "/$defs/RenderProfile"),
-            ("driver.motion-canvas.render.execute", "input", "/$defs/RenderProfile"),
+            (
+                "driver.motion-canvas.render.plan",
+                "input",
+                "/$defs/RenderProfile",
+            ),
+            (
+                "driver.motion-canvas.render.start",
+                "input",
+                "/$defs/RenderProfile",
+            ),
+            (
+                "driver.motion-canvas.render.execute",
+                "input",
+                "/$defs/RenderProfile",
+            ),
             ("driver.motion-canvas.render.plan", "output", ""),
         ] {
             assert_eq!(
@@ -1987,14 +2071,18 @@ mod tests {
             let model = if model_pointer.is_empty() {
                 schema
             } else {
-                schema.pointer_mut(model_pointer).expect("render profile schema")
+                schema
+                    .pointer_mut(model_pointer)
+                    .expect("render profile schema")
             };
-            assert!(!model
-                .get("required")
-                .and_then(Value::as_array)
-                .is_some_and(|required| required.iter().any(|field| {
-                    field.as_str() == Some("text_pixel_observation_frames")
-                })));
+            assert!(
+                !model
+                    .get("required")
+                    .and_then(Value::as_array)
+                    .is_some_and(|required| required
+                        .iter()
+                        .any(|field| { field.as_str() == Some("text_pixel_observation_frames") }))
+            );
             let properties = model
                 .get_mut("properties")
                 .and_then(Value::as_object_mut)
