@@ -95,6 +95,35 @@ fn provider_generation(broker: &Broker, route: &str) -> u64 {
         .unwrap()
 }
 
+#[tokio::test]
+async fn builtin_provider_identity_matches_compiled_target() {
+    let directory = tempfile::tempdir().unwrap();
+    let audit = Audit::open(&directory.path().join("audit"), 65536, 2).unwrap();
+    let broker = Broker::new(
+        Policy::new(PolicyConfig::default()).unwrap(),
+        vec![BuiltinEventBackend::new()],
+        audit,
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    let status = broker.provider_status().unwrap();
+    let providers = status["providers"].as_array().unwrap();
+    assert_eq!(providers.len(), 1);
+    let row = &providers[0];
+    assert_eq!(row["route"], "event-native");
+    assert_eq!(
+        row["identity"]["id"],
+        format!("{}-event-native", std::env::consts::OS)
+    );
+    assert_eq!(row["identity"]["origin"], "semwright-compiled-provider");
+    assert_eq!(row["identity"]["kind"], "builtin");
+    assert_eq!(row["connected"], true);
+    broker.shutdown().await;
+}
+
 impl FixtureProvider {
     fn new() -> Arc<Self> {
         let identity = ProviderIdentity::external(SourceKind::Driver, "fixture", "1").unwrap();

@@ -215,6 +215,11 @@ def run(binary_dir: Path, output: Path):
                         if result.returncode == 0:
                             report = json.loads(result.stdout)
                             assert report["ok"] and report["data"]["fake"] is False, report
+                            providers = report["data"]["providers"]["providers"]
+                            for route in ("filesystem", "artifacts", "windows"):
+                                match = [item for item in providers if item["route"] == route]
+                                assert len(match) == 1, (route, providers)
+                                assert match[0]["identity"]["id"] == f"windows-{route}", match[0]
                             return process
                         time.sleep(0.1)
                     raise TimeoutError("Broker did not become ready; inspect daemon.log")

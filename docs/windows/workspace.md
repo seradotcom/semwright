@@ -2,7 +2,11 @@
 
 The owner configures named roots in the daemon's configuration. MCP and CLI clients
 use the same policy and native filesystem backend; choosing another interface does
-not grant access to another directory.
+not grant access to another directory. `doctor` reports built-in provider identities
+for the compiled target, such as `windows-filesystem` and `windows-windows`, while
+keeping their `filesystem` and `windows` routes unchanged. Older Windows binaries
+incorrectly displayed `linux-*` identities; those strings are not an authority grant.
+The explicit `blender-native` and `browser-cdp` application identities are unchanged.
 
 Use an existing ordinary absolute drive path. For example:
 

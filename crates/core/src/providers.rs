@@ -68,7 +68,7 @@ impl ProviderCatalog {
                     Some("org.semwright.Chromium".to_owned()),
                 ),
                 "fake" => ("fixture-desktop".to_owned(), None),
-                other => (format!("linux-{other}"), None),
+                other => (format!("{}-{other}", std::env::consts::OS), None),
             };
             let identity = ProviderIdentity {
                 id,
