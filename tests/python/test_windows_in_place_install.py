@@ -1,10 +1,11 @@
-"""Windows helper contracts; inert fixture payloads are never executed."""
+"""Windows install helper contracts with isolated files and one test-owned process."""
 import hashlib
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -89,6 +90,39 @@ class WindowsInPlaceInstallTests(unittest.TestCase):
         output = self.helper("Uninstall", success=False)
         self.assertIn("File changed; refusing operation", output)
         self.assertEqual(self.snapshot(), before)
+
+    def test_live_bundle_process_refuses_uninstall_before_any_deletion(self):
+        # Run only a copied OS command interpreter in this test fixture.
+        # No actual Semwright broker or application workspace is touched.
+        original = shutil.which("cmd.exe")
+        self.assertIsNotNone(original, "Windows command processor required")
+        stub = self.bundle / "bin/semwrightd.exe"
+        shutil.copyfile(original, stub)
+        self.checksums()
+        self.helper("Install", "-InPlace")
+        process = subprocess.Popen(
+            [str(stub), "/Q", "/K"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            cwd=self.root,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        try:
+            time.sleep(0.2)
+            self.assertIsNone(process.poll(), "Test-owned executable exited early")
+            before = self.snapshot()
+            output = self.helper("Uninstall", success=False)
+            self.assertIn("Stop running Semwright from this bundle", output)
+            self.assertEqual(self.snapshot(), before)
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            process.wait(timeout=5)
+            if process.stdin is not None:
+                process.stdin.close()
+        self.helper("Uninstall")
+        self.assertFalse(self.bundle.exists())
 
     def test_registration_never_replaces_an_existing_receipt(self):
         self.helper("Install", "-InPlace")

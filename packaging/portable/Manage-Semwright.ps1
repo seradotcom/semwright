@@ -77,6 +77,25 @@ function Assert-Files([string]$Base, [object[]]$Records) {
         if ((Get-Digest $Target) -cne $Record.Digest) { throw "File changed; refusing operation: $Target" }
     }
 }
+function Assert-NoRunningBundleProcesses([string]$Base) {
+    $BinRoot = [IO.Path]::GetFullPath((Join-Path $Base 'bin')).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
+    $Names = @('semwright.exe', 'semwrightd.exe', 'semwright-mcp.exe', 'semwright-inspect.exe', 'semwright-sandbox.exe')
+    $Filter = ($Names | ForEach-Object { "Name='$_'" }) -join ' OR '
+    try {
+        $Processes = @(Get-CimInstance -ClassName Win32_Process -Filter $Filter -ErrorAction Stop)
+    } catch {
+        throw 'Cannot inspect running Semwright processes; refusing uninstall.'
+    }
+    foreach ($Process in $Processes) {
+        if ([string]::IsNullOrWhiteSpace($Process.ExecutablePath)) {
+            throw 'Cannot confirm the location of a running Semwright process; refusing uninstall.'
+        }
+        $Executable = [IO.Path]::GetFullPath($Process.ExecutablePath)
+        if ($Executable.StartsWith($BinRoot, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Stop running Semwright from this bundle before uninstalling (PID $($Process.ProcessId))."
+        }
+    }
+}
 Assert-NoReparse $Prefix
 $Receipt = Join-Path $Prefix '.semwright-install-receipt'
 if ($Mode -eq 'Install') {
@@ -125,6 +144,7 @@ if ($Mode -eq 'Install') {
 } else {
     $Records = @(Read-Records $Receipt)
     Assert-Files $Prefix $Records
+    Assert-NoRunningBundleProcesses $Prefix
     # Validate every file before any deletion; no recursive removal or wildcard expansion.
     foreach ($Record in $Records) {
         $Target = Join-Path $Prefix $Record.Path

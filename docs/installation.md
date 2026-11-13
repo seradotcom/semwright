@@ -99,9 +99,13 @@ $env:SEMWRIGHT_DATA_DIR = 'D:\SemwrightData'
 `-InPlace` verifies every internal checksum and all five commands, then creates an installation
 receipt beside the extracted files. It does not copy or move the bundle and cannot be combined
 with `-Prefix`. Use a non-root directory on a local drive; network paths and reparse points are
-refused. Registration refuses an existing receipt. Run that bundle's own uninstaller to remove
-only unchanged registered files; changed files cause refusal and unregistered projects remain.
-The ordinary copying installer still restricts `-Prefix` to the user profile.
+refused. Registration refuses an existing receipt. Stop commands running from that bundle before
+uninstalling: the Windows helper checks active Semwright executable paths and refuses
+removal before any deletion if one belongs to that bundle or cannot be identified.
+This is a preflight, not a lock against a process started concurrently afterward.
+Run that bundle's own uninstaller to remove only unchanged registered files; changed
+files cause refusal and unregistered projects remain. The ordinary copying installer
+still restricts `-Prefix` to the user profile.
 
 Registration does not relocate configuration or grant workspace access. Set `SEMWRIGHT_DATA_DIR`
 in each process before setup, as described below, to keep configuration and state on the selected
