@@ -37,6 +37,11 @@ impl ObservationProfile {
 }
 pub const MLT_SOURCE_POLICY: &str = "mlt-render-project-bytes-v1";
 pub const MLT_RECIPE: &str = "mlt-native-processing-no-additional-transfer-conversion-v1";
+/// Only the direct, typed H264/AAC master may name the actual FFV1 source
+/// rather than misrepresent an audited but unexecuted MLT plan as its input.
+pub const MLT_DIRECT_AV_SOURCE_POLICY: &str = "mlt-direct-ffv1-stereo-wav-owner-pins-v1";
+pub const MLT_DIRECT_AV_RECIPE: &str = "pinned-confined-ffmpeg-h264-aac-bt709-v1";
+const MLT_DIRECT_AV_SOURCE_KIND: &str = "verified_ffv1_video_source_bytes";
 // zscale negotiates planar RGB; packed RGBA is selected only afterward.
 // Keep the reviewed matrix, transfer, range and chroma-site options intact.
 pub const READBACK_FILTER_LEFT: &str = "zscale=pin=709:tin=709:min=709:rin=limited:p=709:t=709:m=gbr:r=full:dither=none:agamma=0:chromalin=left,format=gbrp,format=rgba";
@@ -128,6 +133,36 @@ fn validate_native_input_sources(value: &Value) -> Result<()> {
     }
     Ok(())
 }
+/// The directly consumed FFV1 must be EXACTLY one of two recorded
+/// source-pinned original assets. Its SHA/root/path/bytes must all match;
+/// a forged or stale source cannot be accepted merely by declaring a kind.
+/// The original XML plan remains a separately retained Host artifact.
+fn verify_direct_av_source_pin(source: &Value, native_sources: &Value) -> Result<()> {
+    let rows = native_sources
+        .as_array()
+        .filter(|rows| rows.len() == 2)
+        .ok_or_else(|| Error::invalid("Direct AV requires exactly two original source pins"))?;
+    if uint(source, "source_first_frame")? != 0 {
+        return Err(Error::invalid(
+            "Direct AV visual source must start at original frame zero",
+        ));
+    }
+    let count = rows
+        .iter()
+        .filter(|row| {
+            ["root", "path", "sha256", "bytes"]
+                .iter()
+                .all(|field| row.get(*field) == source.get(*field))
+        })
+        .count();
+    if count != 1 {
+        return Err(Error::invalid(
+            "Direct AV visual original differs from its source pin",
+        ));
+    }
+    Ok(())
+}
+
 fn validate_audio_stream(audio: &Value, video_stream: u64) -> Result<()> {
     closed(
         audio,
@@ -525,6 +560,8 @@ pub fn parse_complete_observation(bytes: &[u8]) -> Result<CompleteObservation> {
         _ => return Err(Error::unsupported("Unknown observation schema")),
     };
     let extended = profile.is_native_mlt();
+    let direct_av = profile == ObservationProfile::MltH264AacMaster
+        && v["source_binding"]["source_kind"].as_str() == Some(MLT_DIRECT_AV_SOURCE_KIND);
     closed_extended(
         &v,
         &[
@@ -573,8 +610,18 @@ pub fn parse_complete_observation(bytes: &[u8]) -> Result<CompleteObservation> {
             || text(&v, "color_recipe")? != RECIPE
             || text(&v, "encoder_filter")? != ENCODE_FILTER))
         || (extended
-            && (text(&v, "source_policy")? != MLT_SOURCE_POLICY
-                || text(&v, "color_recipe")? != MLT_RECIPE
+            && (text(&v, "source_policy")?
+                != if direct_av {
+                    MLT_DIRECT_AV_SOURCE_POLICY
+                } else {
+                    MLT_SOURCE_POLICY
+                }
+                || text(&v, "color_recipe")?
+                    != if direct_av {
+                        MLT_DIRECT_AV_RECIPE
+                    } else {
+                        MLT_RECIPE
+                    }
                 || !v["encoder_filter"].is_null()))
         || text(&v, "rgba_conversion")?
             != "ffmpeg-explicit-bt709-limited-to-bt709-rgb-full-no-transfer-change"
@@ -602,14 +649,21 @@ pub fn parse_complete_observation(bytes: &[u8]) -> Result<CompleteObservation> {
         ],
     )?;
     if text(source, "source_kind")?
-        != if extended {
+        != if direct_av {
+            MLT_DIRECT_AV_SOURCE_KIND
+        } else if extended {
             "mlt_render_project_bytes"
         } else {
             "motion_canvas_frame_manifest_bytes"
         }
         || !matches!(text(source, "root")?, "project" | "media" | "output")
         || uint(source, "bytes")? == 0
-        || uint(source, "bytes")? > 8 * 1024 * 1024
+        || uint(source, "bytes")?
+            > if direct_av {
+                256 * 1024 * 1024
+            } else {
+                8 * 1024 * 1024
+            }
         || uint(source, "source_first_frame")? > 100_000_000
     {
         return Err(Error::invalid("Original source-manifest binding differs"));
@@ -622,10 +676,15 @@ pub fn parse_complete_observation(bytes: &[u8]) -> Result<CompleteObservation> {
                 "Master clock scope must be explicit video-only",
             ));
         }
-        if text(source, "root")? != "output" || uint(source, "source_first_frame")? != 0 {
+        if !direct_av
+            && (text(source, "root")? != "output" || uint(source, "source_first_frame")? != 0)
+        {
             return Err(Error::invalid("Native XML source binding differs"));
         }
         validate_native_input_sources(&v["native_input_sources"])?;
+        if direct_av {
+            verify_direct_av_source_pin(source, &v["native_input_sources"])?;
+        }
     }
     let artifact = &v["artifact"];
     closed(artifact, &["root", "path", "sha256", "bytes"])?;
@@ -644,6 +703,7 @@ pub fn parse_complete_observation(bytes: &[u8]) -> Result<CompleteObservation> {
     }
     digest_field(artifact, "sha256")?;
     if extended
+        && !direct_av
         && source["path"].as_str() != Some(format!("{artifact_path}.native-input.mlt").as_str())
     {
         return Err(Error::invalid(
@@ -1023,6 +1083,78 @@ mod complete_tests {
             v["rgba_filter"] = json!(READBACK_FILTER_LEFT);
         }
         v
+    }
+
+    #[test]
+    fn direct_av_visual_origin_is_exactly_one_of_two_pinned_source_artifacts() {
+        let mut valid = mlt_document(true, false);
+        valid["source_policy"] = json!(MLT_DIRECT_AV_SOURCE_POLICY);
+        valid["color_recipe"] = json!(MLT_DIRECT_AV_RECIPE);
+        valid["source_binding"] = json!({
+            "source_kind":MLT_DIRECT_AV_SOURCE_KIND,
+            "root":"media","path":"source-ffv1.mkv",
+            "sha256":"1".repeat(64),"bytes":456,"source_first_frame":0
+        });
+        valid["native_input_sources"] = json!([
+            {"root":"media","path":"source-ffv1.mkv","sha256":"1".repeat(64),"bytes":456},
+            {"root":"media","path":"distinct-stereo.wav","sha256":"2".repeat(64),"bytes":211_278}
+        ]);
+        assert!(parse(&valid).is_ok(), "both exact source pins are required");
+        assert!(
+            parse(&mlt_document(true, false)).is_ok(),
+            "existing MLT XML source remains valid"
+        );
+
+        let mut changed = valid.clone();
+        changed["source_binding"]["sha256"] = json!("3".repeat(64));
+        assert!(parse(&changed).is_err(), "unowned source SHA rejected");
+
+        let mut changed = valid.clone();
+        changed["source_binding"]["path"] = json!("other-ffv1.mkv");
+        assert!(parse(&changed).is_err(), "unowned source path rejected");
+
+        let mut changed = valid.clone();
+        changed["source_binding"]["bytes"] = json!(455);
+        assert!(parse(&changed).is_err(), "unowned source length rejected");
+
+        let mut changed = valid.clone();
+        changed["native_input_sources"] = json!([{
+            "root":"media","path":"source-ffv1.mkv",
+            "sha256":"1".repeat(64),"bytes":456
+        }]);
+        assert!(
+            parse(&changed).is_err(),
+            "missing original stereo source denied"
+        );
+
+        let mut changed = valid.clone();
+        changed["source_binding"]["source_first_frame"] = json!(1);
+        assert!(parse(&changed).is_err(), "source time shift denied");
+
+        let mut changed = valid.clone();
+        changed["source_binding"]["bytes"] = json!(256 * 1024 * 1024 + 1_u64);
+        assert!(parse(&changed).is_err(), "source size budget denied");
+
+        let mut changed = valid.clone();
+        changed["source_policy"] = json!(MLT_SOURCE_POLICY);
+        assert!(
+            parse(&changed).is_err(),
+            "XML policy cannot pretend to be direct FFmpeg"
+        );
+
+        let mut changed = valid.clone();
+        changed["color_recipe"] = json!(MLT_RECIPE);
+        assert!(
+            parse(&changed).is_err(),
+            "MLT recipe cannot pretend to be direct FFmpeg"
+        );
+
+        let mut changed = valid.clone();
+        changed["observation_profile"] = json!(ObservationProfile::MltVisualFfv1.wire_name());
+        assert!(
+            parse(&changed).is_err(),
+            "FFV1-only MLT observation cannot claim direct AAC mux"
+        );
     }
 
     #[test]

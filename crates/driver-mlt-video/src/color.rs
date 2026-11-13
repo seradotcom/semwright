@@ -6,9 +6,10 @@ use serde_json::{Value, json};
 // One portable parser shared with applications. Linux Root/runtime and PNG
 // decoding remain in this crate; the opaque parsed type grants no authority.
 pub use semwright_video_domain::native_observation::{
-    CompleteObservation, DecodedPng, ENCODE_FILTER, Frame, MLT_RECIPE, MLT_SOURCE_POLICY,
-    ObservationBudget, ObservationProfile, PNG_DECODE_LIMIT, PNG_LIMIT, READBACK_FILTER, RECIPE,
-    REPORT_LIMIT, RETAINED_PNG_LIMIT, SOURCE_POLICY, clock_observation, observation_budget,
+    CompleteObservation, DecodedPng, ENCODE_FILTER, Frame, MLT_DIRECT_AV_RECIPE,
+    MLT_DIRECT_AV_SOURCE_POLICY, MLT_RECIPE, MLT_SOURCE_POLICY, ObservationBudget,
+    ObservationProfile, PNG_DECODE_LIMIT, PNG_LIMIT, READBACK_FILTER, RECIPE, REPORT_LIMIT,
+    RETAINED_PNG_LIMIT, SOURCE_POLICY, clock_observation, observation_budget,
     parse_complete_observation, readback_filter, rgba_roster_digest, validate_side_data_types,
 };
 
@@ -877,6 +878,8 @@ pub fn build_observation_report(
 ) -> Result<Vec<u8>> {
     let profile = observed.probe.profile;
     let extended = profile.is_native_mlt();
+    let direct_av = profile == ObservationProfile::MltH264AacMaster
+        && source_binding["source_kind"].as_str() == Some("verified_ffv1_video_source_bytes");
     if observed.frames.len() != observed.probe.frames.len()
         || observed.frames.len() != observed.probe.frame_metadata.len()
         || native_input_sources.is_some() != extended
@@ -922,8 +925,8 @@ pub fn build_observation_report(
         "schema":if extended {"semwright.mlt-complete-frame-observation/2"}else{"semwright.mlt-complete-frame-observation/1"},
         "source_binding":source_binding,
         "artifact":{"root":"output","path":output_path,"sha256":observed.video_sha256,"bytes":observed.video_bytes},
-        "source_policy":if extended {MLT_SOURCE_POLICY}else{SOURCE_POLICY},
-        "color_recipe":if extended {MLT_RECIPE}else{RECIPE},
+        "source_policy":if direct_av {MLT_DIRECT_AV_SOURCE_POLICY}else if extended {MLT_SOURCE_POLICY}else{SOURCE_POLICY},
+        "color_recipe":if direct_av {MLT_DIRECT_AV_RECIPE}else if extended {MLT_RECIPE}else{RECIPE},
         "encoder_filter":if extended {Value::Null}else{json!(ENCODE_FILTER)},
         "decoder":{"name":"FFmpeg","version":observed.ffmpeg_version,"executable_sha256":observed.ffmpeg_sha256},
         "probe":{"name":"ffprobe","version":observed.probe.ffprobe_version,

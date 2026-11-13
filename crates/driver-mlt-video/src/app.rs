@@ -1989,6 +1989,8 @@ impl App {
             )?;
             if !video_info.video
                 || video_info.audio
+                || video_info.codecs.len() != 1
+                || video_info.codecs[0] != "ffv1"
                 || video_info.width != Some(width)
                 || video_info.height != Some(height)
                 || video_info
