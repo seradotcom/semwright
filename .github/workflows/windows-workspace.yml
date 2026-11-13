@@ -2,7 +2,7 @@ name: Windows workspace connection
 
 on:
   push:
-    branches: [fix/windows-workspace-roots]
+    branches: [fix/windows-workspace-roots, fix/windows-new-only-text]
   pull_request:
     paths:
       - 'crates/daemon/src/config.rs'
@@ -12,6 +12,7 @@ on:
       - 'crates/driver-host/**'
       - 'crates/driver-blender/**'
       - 'crates/semantic-composition/**'
+      - 'crates/platform-common/src/filesystem.rs'
       - 'crates/platform-windows/**'
       - 'crates/platform-windows-sys/**'
       - 'crates/platform-services/src/lib.rs'
@@ -140,6 +141,8 @@ jobs:
           cargo test --locked -p semwright-platform-windows-sys --lib native_runtime_acl_accepts_only_exact_trusted_installer_and_inherit_only_templates
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-platform-windows-sys --lib native_runtime_tests
+      - name: Shared text no-replace dispatch
+        run: cargo test --locked -p semwright-platform-common --lib filesystem::tests
       - name: Workspace configuration and native confinement
         run: |
           cargo test --locked -p semwright-daemon --test windows_workspace
@@ -280,6 +283,7 @@ jobs:
           python3 crates/driver-host/tests/windows_blender_checkpoint.py
           cargo test --locked -p semwright-cli setup_
           cargo test --locked -p semwright-daemon --lib config::tests
+          cargo test --locked -p semwright-platform-common --lib filesystem::tests
           cargo test --locked -p semwright-protocol --lib transport_outcome_tests
           cargo test --locked -p semwright-core --lib scoped_snapshot_tests
           cargo test --locked -p semwright-driver-sdk --lib windows_native_profile_tests

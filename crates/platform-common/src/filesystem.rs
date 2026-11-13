@@ -86,13 +86,22 @@ impl Backend for Filesystem {
             }
             "filesystem.write" => {
                 let text = arg_str(args, "text")?;
+                let overwrite = match args.get("overwrite") {
+                    None => true,
+                    Some(Value::Bool(value)) => *value,
+                    Some(_) => return Err(Error::invalid("overwrite must be a Boolean")),
+                };
                 if text.len() > MAX_PUBLIC_TEXT_BYTES {
                     return Err(Error::new(
                         ErrorCode::ResourceExhausted,
                         "filesystem.write exceeds the 1 MiB text budget",
                     ));
                 }
-                root.write_atomic(path, text.as_bytes())?;
+                if overwrite {
+                    root.write_atomic(path, text.as_bytes())?;
+                } else {
+                    root.write_new_atomic(path, text.as_bytes())?;
+                }
                 Ok(json!({"written":true,"bytes":text.len(),"atomic":true}))
             }
             _ => Err(Error::new(
@@ -153,5 +162,130 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(read.code, ErrorCode::InvalidArgument);
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[tokio::test]
+    async fn new_only_text_write_preserves_existing_and_human_edits() {
+        let directory = tempdir().unwrap();
+        let grant = FilesystemGrant {
+            name: "workspace".into(),
+            path: crate::fixture_root(directory.path()),
+            read: true,
+            write: true,
+        };
+        let backend = Filesystem::new(&[grant]).unwrap();
+        let new_only = json!({
+            "root": "workspace", "path": "notes.txt", "text": "first", "overwrite": false
+        });
+        let created = backend
+            .execute(&context(), "filesystem.write", &new_only)
+            .await
+            .unwrap();
+        assert_eq!(created["written"], true);
+        assert_eq!(
+            std::fs::read(directory.path().join("notes.txt")).unwrap(),
+            b"first"
+        );
+
+        // An external edit before a second request may never be overwritten.
+        std::fs::write(directory.path().join("notes.txt"), b"owner edit").unwrap();
+        let conflict = backend
+            .execute(&context(), "filesystem.write", &new_only)
+            .await
+            .unwrap_err();
+        assert_eq!(conflict.code, ErrorCode::Conflict);
+        assert!(conflict.outcome_known);
+        assert_eq!(
+            std::fs::read(directory.path().join("notes.txt")).unwrap(),
+            b"owner edit"
+        );
+
+        let bad_flag = json!({
+            "root": "workspace", "path": "notes.txt", "text": "unsafe", "overwrite": "false"
+        });
+        let bad = backend
+            .execute(&context(), "filesystem.write", &bad_flag)
+            .await
+            .unwrap_err();
+        assert_eq!(bad.code, ErrorCode::InvalidArgument);
+        assert_eq!(
+            std::fs::read(directory.path().join("notes.txt")).unwrap(),
+            b"owner edit"
+        );
+
+        // Omitted overwrite retains the existing compatibility contract.
+        let legacy = json!({"root":"workspace", "path":"notes.txt", "text":"legacy"});
+        backend
+            .execute(&context(), "filesystem.write", &legacy)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::fs::read(directory.path().join("notes.txt")).unwrap(),
+            b"legacy"
+        );
+
+        let traversal = json!({
+            "root": "workspace", "path": "../outside.txt", "text": "no", "overwrite": false
+        });
+        let denied = backend
+            .execute(&context(), "filesystem.write", &traversal)
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            denied.code,
+            ErrorCode::PolicyDenied | ErrorCode::InvalidArgument
+        ));
+        assert!(!directory.path().join("../outside.txt").exists());
+        assert!(!std::fs::read_dir(directory.path()).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".semwright-")
+        }));
+    }
+
+    // Unsupported native backends must never downgrade new-only to replacement.
+    struct ReplacementOnly(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+    impl ScopedRoot for ReplacementOnly {
+        fn confinement(&self) -> semwright_platform_api::filesystem::Confinement {
+            semwright_platform_api::filesystem::Confinement::PinnedRootSingleChild
+        }
+        fn read(&self, _: &Path, _: usize) -> Result<Vec<u8>> {
+            panic!("No read is expected")
+        }
+        fn write_atomic(&self, _: &Path, _: &[u8]) -> Result<()> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn no_replace_unsupported_does_not_call_replacement() {
+        let writes = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut roots = BTreeMap::new();
+        roots.insert(
+            "workspace".into(),
+            Box::new(ReplacementOnly(std::sync::Arc::clone(&writes))) as Box<dyn ScopedRoot>,
+        );
+        let backend = Filesystem { roots };
+        let safe = json!({
+            "root":"workspace", "path":"existing.txt", "text":"unsafe", "overwrite": false
+        });
+        let refused = backend
+            .execute(&context(), "filesystem.write", &safe)
+            .await
+            .unwrap_err();
+        assert_eq!(refused.code, ErrorCode::Unsupported);
+        assert!(refused.outcome_known);
+        assert_eq!(writes.load(std::sync::atomic::Ordering::SeqCst), 0);
+
+        let legacy = json!({"root":"workspace", "path":"existing.txt", "text":"legacy"});
+        backend
+            .execute(&context(), "filesystem.write", &legacy)
+            .await
+            .unwrap();
+        assert_eq!(writes.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 }

@@ -245,6 +245,25 @@ def run(binary_dir: Path, output: Path):
                 ))
                 assert '-{"enabled": false}' in diff and '+{"enabled": true}' in diff
                 (output / "workspace.diff").write_text(diff, encoding="utf-8")
+                # Safe creation does not replace a same-name file the owner edited.
+                new_text = {
+                    "root": "workspace", "path": "created-only.txt",
+                    "text": "new-only\n", "overwrite": False,
+                }
+                check_ok(client.execute("filesystem.write", new_text))
+                new_file = workspace / "created-only.txt"
+                assert new_file.read_bytes() == b"new-only\n"
+                new_file.write_bytes(b"owner changed\n")
+                occupied = client.execute("filesystem.write", new_text)
+                assert not occupied["ok"], occupied
+                assert occupied["error"]["code"] == "Conflict", occupied
+                assert occupied["error"]["outcome_known"] is True, occupied
+                assert new_file.read_bytes() == b"owner changed\n"
+                bad_flag = client.execute("filesystem.write", dict(new_text, overwrite="false"))
+                assert not bad_flag["ok"], bad_flag
+                assert bad_flag["error"]["outcome_known"] is True, bad_flag
+                assert new_file.read_bytes() == b"owner changed\n"
+                assert not any(workspace.glob(".semwright-*.tmp"))
                 for denied in (
                     {"root": "unknown", "path": "settings.json"},
                     {"root": "workspace", "path": "../outside/secret.txt"},
@@ -297,6 +316,10 @@ def run(binary_dir: Path, output: Path):
                 # The MCP process still holds its old session. Refreshing that handshake
                 # must not restore the old grant or redispatch either completed write.
                 check_denied(client.execute("filesystem.write", dict(args, text="revoked")))
+                check_denied(client.execute("filesystem.write", dict(
+                    new_text, path="revoked-new-only.txt", text="revoked",
+                )))
+                assert not (workspace / "revoked-new-only.txt").exists()
                 assert check_ok(client.execute("filesystem.read", args))["text"] == second
                 assert data.read_text(encoding="utf-8") == second
                 report = {
@@ -307,6 +330,10 @@ def run(binary_dir: Path, output: Path):
                     "explicit_runtime_data_directory": True,
                     "fake": False,
                     "read_write_readback": True,
+                    "new_only_text_created": True,
+                    "new_only_text_human_edit_preserved": True,
+                    "new_only_text_known_conflict": True,
+                    "new_only_text_invalid_flag_denied": True,
                     "artifact_no_replace_native": True,
                     "artifact_no_replace_conflict": True,
                     "artifact_digest_guard": True,

@@ -1549,7 +1549,7 @@ Idempotency: `read_only`. Dry run: `true`.
 
 ## `filesystem.write`
 
-Descriptor-relative, no-symlink write under an explicitly configured root.
+Descriptor-relative text write under an explicitly configured root. Explicit overwrite:false creates a new file atomically without replacing existing content when native no-replace is supported; omitted or true preserves replacement behavior.
 
 Idempotency: `idempotent`. Dry run: `true`.
 
@@ -1569,6 +1569,9 @@ Idempotency: `idempotent`. Dry run: `true`.
     "text": {
       "type": "string",
       "maxLength": 1048576
+    },
+    "overwrite": {
+      "type": "boolean"
     }
   },
   "required": [

@@ -7128,8 +7128,8 @@
   },
   {
     "name": "filesystem.write",
-    "version": "1.0",
-    "description": "Descriptor-relative, no-symlink write under an explicitly configured root.",
+    "version": "1.1",
+    "description": "Descriptor-relative text write under an explicitly configured root. Explicit overwrite:false creates a new file atomically without replacing existing content when native no-replace is supported; omitted or true preserves replacement behavior.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -7145,6 +7145,9 @@
         "text": {
           "type": "string",
           "maxLength": 1048576
+        },
+        "overwrite": {
+          "type": "boolean"
         }
       },
       "required": [
