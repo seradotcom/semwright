@@ -13,6 +13,9 @@ SHELL = os.environ.get("SEMWRIGHT_TEST_POWERSHELL") or (
 )
 HELPERS = ("Install-Semwright.ps1", "Uninstall-Semwright.ps1", "Manage-Semwright.ps1")
 BINS = ("semwright", "semwrightd", "semwright-mcp", "semwright-inspect", "semwright-sandbox")
+# Python must not forward PowerShell 7 module paths into Windows PowerShell 5.1.
+# Each child edition constructs its own default module search path at startup.
+PS_ENV = {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"}
 
 
 @unittest.skipUnless(os.name == "nt" and SHELL, "requires native Windows PowerShell")
@@ -52,7 +55,7 @@ class WindowsInPlaceInstallTests(unittest.TestCase):
         script = (bundle or self.bundle) / (operation + "-Semwright.ps1")
         result = subprocess.run(
             [SHELL, "-NoProfile", "-NonInteractive", "-File", str(script), *map(str, arguments)],
-            capture_output=True, text=True, errors="replace", timeout=20,
+            env=PS_ENV, capture_output=True, text=True, errors="replace", timeout=20,
         )
         self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
         return result.stdout + result.stderr
@@ -141,7 +144,7 @@ class WindowsInPlaceInstallTests(unittest.TestCase):
             [SHELL, "-NoProfile", "-NonInteractive", "-Command",
              "New-Item -ItemType Junction -Path " + quote(alias)
              + " -Target " + quote(self.bundle) + " -ErrorAction Stop | Out-Null"],
-            capture_output=True, check=True, timeout=15,
+            env=PS_ENV, capture_output=True, check=True, timeout=15,
         )
         self.addCleanup(lambda: os.rmdir(alias) if alias.exists() else None)
         output = self.helper("Install", "-InPlace", success=False, bundle=alias)
