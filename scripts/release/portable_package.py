@@ -402,6 +402,10 @@ def certify(bin_dir: Path, platform: str, arch: str, output: Path, report: Path)
             run_help(installed_bin, platform)
             doctor_smoke(installed_bin, platform)
         installation = certify_install(stage, platform, installed_smoke)
+        in_place_installation = (
+            certify_install(stage, platform, installed_smoke, in_place=True)
+            if platform == "windows" else None
+        )
     manifest = output / "SHA256SUMS"
     manifest.write_text(f"{sha256(final)}  {final.name}\n")
     result = {
@@ -418,6 +422,7 @@ def certify(bin_dir: Path, platform: str, arch: str, output: Path, report: Path)
         "clean_extract": True,
         "internal_checksums_verified": True,
         "user_install": installation,
+        "in_place_install": in_place_installation,
         "binary_architecture": "PASS",
         "help_contracts": checks,
         "runtime_libraries": runtime_libraries,

@@ -11,11 +11,14 @@ import tempfile
 from bundle_contract import BINS, verify_checksums
 
 
-def certify_install(stage: Path, platform: str, smoke=None) -> dict[str, bool]:
+def certify_install(stage: Path, platform: str, smoke=None, *, in_place=False) -> dict[str, bool]:
+    if in_place and platform != 'windows':
+        raise ValueError('In-place registration is a Windows bundle mode')
     stage = stage.resolve()
     records = verify_checksums(stage)
-    # Windows prefixes must remain under the real user profile. POSIX tests use a private HOME.
-    with tempfile.TemporaryDirectory(prefix='.semwright-install-cert-', dir=Path.home()) as folder:
+    # Copy installs stay under the user profile; in-place bundles exercise the native temp drive.
+    fixture_parent = None if in_place else Path.home()
+    with tempfile.TemporaryDirectory(prefix='.semwright-install-cert-', dir=fixture_parent) as folder:
         home = Path(folder) / 'home'
         home.mkdir(mode=0o700)
         env = dict(os.environ, HOME=str(home))
@@ -40,8 +43,16 @@ def certify_install(stage: Path, platform: str, smoke=None) -> dict[str, bool]:
                 shell = shutil.which('pwsh') or shutil.which('powershell')
                 if not shell:
                     raise RuntimeError('PowerShell required for native Windows install acceptance')
-                command = [shell, '-NoProfile', '-NonInteractive', '-File',
-                           str(stage / f'{operation}-Semwright.ps1'), '-Prefix', str(prefix)]
+                if in_place:
+                    if operation == 'Install' and expected_success:
+                        shutil.copytree(stage, prefix)
+                    command = [shell, '-NoProfile', '-NonInteractive', '-File',
+                               str(prefix / f'{operation}-Semwright.ps1')]
+                    if operation == 'Install':
+                        command.append('-InPlace')
+                else:
+                    command = [shell, '-NoProfile', '-NonInteractive', '-File',
+                               str(stage / f'{operation}-Semwright.ps1'), '-Prefix', str(prefix)]
             else:
                 command = [str(stage / f'{operation.lower()}.sh'), '--prefix', str(prefix)]
             result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=120)

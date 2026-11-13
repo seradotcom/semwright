@@ -1,0 +1,83 @@
+name: Windows portable installation
+
+on:
+  push:
+    branches: [fix/windows-portable-location]
+  pull_request:
+    paths:
+      - 'packaging/portable/*.ps1'
+      - 'scripts/release/portable_package.py'
+      - 'scripts/release/certify_install.py'
+      - 'scripts/release/bundle_contract.py'
+      - 'tests/python/test_windows_in_place_install.py'
+      - 'tests/python/test_portable_package.py'
+      - '.github/workflows/windows-portable-install.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-portable-install-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  PYTHONDONTWRITEBYTECODE: 1
+
+jobs:
+  portable:
+    runs-on: windows-2025
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Native helper contracts on both PowerShell editions
+        run: |
+          New-Item -ItemType Directory -Force verification/windows-portable | Out-Null
+          $env:SEMWRIGHT_INSTALL_TEST_ROOT = $env:RUNNER_TEMP
+          foreach ($edition in @('powershell', 'pwsh')) {
+            $env:SEMWRIGHT_TEST_POWERSHELL = (Get-Command $edition -ErrorAction Stop).Source
+            python -B tests/python/test_windows_in_place_install.py -v 2>&1 |
+              Tee-Object -FilePath "verification/windows-portable/$edition-tests.log"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          $env:PYTHONPATH = 'scripts/release'
+          python -B tests/python/test_portable_package.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.98.1
+      - name: Build native delivery binaries
+        run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins
+      - name: Package and verify both installation modes
+        run: |
+          python scripts/release/portable_package.py --bin-dir target/debug --platform windows --arch x86_64 --output dist/windows-portable --report verification/windows-portable/package.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $names = @('semwright.exe', 'semwrightd.exe', 'semwright-mcp.exe', 'semwright-inspect.exe', 'semwright-sandbox.exe')
+          $binaries = @($names | ForEach-Object {
+            @{ name = $_; sha256 = (Get-FileHash -LiteralPath (Join-Path 'target/debug' $_) -Algorithm SHA256).Hash.ToLowerInvariant() }
+          })
+          @{
+            source = '${{ github.sha }}'
+            runner = 'windows-2025'
+            release_admission = $false
+            binaries = $binaries
+          } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 verification/windows-portable/binaries.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: windows-portable-install-evidence
+          path: verification/windows-portable/
+          retention-days: 14
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: success()
+        with:
+          name: windows-portable-install-package
+          path: dist/windows-portable/
+          retention-days: 7

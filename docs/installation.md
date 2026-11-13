@@ -85,11 +85,27 @@ ZIPs, not MSI/MSIX or Authenticode-signed applications. SmartScreen and script e
 not bypassed. Where unsigned scripts are prohibited, stop and use an organization-approved
 evaluation/distribution method. No reputation or signing claim is made.
 
-A verified extracted bundle can also be used in place from an ordinary directory on another
-local drive. Keep all five commands together in its `bin` directory, invoke them by their full
-paths, and select a dedicated `SEMWRIGHT_DATA_DIR` as described below. This route creates no
-installation receipt; the install/uninstall helpers retain their user-profile scope. Preserve
-configuration, state and projects when removing an extracted bundle.
+For an extracted bundle on another local drive, register its verified files in place:
+
+```powershell
+Set-Location 'D:\Applications\semwright-1.0.0-windows-x86_64'
+.\Install-Semwright.ps1 -InPlace
+$env:SEMWRIGHT_DATA_DIR = 'D:\SemwrightData'
+& .\bin\semwright.exe setup
+# After stopping the broker, remove the registered files:
+.\Uninstall-Semwright.ps1
+```
+
+`-InPlace` verifies every internal checksum and all five commands, then creates an installation
+receipt beside the extracted files. It does not copy or move the bundle and cannot be combined
+with `-Prefix`. Use a non-root directory on a local drive; network paths and reparse points are
+refused. Registration refuses an existing receipt. Run that bundle's own uninstaller to remove
+only unchanged registered files; changed files cause refusal and unregistered projects remain.
+The ordinary copying installer still restricts `-Prefix` to the user profile.
+
+Registration does not relocate configuration or grant workspace access. Set `SEMWRIGHT_DATA_DIR`
+in each process before setup, as described below, to keep configuration and state on the selected
+drive. A verified bundle can also be used without registration, but then has no removal receipt.
 
 The Windows workspace connection workflow produces a `windows-workspace-portable` development
 artifact from its tested binaries, with an external checksum and an install/uninstall report in
