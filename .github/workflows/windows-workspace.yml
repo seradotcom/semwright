@@ -2,7 +2,7 @@ name: Windows workspace connection
 
 on:
   push:
-    branches: [fix/windows-workspace-roots, fix/windows-new-only-text, fix/windows-provider-identity, feat/owner-workspace-config-candidate]
+    branches: [fix/windows-workspace-roots, fix/windows-new-only-text, fix/windows-provider-identity, feat/owner-workspace-config-candidate, feat/workspace-named-candidates]
   pull_request:
     paths:
       - 'crates/daemon/src/config.rs'

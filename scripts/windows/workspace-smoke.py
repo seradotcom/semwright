@@ -212,6 +212,50 @@ def run(binary_dir: Path, output: Path):
         assert duplicate.returncode != 0
         assert candidate.read_bytes() == candidate_bytes
         assert config.read_bytes() == source_config
+
+        # The same pristine setup may stage a second, independent project.
+        # No candidate is merged with another, and no broker is started here.
+        second_command = [
+            str(binary_dir / "semwright.exe"), "--json", "workspace",
+            "--name", "outside", "--path", str(outside), "--candidate", "second",
+            "--config-dir", str(config_dir),
+        ]
+        second_candidate = config_dir / "daemon-workspace-second.toml"
+        second_dry = subprocess.run(
+            second_command + ["--dry-run"], env=environment,
+            capture_output=True, text=True, encoding="utf-8", check=True, timeout=15,
+        )
+        assert json.loads(second_dry.stdout)["status"] == "would-create"
+        assert not second_candidate.exists()
+        second_created = subprocess.run(
+            second_command, env=environment, capture_output=True, text=True,
+            encoding="utf-8", check=True, timeout=15,
+        )
+        second_report = json.loads(second_created.stdout)
+        assert second_report["status"] == "created"
+        assert second_report["authority_granted"] is False
+        assert Path(second_report["candidate"]) == second_candidate
+        second_policy = tomllib.loads(second_candidate.read_text(encoding="utf-8"))["policy"]
+        assert second_policy["filesystem"] == [{
+            "name": "outside", "path": str(outside), "read": True, "write": False,
+        }]
+        second_bytes = second_candidate.read_bytes()
+        second_duplicate = subprocess.run(
+            second_command, env=environment, capture_output=True,
+            text=True, encoding="utf-8", timeout=15,
+        )
+        assert second_duplicate.returncode != 0
+        bad_candidate = subprocess.run(
+            [
+                str(binary_dir / "semwright.exe"), "--json", "workspace",
+                "--name", "outside", "--path", str(outside),
+                "--candidate", "../escape", "--config-dir", str(config_dir),
+            ], env=environment, capture_output=True, text=True, encoding="utf-8", timeout=15,
+        )
+        assert bad_candidate.returncode != 0
+        assert config.read_bytes() == source_config
+        assert candidate.read_bytes() == candidate_bytes
+        assert second_candidate.read_bytes() == second_bytes
         assert not data_root.exists(), "Workspace preparation must not initialize broker state"
         junction = workspace / "escape"
         subprocess.run(
@@ -282,13 +326,39 @@ def run(binary_dir: Path, output: Path):
                     candidate_args, text="must-not-write",
                 )))
                 assert data.read_bytes() == before.encode("utf-8")
+                # A separate candidate must not expand the first session's grants.
+                check_denied(client.execute("filesystem.read", {
+                    "root": "outside", "path": "secret.txt",
+                }))
                 client.close()
                 client = None
                 daemon.terminate()
                 daemon.wait(timeout=5)
                 daemon = None
+
+                # Explicitly select the second candidate with the same exact
+                # broker binary and endpoint. It authorizes ONLY the other root.
+                daemon = start_broker(second_candidate)
+                client = McpClient(snippet, mcp_log, environment)
+                assert check_ok(client.execute("filesystem.read", {
+                    "root": "outside", "path": "secret.txt",
+                }))["text"] == "outside must stay unchanged\n"
+                check_denied(client.execute("filesystem.read", {
+                    "root": "workspace", "path": "settings.json",
+                }))
+                check_denied(client.execute("filesystem.write", {
+                    "root": "outside", "path": "must-not-write.txt", "text": "denied",
+                }))
+                assert not (outside / "must-not-write.txt").exists()
+                client.close()
+                client = None
+                daemon.terminate()
+                daemon.wait(timeout=5)
+                daemon = None
+
                 assert config.read_bytes() == source_config
                 assert candidate.read_bytes() == candidate_bytes
+                assert second_candidate.read_bytes() == second_bytes
 
                 write_config(True)
                 daemon = start_broker()
@@ -396,6 +466,9 @@ def run(binary_dir: Path, output: Path):
                     "workspace_candidate_read_only_write_denied": True,
                     "workspace_candidate_original_unchanged": True,
                     "workspace_candidate_duplicate_denied": True,
+                    "workspace_named_candidate_new_only": True,
+                    "workspace_named_candidate_real_broker_isolated": True,
+                    "workspace_named_candidate_read_only_write_denied": True,
                     "generated_mcp_configuration_used": True,
                     "explicit_runtime_data_directory": True,
                     "fake": False,

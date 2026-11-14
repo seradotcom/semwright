@@ -69,6 +69,9 @@ pub enum Command {
         /// Directory containing an existing daemon.toml, normally made by setup.
         #[arg(long)]
         config_dir: Option<PathBuf>,
+        /// Optional distinct candidate ID; select one project at a time (never merges grants).
+        #[arg(long)]
+        candidate: Option<String>,
     },
     Doctor,
     #[command(visible_alias = "capability")]

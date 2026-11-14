@@ -9,6 +9,23 @@ use std::path::{Path, PathBuf};
 const MAX_CONFIG_BYTES: usize = 1024 * 1024;
 const CANDIDATE: &str = "daemon-workspace.toml";
 
+fn candidate_path(config_dir: &Path, name: Option<&str>) -> Result<PathBuf> {
+    let Some(name) = name else {
+        return Ok(config_dir.join(CANDIDATE));
+    };
+    if name.is_empty()
+        || name.len() > 64
+        || !name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+    {
+        return Err(Error::invalid(
+            "Candidate ID must be 1-64 ASCII letters, digits, hyphens or underscores",
+        ));
+    }
+    Ok(config_dir.join(format!("daemon-workspace-{name}.toml")))
+}
+
 fn overlaps(a: &Path, b: &Path) -> bool {
     #[cfg(target_os = "windows")]
     {
@@ -61,9 +78,11 @@ pub(super) fn prepare_workspace(
     path: &Path,
     write: bool,
     config_dir: Option<&Path>,
+    candidate_id: Option<&str>,
 ) -> Result<Value> {
     let config_dir = setup_config_directory(config_dir)?;
     validate_setup_directory(&config_dir)?;
+    let candidate = candidate_path(&config_dir, candidate_id)?;
     let original = config_dir.join("daemon.toml");
     validate_existing_private_file(&original)?;
     let source = read_file(&original, MAX_CONFIG_BYTES)?;
@@ -131,7 +150,6 @@ pub(super) fn prepare_workspace(
         ));
     }
     let _ = Policy::new(parse_policy(&candidate_content)?)?;
-    let candidate = config_dir.join(CANDIDATE);
     match std::fs::symlink_metadata(&candidate) {
         Ok(_) => {
             return Err(Error::new(
@@ -165,6 +183,16 @@ mod tests {
     use super::*;
     use clap::Parser;
     use tempfile::TempDir;
+
+    fn prepare(
+        cli: &Cli,
+        name: &str,
+        path: &Path,
+        write: bool,
+        config_dir: Option<&Path>,
+    ) -> Result<Value> {
+        super::prepare_workspace(cli, name, path, write, config_dir, None)
+    }
 
     fn fixture() -> (TempDir, PathBuf, PathBuf) {
         let dir = tempfile::tempdir().unwrap();
@@ -205,12 +233,10 @@ mod tests {
     fn candidate_is_separate_and_read_only_by_default() {
         let (_dir, config, root) = fixture();
         let before = std::fs::read(config.join("daemon.toml")).unwrap();
-        let planned =
-            prepare_workspace(&cli(true), "myproject", &root, false, Some(&config)).unwrap();
+        let planned = prepare(&cli(true), "myproject", &root, false, Some(&config)).unwrap();
         assert_eq!(planned["status"], "would-create");
         assert!(!config.join(CANDIDATE).exists());
-        let prepared =
-            prepare_workspace(&cli(false), "myproject", &root, false, Some(&config)).unwrap();
+        let prepared = prepare(&cli(false), "myproject", &root, false, Some(&config)).unwrap();
         assert_eq!(prepared["authority_granted"], false);
         assert_eq!(prepared["broker_started"], false);
         assert_eq!(prepared["workspace"]["write"], false);
@@ -222,8 +248,7 @@ mod tests {
         assert_eq!(policy.filesystem[0].path, root);
         assert!(policy.filesystem[0].read);
         assert!(!policy.filesystem[0].write);
-        let refused =
-            prepare_workspace(&cli(false), "myproject", &root, true, Some(&config)).unwrap_err();
+        let refused = prepare(&cli(false), "myproject", &root, true, Some(&config)).unwrap_err();
         assert_eq!(refused.code, ErrorCode::Conflict);
         assert_eq!(std::fs::read(config.join("daemon.toml")).unwrap(), before);
     }
@@ -232,7 +257,7 @@ mod tests {
     fn explicit_write_requires_owner_request_on_pristine_setup() {
         let (_dir, config, root) = fixture();
         let baseline = std::fs::read(config.join("daemon.toml")).unwrap();
-        let report = prepare_workspace(&cli(false), "notes", &root, true, Some(&config)).unwrap();
+        let report = prepare(&cli(false), "notes", &root, true, Some(&config)).unwrap();
         assert_eq!(report["workspace"]["write"], true);
         assert_eq!(std::fs::read(config.join("daemon.toml")).unwrap(), baseline);
         let policy =
@@ -246,8 +271,7 @@ mod tests {
         let customized =
             "# Owner's settings\n[policy]\nprofile = \"observe\"\nconfirm_mutations = true\n";
         std::fs::write(config.join("daemon.toml"), customized).unwrap();
-        let refused =
-            prepare_workspace(&cli(false), "notes", &root, true, Some(&config)).unwrap_err();
+        let refused = prepare(&cli(false), "notes", &root, true, Some(&config)).unwrap_err();
         assert_eq!(refused.code, ErrorCode::Conflict);
         assert_eq!(
             std::fs::read_to_string(config.join("daemon.toml")).unwrap(),
@@ -260,12 +284,12 @@ mod tests {
     fn rejects_overlap_and_invalid_name_before_creating_any_candidate() {
         let (_dir, config, root) = fixture();
         assert_eq!(
-            prepare_workspace(&cli(false), "root", &config, false, Some(&config))
+            prepare(&cli(false), "root", &config, false, Some(&config))
                 .unwrap_err()
                 .code,
             ErrorCode::PolicyDenied
         );
-        assert!(prepare_workspace(&cli(false), "../bad", &root, true, Some(&config)).is_err());
+        assert!(prepare(&cli(false), "../bad", &root, true, Some(&config)).is_err());
         assert!(!config.join(CANDIDATE).exists());
     }
 
@@ -274,9 +298,91 @@ mod tests {
         let (_dir, config, root) = fixture();
         let invalid = b"[policy]\nunknown_permission = true\n";
         std::fs::write(config.join("daemon.toml"), invalid).unwrap();
-        assert!(prepare_workspace(&cli(false), "workspace", &root, false, Some(&config)).is_err());
+        assert!(prepare(&cli(false), "workspace", &root, false, Some(&config)).is_err());
         assert_eq!(std::fs::read(config.join("daemon.toml")).unwrap(), invalid);
         assert!(!config.join(CANDIDATE).exists());
+    }
+
+    #[test]
+    fn named_candidates_are_independent_and_never_merge_grants() {
+        let (dir, config, first_root) = fixture();
+        let second_root = dir.path().join("second-project");
+        std::fs::create_dir(&second_root).unwrap();
+        let original = std::fs::read(config.join("daemon.toml")).unwrap();
+
+        let first = prepare(&cli(false), "first", &first_root, false, Some(&config)).unwrap();
+        assert_eq!(first["candidate"], config.join(CANDIDATE).to_str().unwrap());
+        let first_bytes = std::fs::read(config.join(CANDIDATE)).unwrap();
+
+        let second_path = config.join("daemon-workspace-second.toml");
+        let planned = super::prepare_workspace(
+            &cli(true),
+            "second",
+            &second_root,
+            true,
+            Some(&config),
+            Some("second"),
+        )
+        .unwrap();
+        assert_eq!(planned["status"], "would-create");
+        assert_eq!(planned["authority_granted"], false);
+        assert_eq!(planned["candidate"], second_path.to_str().unwrap());
+        assert!(!second_path.exists());
+
+        let created = super::prepare_workspace(
+            &cli(false),
+            "second",
+            &second_root,
+            true,
+            Some(&config),
+            Some("second"),
+        )
+        .unwrap();
+        assert_eq!(created["status"], "created");
+        assert_eq!(created["broker_started"], false);
+        assert_eq!(created["authority_granted"], false);
+        let second_bytes = std::fs::read(&second_path).unwrap();
+        let first_policy = parse_policy(&String::from_utf8(first_bytes.clone()).unwrap()).unwrap();
+        let second_policy =
+            parse_policy(&String::from_utf8(second_bytes.clone()).unwrap()).unwrap();
+        assert_eq!(first_policy.filesystem.len(), 1);
+        assert_eq!(first_policy.filesystem[0].name, "first");
+        assert!(!first_policy.filesystem[0].write);
+        assert_eq!(second_policy.filesystem.len(), 1);
+        assert_eq!(second_policy.filesystem[0].name, "second");
+        assert_eq!(second_policy.filesystem[0].path, second_root);
+        assert!(second_policy.filesystem[0].write);
+
+        let refused = super::prepare_workspace(
+            &cli(false),
+            "other",
+            &first_root,
+            false,
+            Some(&config),
+            Some("second"),
+        )
+        .unwrap_err();
+        assert_eq!(refused.code, ErrorCode::Conflict);
+        let too_long = "x".repeat(65);
+        for bad in [
+            "",
+            ".",
+            "..",
+            "../outside",
+            r"..\outside",
+            "bad name",
+            "é",
+            too_long.as_str(),
+        ] {
+            assert_eq!(
+                candidate_path(&config, Some(bad)).unwrap_err().code,
+                ErrorCode::InvalidArgument,
+                "{bad}"
+            );
+        }
+        assert_eq!(std::fs::read(config.join("daemon.toml")).unwrap(), original);
+        assert_eq!(std::fs::read(config.join(CANDIDATE)).unwrap(), first_bytes);
+        assert_eq!(std::fs::read(second_path).unwrap(), second_bytes);
     }
 
     #[cfg(unix)]
@@ -285,7 +391,7 @@ mod tests {
         let (dir, config, root) = fixture();
         let linked = dir.path().join("project-alias");
         std::os::unix::fs::symlink(&root, &linked).unwrap();
-        assert!(prepare_workspace(&cli(false), "project", &linked, false, Some(&config)).is_err());
+        assert!(prepare(&cli(false), "project", &linked, false, Some(&config)).is_err());
         assert!(!config.join(CANDIDATE).exists());
     }
 }

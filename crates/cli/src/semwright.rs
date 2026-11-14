@@ -1255,9 +1255,16 @@ async fn local(cli: &Cli) -> Result<bool> {
             path,
             write,
             config_dir,
+            candidate,
         } => {
-            let result =
-                workspace::prepare_workspace(cli, name, path, *write, config_dir.as_deref())?;
+            let result = workspace::prepare_workspace(
+                cli,
+                name,
+                path,
+                *write,
+                config_dir.as_deref(),
+                candidate.as_deref(),
+            )?;
             print_result(&result, cli.json)?;
         }
         Command::Completions { shell } => {

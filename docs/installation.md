@@ -174,6 +174,20 @@ and a dry run creates nothing or initializes no runtime. Known owner data/config
 root overlap is rejected before staging; broker startup still performs its full
 independent validation of runtime, state and grant boundaries.
 
+For a second independent project under the **same pristine setup directory**, add
+`--candidate second` to the command. It creates
+`daemon-workspace-second.toml` with **only** that request's named root:
+
+```powershell
+& 'D:\Semwright\bin\semwright.exe' --json workspace --name other-project --path 'D:\Projects\Another' --candidate second --config-dir 'D:\SemwrightData\config'
+```
+
+Candidate IDs must contain 1–64 ASCII letters, digits, `_` or `-`; path-like
+IDs are rejected. An existing named candidate is never overwritten. This
+option does **not** combine grants or make other projects visible: choose
+which candidate to activate when starting a broker. The original unnamed
+`daemon-workspace.toml` remains unchanged for backwards compatibility.
+
 Review the candidate before stopping the current broker. To activate it, start
 a **new** broker using `--config 'D:\SemwrightData\config\daemon-workspace.toml'`
 and the intended socket, or switch to it during a deliberate restart. Neither
