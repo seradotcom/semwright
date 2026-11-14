@@ -43,9 +43,9 @@ test('render harness is bound to Driver Host, runtime-bundle Firefox, and local 
   assert.ok(render.includes("route.abort('blockedbyclient')"));
 });
 
-test('render harness reports bounded state when browser rendering stalls', () => {
+test('render harness retains bounded diagnostics when browser rendering stalls', () => {
   assert.ok(render.includes("phase:'created'"));
-  assert.ok(render.includes('render wait failed:'));
+  assert.ok(render.includes("failurePhase='render_wait_timeout'"));
   assert.ok(render.includes('diagnostics.length < 32'));
 });
 
@@ -97,7 +97,7 @@ test('native styled text preserves Motion Canvas public Txt layout contract', ()
 });
 
 test('native observation never forces layout geometry before the native draw', () => {
-  const renderIndex=nativeAuthoring.indexOf('const result=render(context);');
+  const renderIndex=nativeAuthoring.indexOf('const result=observeNativeRender(n,context,reg,()=>render(context));');
   const matrixIndex=nativeAuthoring.indexOf('const matrix=context.getTransform().multiply(n.localToParent());');
   const bboxIndex=nativeAuthoring.indexOf('const box=n.cacheBBox();');
   assert.ok(renderIndex>=0);

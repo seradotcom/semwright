@@ -466,6 +466,7 @@ let failureDetail = null;
 const DIAGNOSTIC_PHASES = new Set(['startup','arguments','runtime_module_load','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_semwright_native','renderer_state_semwright_exporter','renderer_state_motion_core','renderer_state_motion_2d','renderer_state_before_first_frame','renderer_state_after_first_frame','renderer_state_error','renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
 let failureOutput = null;
 let failureModule = null;
+let failurePublication = null;
 const FAILURE_JSON_MAX_BYTES = 64 * 1024;
 const FAILURE_STACK_MAX_BYTES = 16 * 1024;
 function boundedUtf8(value, maximum) {
@@ -504,6 +505,21 @@ async function writeFailureReceipt(error, errorClass, selected=failureOutput, mo
   const handle = await fs.open(path.join(checked.target,'native-failure-receipt.json'),'wx',0o600);
   try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
   return true;
+}
+
+function publishFailureOnce(error) {
+  if (failurePublication !== null) return failurePublication;
+  const errorClass = DIAGNOSTIC_PHASES.has(failurePhase) ? failurePhase : 'startup';
+  const selected = failureOutput;
+  const module = failureModule;
+  // Store the attempt before asynchronous filesystem work. A failed publication
+  // must not be replayed by the outer handler or replace the original exception.
+  failurePublication = Promise.resolve().then(async () => {
+    let diagnosticPersisted = false;
+    try { diagnosticPersisted = await writeFailureReceipt(error,errorClass,selected,module); } catch {}
+    return {errorClass,diagnosticPersisted};
+  });
+  return failurePublication;
 }
 
 // BEGIN NATIVE TEXT PIXEL CONFIG V1 (pure guard; no render or file operations).
@@ -670,9 +686,8 @@ async function main() {
     try {
       await page.waitForFunction(() => window.__SEMWRIGHT_RENDER__?.state?.done === true, undefined, {timeout:config.timeoutMs});
     } catch (error) {
-      const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__?.state ?? null).catch(()=>null);
       failurePhase='render_wait_timeout';
-      fail(`render wait failed: ${error}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
+      throw error;
     }
     const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__.state);
     if (state.error) {
@@ -720,12 +735,14 @@ async function main() {
     failurePhase = 'finalize';
     const files = (await fs.readdir(path.join(output,'frames'))).sort();
     process.stdout.write(JSON.stringify({ok:true,renderer:'motion-canvas-core-renderer-v3.17.2-firefox',lastFrame:state.frame,files:files.map(file=>`frames/${file}`)})+'\n');
+  } catch (error) {
+    // Browser cleanup may never settle; retain the first error before entering it.
+    await publishFailureOnce(error);
+    throw error;
   } finally { await cleanup(); }
 }
 main().catch(async error => {
-  const errorClass = DIAGNOSTIC_PHASES.has(failurePhase) ? failurePhase : 'startup';
-  let diagnosticPersisted = false;
-  try { diagnosticPersisted = await writeFailureReceipt(error,errorClass); } catch {}
+  const {errorClass,diagnosticPersisted} = await publishFailureOnce(error);
   process.stdout.write(JSON.stringify({ok:false,errorClass,detail:failureDetail,diagnosticPersisted})+'\n');
   process.stderr.write(JSON.stringify({ok:false,errorClass,diagnosticPersisted})+'\n');
   process.exitCode = 1;
