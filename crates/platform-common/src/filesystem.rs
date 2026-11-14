@@ -5,6 +5,7 @@ use semwright_platform_api::filesystem::{ScopedFilesystem, ScopedRoot};
 use semwright_policy::FilesystemGrant;
 use semwright_types::*;
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, path::Path};
 
 const MAX_PUBLIC_TEXT_BYTES: usize = 1024 * 1024;
@@ -40,7 +41,10 @@ impl Backend for Filesystem {
         "filesystem"
     }
     fn supports(&self, c: &str) -> bool {
-        matches!(c, "filesystem.read" | "filesystem.write")
+        matches!(
+            c,
+            "filesystem.read" | "filesystem.observe" | "filesystem.write"
+        )
     }
     fn operation_feature(&self, c: &str) -> Option<String> {
         self.supports(c).then(|| "filesystem.scoped".to_owned())
@@ -83,6 +87,43 @@ impl Backend for Filesystem {
                     Error::invalid("File is not UTF-8; binary reads are not exposed")
                 })?;
                 Ok(json!({"text":text,"bytes":size}))
+            }
+            "filesystem.observe" => {
+                // Observe the same native file instance with before/after revalidation.
+                // Evidence is only a read-only hint, never a CAS token or write grant.
+                let limit = match args.get("max_bytes") {
+                    None => MAX_PUBLIC_TEXT_BYTES as u64,
+                    Some(value) => value.as_u64().ok_or_else(|| {
+                        Error::invalid("filesystem.observe max_bytes must be an integer")
+                    })?,
+                };
+                if limit == 0 || limit > MAX_PUBLIC_TEXT_BYTES as u64 {
+                    return Err(Error::invalid(
+                        "filesystem.observe exceeds the 1 MiB text budget",
+                    ));
+                }
+                let observed = root.observe_file(path, limit as usize)?;
+                ctx.check_cancelled()?;
+                let size = observed.bytes.len();
+                let text = String::from_utf8(observed.bytes).map_err(|_| {
+                    Error::invalid("File is not UTF-8; binary observations are not exposed")
+                })?;
+                // Hash native instance metadata instead of disclosing file IDs,
+                // birth timestamps or volume information to the MCP client.
+                let sha256 = format!("{:x}", Sha256::digest(text.as_bytes()));
+                let instance_sha256 = format!(
+                    "{:x}",
+                    Sha256::digest(observed.instance_identity.as_bytes())
+                );
+                Ok(json!({
+                    "text": text,
+                    "bytes": size,
+                    "sha256": sha256,
+                    "instance_sha256": instance_sha256,
+                    "method": observed.method,
+                    "method_version": observed.method_version,
+                    "concurrency": "best_effort_revalidate",
+                }))
             }
             "filesystem.write" => {
                 let text = arg_str(args, "text")?;
@@ -246,6 +287,106 @@ mod tests {
         }));
     }
 
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[tokio::test]
+    async fn native_observation_distinguishes_owner_edit_from_same_name_replacement() {
+        let directory = tempdir().unwrap();
+        let target = directory.path().join("notes.txt");
+        std::fs::write(&target, b"before").unwrap();
+        let grant = FilesystemGrant {
+            name: "workspace".into(),
+            path: crate::fixture_root(directory.path()),
+            read: true,
+            write: true,
+        };
+        let backend = Filesystem::new(&[grant]).unwrap();
+        let request = json!({"root":"workspace", "path":"notes.txt"});
+        let before = backend
+            .execute(&context(), "filesystem.observe", &request)
+            .await
+            .unwrap();
+        assert_eq!(before["text"], "before");
+        assert_eq!(before["bytes"], 6);
+        assert_eq!(before["sha256"], format!("{:x}", Sha256::digest(b"before")));
+        assert_eq!(before["concurrency"], "best_effort_revalidate");
+        assert_eq!(before["method_version"], 1);
+        assert!(before["method"].as_str().unwrap().len() > 8);
+        assert_eq!(before["instance_sha256"].as_str().unwrap().len(), 64);
+
+        // Human in-place changes retain the file instance but rotate the bytes.
+        std::fs::write(&target, b"owner edit").unwrap();
+        let edited = backend
+            .execute(&context(), "filesystem.observe", &request)
+            .await
+            .unwrap();
+        assert_eq!(edited["text"], "owner edit");
+        assert_ne!(edited["sha256"], before["sha256"]);
+        assert_eq!(edited["instance_sha256"], before["instance_sha256"]);
+
+        // Atomic replacement may preserve the content while changing its instance.
+        backend
+            .execute(
+                &context(),
+                "filesystem.write",
+                &json!({"root":"workspace", "path":"notes.txt", "text":"owner edit"}),
+            )
+            .await
+            .unwrap();
+        let replaced = backend
+            .execute(&context(), "filesystem.observe", &request)
+            .await
+            .unwrap();
+        assert_eq!(replaced["sha256"], edited["sha256"]);
+        assert_ne!(replaced["instance_sha256"], edited["instance_sha256"]);
+
+        let too_small = backend
+            .execute(
+                &context(),
+                "filesystem.observe",
+                &json!({"root":"workspace","path":"notes.txt","max_bytes":2}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(too_small.code, ErrorCode::ResourceExhausted);
+        let bad_limit = backend
+            .execute(
+                &context(),
+                "filesystem.observe",
+                &json!({"root":"workspace","path":"notes.txt","max_bytes":"20"}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(bad_limit.code, ErrorCode::InvalidArgument);
+        let traversal = backend
+            .execute(
+                &context(),
+                "filesystem.observe",
+                &json!({"root":"workspace","path":"../notes.txt"}),
+            )
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            traversal.code,
+            ErrorCode::PolicyDenied | ErrorCode::InvalidArgument
+        ));
+        let unknown = backend
+            .execute(
+                &context(),
+                "filesystem.observe",
+                &json!({"root":"other","path":"notes.txt"}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(unknown.code, ErrorCode::PolicyDenied);
+        std::fs::write(&target, b"\xff").unwrap();
+        let binary = backend
+            .execute(&context(), "filesystem.observe", &request)
+            .await
+            .unwrap_err();
+        assert_eq!(binary.code, ErrorCode::InvalidArgument);
+        assert_eq!(std::fs::read(target).unwrap(), vec![0xff]);
+    }
+
     // Unsupported native backends must never downgrade new-only to replacement.
     struct ReplacementOnly(std::sync::Arc<std::sync::atomic::AtomicUsize>);
     impl ScopedRoot for ReplacementOnly {
@@ -270,6 +411,18 @@ mod tests {
             Box::new(ReplacementOnly(std::sync::Arc::clone(&writes))) as Box<dyn ScopedRoot>,
         );
         let backend = Filesystem { roots };
+        let unsupported = backend
+            .execute(
+                &context(),
+                "filesystem.observe",
+                &json!({"root":"workspace", "path":"existing.txt"}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(unsupported.code, ErrorCode::Unsupported);
+        assert!(unsupported.outcome_known);
+        assert_eq!(writes.load(std::sync::atomic::Ordering::SeqCst), 0);
+
         let safe = json!({
             "root":"workspace", "path":"existing.txt", "text":"unsafe", "overwrite": false
         });

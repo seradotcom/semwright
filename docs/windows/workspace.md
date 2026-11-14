@@ -60,6 +60,27 @@ option cannot compare or replace a preexisting revision; neither path provides
 compare-and-swap for concurrent human edits. After a lost response, reconcile
 by readback before any further effect.
 
+For a direct read-only check without opening a Project Graph, call
+`filesystem.observe` with the same `root`, relative `path` and optional
+`max_bytes` as `filesystem.read`. It requires only the existing
+`filesystem.read` grant and returns the exact observed UTF-8 `text`,
+`bytes`, `sha256` of the content, `instance_sha256` of the native file
+instance evidence, the native `method`/`method_version` and
+`concurrency: "best_effort_revalidate"`. Raw volume, file-ID and birth-time
+metadata are not exposed. Native Windows and Linux implementations reopen and
+revalidate a bounded file after reading it; unsupported backends return
+`Unsupported`, never an unverified `filesystem.read` fallback.
+
+Compare observations after a user edit: a changed `sha256` identifies different
+bytes; a changed `instance_sha256` also identifies a different native file
+instance, even if its bytes are identical. Both fingerprints are observations,
+not capability tokens, locks, compare-and-swap reservations or approval to
+replace anything. The file can change after the observation returns. Use
+`filesystem.write` with `overwrite:false` for NEW destinations, or
+reconcile and get explicit owner approval before replacing existing content.
+Do not retry a mutation whose response was lost solely because an observation
+was inconclusive.
+
 For Project Graph assets backed by an explicitly readable Windows root, native
 file observation now records a volume/file-index/creation-time instance identity
 and checks last-write/change-time and size before and after a bounded read.

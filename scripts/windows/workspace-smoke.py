@@ -322,6 +322,11 @@ def run(binary_dir: Path, output: Path):
                 client = McpClient(snippet, mcp_log, environment)
                 candidate_args = {"root": "workspace", "path": "settings.json"}
                 assert check_ok(client.execute("filesystem.read", candidate_args))["text"] == before
+                read_only_observation = check_ok(client.execute("filesystem.observe", candidate_args))
+                assert read_only_observation["text"] == before
+                assert read_only_observation["sha256"] == hashlib.sha256(data.read_bytes()).hexdigest()
+                assert read_only_observation["concurrency"] == "best_effort_revalidate"
+                assert len(read_only_observation["instance_sha256"]) == 64
                 check_denied(client.execute("filesystem.write", dict(
                     candidate_args, text="must-not-write",
                 )))
@@ -343,6 +348,13 @@ def run(binary_dir: Path, output: Path):
                 assert check_ok(client.execute("filesystem.read", {
                     "root": "outside", "path": "secret.txt",
                 }))["text"] == sentinel.read_bytes().decode("utf-8")
+                second_observation = check_ok(client.execute("filesystem.observe", {
+                    "root": "outside", "path": "secret.txt",
+                }))
+                assert second_observation["sha256"] == hashlib.sha256(sentinel.read_bytes()).hexdigest()
+                check_denied(client.execute("filesystem.observe", {
+                    "root": "workspace", "path": "settings.json",
+                }))
                 check_denied(client.execute("filesystem.read", {
                     "root": "workspace", "path": "settings.json",
                 }))
@@ -370,10 +382,17 @@ def run(binary_dir: Path, output: Path):
                 args = {"root": "workspace", "path": "settings.json"}
                 initial = check_ok(client.execute("filesystem.read", args))["text"]
                 assert initial == before, (repr(initial), repr(before))
+                before_observation = check_ok(client.execute("filesystem.observe", args))
+                assert before_observation["text"] == initial
+                assert before_observation["bytes"] == len(data.read_bytes())
+                assert before_observation["sha256"] == hashlib.sha256(data.read_bytes()).hexdigest()
                 first = '{"enabled": true}\n'
                 check_ok(client.execute("filesystem.write", dict(args, text=first)))
                 assert check_ok(client.execute("filesystem.read", args))["text"] == first
                 assert data.read_text(encoding="utf-8") == first
+                replaced_observation = check_ok(client.execute("filesystem.observe", args))
+                assert replaced_observation["sha256"] == hashlib.sha256(data.read_bytes()).hexdigest()
+                assert replaced_observation["instance_sha256"] != before_observation["instance_sha256"]
                 diff = "".join(difflib.unified_diff(
                     before.splitlines(True), first.splitlines(True),
                     fromfile="settings.json (before)", tofile="settings.json (after)",
@@ -388,7 +407,15 @@ def run(binary_dir: Path, output: Path):
                 check_ok(client.execute("filesystem.write", new_text))
                 new_file = workspace / "created-only.txt"
                 assert new_file.read_bytes() == b"new-only\n"
+                new_observation = check_ok(client.execute("filesystem.observe", {
+                    "root": "workspace", "path": "created-only.txt",
+                }))
                 new_file.write_bytes(b"owner changed\n")
+                human_observation = check_ok(client.execute("filesystem.observe", {
+                    "root": "workspace", "path": "created-only.txt",
+                }))
+                assert human_observation["sha256"] != new_observation["sha256"]
+                assert human_observation["instance_sha256"] == new_observation["instance_sha256"]
                 occupied = client.execute("filesystem.write", new_text)
                 assert not occupied["ok"], occupied
                 assert occupied["error"]["code"] == "Conflict", occupied
@@ -406,6 +433,7 @@ def run(binary_dir: Path, output: Path):
                     {"root": "workspace", "path": "escape/secret.txt"},
                 ):
                     check_denied(client.execute("filesystem.read", denied))
+                    check_denied(client.execute("filesystem.observe", denied))
                     check_denied(client.execute("filesystem.write", dict(denied, text="forbidden")))
                 assert sentinel.read_text(encoding="utf-8") == "outside must stay unchanged\n"
                 transfer = {
@@ -477,6 +505,10 @@ def run(binary_dir: Path, output: Path):
                     "new_only_text_human_edit_preserved": True,
                     "new_only_text_known_conflict": True,
                     "new_only_text_invalid_flag_denied": True,
+                    "native_file_observation_read_only": True,
+                    "native_file_observation_instance_human_edit_stable": True,
+                    "native_file_observation_instance_replacement_changes": True,
+                    "native_file_observation_refuses_outside_grants": True,
                     "artifact_no_replace_native": True,
                     "artifact_no_replace_conflict": True,
                     "artifact_digest_guard": True,

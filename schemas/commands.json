@@ -7127,6 +7127,90 @@
     ]
   },
   {
+    "name": "filesystem.observe",
+    "version": "1.0",
+    "description": "Read one owner-granted UTF-8 file and report native revalidated content/opaque instance fingerprints; observation is best-effort and is never a CAS token or permission for a later write. Unsupported native roots refuse without read fallback.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        }
+      },
+      "required": [
+        "root",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "instance_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 96
+        },
+        "method_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "concurrency": {
+          "const": "best_effort_revalidate"
+        }
+      },
+      "required": [
+        "text",
+        "bytes",
+        "sha256",
+        "instance_sha256",
+        "method",
+        "method_version",
+        "concurrency"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "filesystem.read"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "filesystem"
+    ]
+  },
+  {
     "name": "filesystem.write",
     "version": "1.1",
     "description": "Descriptor-relative text write under an explicitly configured root. Explicit overwrite:false creates a new file atomically without replacing existing content when native no-replace is supported; omitted or true preserves replacement behavior.",
