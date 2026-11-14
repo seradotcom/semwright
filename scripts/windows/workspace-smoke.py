@@ -342,7 +342,7 @@ def run(binary_dir: Path, output: Path):
                 client = McpClient(snippet, mcp_log, environment)
                 assert check_ok(client.execute("filesystem.read", {
                     "root": "outside", "path": "secret.txt",
-                }))["text"] == "outside must stay unchanged\n"
+                }))["text"] == sentinel.read_bytes().decode("utf-8")
                 check_denied(client.execute("filesystem.read", {
                     "root": "workspace", "path": "settings.json",
                 }))
