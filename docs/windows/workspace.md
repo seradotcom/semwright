@@ -48,6 +48,14 @@ fallback. An omitted or true `overwrite` retains legacy replacement behavior.
 Both operations enforce the declared read/write authority; a write grant does not grant
 an unrestricted shell or permission to execute a project's scripts.
 
+For an agent invoking `semwright_execute`, omit the optional `backend` field
+unless a specific route is required. For example, `filesystem.read` normally
+selects the `filesystem` backend, **not** `core`. If an explicitly supplied
+backend is not declared by the command, Core now returns a known
+`InvalidArgument` with declared route candidates and an instruction to omit
+`backend`; it does not silently retry on a different provider or bypass policy.
+A correctly declared route can still be offline or denied by owner policy.
+
 For a binary transfer between two separately granted roots, use
 `artifact.handoff` with `overwrite=false` and a matching `expected_sha256`. On
 Windows, the native backend publishes the new file with a handle-relative,

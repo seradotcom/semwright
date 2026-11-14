@@ -73,10 +73,13 @@ class McpClient:
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"MCP request timed out: {method}")
 
-    def execute(self, command, args):
+    def execute(self, command, args, backend=None):
+        arguments = {"command": command, "args": args}
+        if backend is not None:
+            arguments["backend"] = backend
         result = self.request("tools/call", {
             "name": "semwright_execute",
-            "arguments": {"command": command, "args": args},
+            "arguments": arguments,
         })
         envelope = result["structuredContent"]
         assert result.get("isError", False) == (not envelope["ok"]), result
@@ -382,6 +385,19 @@ def run(binary_dir: Path, output: Path):
                 args = {"root": "workspace", "path": "settings.json"}
                 initial = check_ok(client.execute("filesystem.read", args))["text"]
                 assert initial == before, (repr(initial), repr(before))
+                # Actual agent-host failure: an explicit "core" route is invalid,
+                # not evidence that the accessible filesystem backend is offline.
+                wrong_backend = client.execute("filesystem.read", args, backend="core")
+                assert not wrong_backend["ok"], wrong_backend
+                assert wrong_backend["error"]["code"] == "InvalidArgument", wrong_backend
+                assert wrong_backend["error"]["candidates"] == ["filesystem"], wrong_backend
+                assert wrong_backend["error"]["outcome_known"] is True, wrong_backend
+                assert "omit backend" in wrong_backend["error"]["message"], wrong_backend
+                assert wrong_backend["execution"]["backend"] == "unselected", wrong_backend
+                assert data.read_text(encoding="utf-8") == before
+                assert check_ok(client.execute(
+                    "filesystem.read", args, backend="filesystem",
+                ))["text"] == before
                 before_observation = check_ok(client.execute("filesystem.observe", args))
                 assert before_observation["text"] == initial
                 assert before_observation["bytes"] == len(data.read_bytes())
@@ -505,6 +521,7 @@ def run(binary_dir: Path, output: Path):
                     "new_only_text_human_edit_preserved": True,
                     "new_only_text_known_conflict": True,
                     "new_only_text_invalid_flag_denied": True,
+                    "invalid_explicit_backend_actionable_no_fallback": True,
                     "native_file_observation_read_only": True,
                     "native_file_observation_instance_human_edit_stable": True,
                     "native_file_observation_instance_replacement_changes": True,

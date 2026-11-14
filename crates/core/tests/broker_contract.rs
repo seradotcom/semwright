@@ -695,6 +695,124 @@ async fn no_ref_migration_to_another_backend() {
     assert_eq!(r.error.unwrap().code, ErrorCode::PolicyDenied);
 }
 
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+#[tokio::test]
+async fn impossible_explicit_backend_reports_usable_route_without_dispatch() {
+    // Reproduces a real MCP host selecting backend="core" for filesystem.read.
+    // A bad explicit route must not pretend the filesystem provider is offline
+    // or automatically execute through a different provider.
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("workspace");
+    std::fs::create_dir(&project).unwrap();
+    let note = project.join("README.txt");
+    std::fs::write(&note, b"owner read-only project").unwrap();
+    let grant = FilesystemGrant {
+        name: "workspace".into(),
+        path: project,
+        read: true,
+        write: false,
+    };
+    let backend = Arc::new(
+        semwright_backends::filesystem::Filesystem::new(std::slice::from_ref(&grant)).unwrap(),
+    );
+    let mut config = PolicyConfig {
+        profile: Profile::Observe,
+        ..Default::default()
+    };
+    config.filesystem.push(grant);
+    let broker = Broker::new(
+        Policy::new(config).unwrap(),
+        vec![backend],
+        Audit::open(&dir.path().join("audit"), 65536, 2).unwrap(),
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    let session = unique_id();
+    let request_args = json!({"root":"workspace","path":"README.txt"});
+    let wrong = broker
+        .clone()
+        .execute(
+            session.clone(),
+            unique_id(),
+            ExecuteRequest {
+                command: "filesystem.read".into(),
+                args: request_args.clone(),
+                dry_run: false,
+                backend: Some("core".into()),
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(!wrong.ok, "{wrong:?}");
+    assert_eq!(wrong.execution.backend, "unselected");
+    let error = wrong.error.unwrap();
+    assert_eq!(error.code, ErrorCode::InvalidArgument);
+    assert!(error.outcome_known);
+    assert_eq!(error.candidates, vec!["filesystem"]);
+    assert!(error.message.contains("omit backend"));
+    assert_eq!(std::fs::read(&note).unwrap(), b"owner read-only project");
+
+    // Omitting the optional backend selects the actual live native route.
+    let selected = broker
+        .clone()
+        .execute(
+            session.clone(),
+            unique_id(),
+            ExecuteRequest {
+                command: "filesystem.read".into(),
+                args: request_args.clone(),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(selected.ok, "{selected:?}");
+    assert_eq!(selected.execution.backend, "filesystem");
+    assert_eq!(selected.data.unwrap()["text"], "owner read-only project");
+
+    // An explicitly correct backend also remains supported.
+    let pinned = broker
+        .clone()
+        .execute(
+            session.clone(),
+            unique_id(),
+            ExecuteRequest {
+                command: "filesystem.read".into(),
+                args: request_args.clone(),
+                dry_run: false,
+                backend: Some("filesystem".into()),
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(pinned.ok, "{pinned:?}");
+    assert_eq!(pinned.execution.backend, "filesystem");
+
+    // Policy denial takes precedence over diagnostics and never writes.
+    let denied = broker
+        .clone()
+        .execute(
+            session,
+            unique_id(),
+            ExecuteRequest {
+                command: "filesystem.write".into(),
+                args: json!({"root":"workspace","path":"README.txt","text":"unsafe"}),
+                dry_run: false,
+                backend: Some("core".into()),
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(!denied.ok, "{denied:?}");
+    assert_eq!(denied.error.unwrap().code, ErrorCode::PolicyDenied);
+    assert_eq!(std::fs::read(&note).unwrap(), b"owner read-only project");
+    broker.shutdown().await;
+}
+
 #[tokio::test]
 async fn catalog_is_compact_provenanced_and_uses_actual_operation_state() {
     let fixture = Fixture::new(Profile::Observe);

@@ -546,6 +546,18 @@ impl Broker {
             }
             return Ok("fake".into());
         }
+        // A caller-specified route is a constraint, not an authority or a
+        // fallback hint. A route absent from the descriptor is an invalid
+        // request, even if a different live provider could serve the command.
+        if let Some(preferred) = request.backend.as_deref()
+            && !candidates.iter().any(|route| route == preferred)
+        {
+            let mut error = Error::invalid(
+                "Explicit backend is not a declared route for this command; omit backend to select an available route",
+            );
+            error.candidates = candidates;
+            return Err(error);
+        }
         let features = self.probe().await;
         for name in candidates {
             if request

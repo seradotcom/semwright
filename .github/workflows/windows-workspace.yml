@@ -2,7 +2,7 @@ name: Windows workspace connection
 
 on:
   push:
-    branches: [fix/windows-workspace-roots, fix/windows-new-only-text, fix/windows-provider-identity, feat/owner-workspace-config-candidate, feat/workspace-named-candidates, feat/filesystem-native-observation]
+    branches: [fix/windows-workspace-roots, fix/windows-new-only-text, fix/windows-provider-identity, feat/owner-workspace-config-candidate, feat/workspace-named-candidates, feat/filesystem-native-observation, fix/explicit-backend-route-error]
   pull_request:
     paths:
       - 'crates/daemon/src/config.rs'
@@ -22,6 +22,7 @@ on:
       - 'crates/core/src/lib.rs'
       - 'crates/core/src/providers.rs'
       - 'crates/core/tests/provider_runtime.rs'
+      - 'crates/core/tests/broker_contract.rs'
       - 'crates/core/tests/project_graph.rs'
       - 'schemas/commands.json'
       - 'schemas/builtin-provenance.json'
@@ -84,8 +85,12 @@ jobs:
         run: cargo test --locked -p semwright-protocol --lib transport_outcome_tests
       - name: Window-scoped semantic snapshot contract
         run: cargo test --locked -p semwright-core --lib scoped_snapshot_tests
+      - name: Check explicit backend routing formatting
+        run: rustfmt --edition 2024 --check crates/core/src/lib.rs crates/core/tests/broker_contract.rs
       - name: Compiled host identity of builtin providers
         run: cargo test --locked -p semwright-core --test provider_runtime builtin_provider_identity_matches_compiled_target
+      - name: Invalid explicit backend does not dispatch or bypass policy
+        run: cargo test --locked -p semwright-core --test broker_contract impossible_explicit_backend_reports_usable_route_without_dispatch
       - name: Closed native Blender request must not bypass Host
         run: |
           python crates/driver-blender/tests/semantic_cross_version_parity.py
@@ -301,6 +306,7 @@ jobs:
           cargo test --locked -p semwright-protocol --lib transport_outcome_tests
           cargo test --locked -p semwright-core --lib scoped_snapshot_tests
           cargo test --locked -p semwright-core --test provider_runtime builtin_provider_identity_matches_compiled_target
+          cargo test --locked -p semwright-core --test broker_contract impossible_explicit_backend_reports_usable_route_without_dispatch
           cargo test --locked -p semwright-driver-sdk --lib windows_native_profile_tests
           cargo test --locked -p semwright-driver-sdk --lib runtime_tool_session_
           cargo test --locked -p semwright-driver-host --lib host_tool_protocol_tests
