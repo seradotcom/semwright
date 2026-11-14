@@ -110,11 +110,9 @@ impl Backend for Filesystem {
                 })?;
                 // Hash native instance metadata instead of disclosing file IDs,
                 // birth timestamps or volume information to the MCP client.
-                let sha256 = format!("{:x}", Sha256::digest(text.as_bytes()));
-                let instance_sha256 = format!(
-                    "{:x}",
-                    Sha256::digest(observed.instance_identity.as_bytes())
-                );
+                let sha256 = hex::encode(Sha256::digest(text.as_bytes()));
+                let instance_sha256 =
+                    hex::encode(Sha256::digest(observed.instance_identity.as_bytes()));
                 Ok(json!({
                     "text": text,
                     "bytes": size,
@@ -307,7 +305,7 @@ mod tests {
             .unwrap();
         assert_eq!(before["text"], "before");
         assert_eq!(before["bytes"], 6);
-        assert_eq!(before["sha256"], format!("{:x}", Sha256::digest(b"before")));
+        assert_eq!(before["sha256"], hex::encode(Sha256::digest(b"before")));
         assert_eq!(before["concurrency"], "best_effort_revalidate");
         assert_eq!(before["method_version"], 1);
         assert!(before["method"].as_str().unwrap().len() > 8);
