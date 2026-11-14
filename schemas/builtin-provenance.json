@@ -607,6 +607,20 @@
     ],
     "untrusted_metadata": false
   },
+  "filesystem.observe": {
+    "aliases": [],
+    "app": null,
+    "object_types": [],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "1.0.0",
+    "tags": [
+      "filesystem",
+      "read",
+      "observation"
+    ],
+    "untrusted_metadata": false
+  },
   "filesystem.read": {
     "aliases": [],
     "app": null,

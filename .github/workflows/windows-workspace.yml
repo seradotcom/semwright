@@ -24,6 +24,7 @@ on:
       - 'crates/core/tests/provider_runtime.rs'
       - 'crates/core/tests/project_graph.rs'
       - 'schemas/commands.json'
+      - 'schemas/builtin-provenance.json'
       - 'scripts/windows/workspace-smoke.py'
       - 'scripts/windows/project-restart-smoke.py'
       - 'scripts/windows/delayed-hello-smoke.ps1'
