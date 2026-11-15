@@ -5,6 +5,7 @@ pub use filesystem::{Root, validate_relative_path};
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
@@ -54,6 +55,7 @@ pub enum Decision {
 pub struct Policy {
     config: PolicyConfig,
     granted: BTreeSet<String>,
+    grant_fingerprint: String,
 }
 impl Policy {
     pub fn new(config: PolicyConfig) -> Result<Self> {
@@ -104,8 +106,23 @@ impl Policy {
                     "Filesystem roots must be absolute and cannot be /",
                 ));
             }
+            // Policy scope must have a lossless JSON identity. Distinct OS
+            // paths that collapse under a lossy string representation must
+            // never share the same durable Project Graph policy fingerprint.
+            if root.path.to_str().is_none() {
+                return Err(Error::invalid(
+                    "Filesystem root paths must be valid UTF-8 for scoped policy identity",
+                ));
+            }
         }
-        Ok(Self { config, granted })
+        let encoded = serde_json::to_vec(&config)
+            .map_err(|_| Error::invalid("Owner policy cannot be serialized for scoped identity"))?;
+        let grant_fingerprint = hex::encode(Sha256::digest(encoded));
+        Ok(Self {
+            config,
+            granted,
+            grant_fingerprint,
+        })
     }
     pub fn capabilities(&self) -> &BTreeSet<String> {
         &self.granted
@@ -173,9 +190,7 @@ impl Policy {
         }
     }
     pub fn grant_fingerprint(&self) -> String {
-        use sha2::{Digest, Sha256};
-        let body = serde_json::to_vec(&self.config).unwrap_or_default();
-        hex::encode(Sha256::digest(body))
+        self.grant_fingerprint.clone()
     }
 }
 /// Select metadata suitable for the trusted operator, never the audit sink.
@@ -280,6 +295,66 @@ mod tests {
             assert!(!p.capabilities().contains(s));
         }
     }
+    #[test]
+    fn scoped_policy_fingerprint_preserves_valid_owner_policy_encoding() {
+        let config = PolicyConfig {
+            filesystem: vec![FilesystemGrant {
+                name: "project".into(),
+                path: std::env::temp_dir().join("semwright-owner-scope-valid"),
+                read: true,
+                write: false,
+            }],
+            ..Default::default()
+        };
+        let encoded = serde_json::to_vec(&config).unwrap();
+        let expected = hex::encode(Sha256::digest(encoded));
+        let policy = Policy::new(config.clone()).unwrap();
+        assert_eq!(policy.grant_fingerprint(), expected);
+        assert_eq!(policy.clone().grant_fingerprint(), expected);
+        assert_eq!(
+            Policy::new(config.clone()).unwrap().grant_fingerprint(),
+            expected
+        );
+
+        let mut writable = config;
+        writable.filesystem[0].write = true;
+        let changed = Policy::new(writable).unwrap();
+        assert_ne!(changed.grant_fingerprint(), expected);
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn scoped_policy_fingerprint_rejects_non_unicode_native_root() {
+        // Native OS strings can contain names that do not round-trip through
+        // JSON. Those inputs must not silently share another scope digest.
+        #[cfg(unix)]
+        let native_name = {
+            use std::os::unix::ffi::OsStringExt;
+            std::ffi::OsString::from_vec(vec![b'r', 0xff, b'a'])
+        };
+        #[cfg(windows)]
+        let native_name = {
+            use std::os::windows::ffi::OsStringExt;
+            std::ffi::OsString::from_wide(&[b'r' as u16, 0xd800, b'a' as u16])
+        };
+        let path = std::env::temp_dir().join(native_name);
+        assert!(path.is_absolute());
+        assert!(path.to_str().is_none());
+        let config = PolicyConfig {
+            filesystem: vec![FilesystemGrant {
+                name: "project".into(),
+                path,
+                read: true,
+                write: false,
+            }],
+            ..Default::default()
+        };
+        let error = Policy::new(config)
+            .err()
+            .expect("Non-Unicode owner path must be rejected before fingerprinting");
+        assert_eq!(error.code, ErrorCode::InvalidArgument);
+    }
+
     #[test]
     fn qualified_filesystem_requirements_bind_to_named_arguments() {
         let config = PolicyConfig {

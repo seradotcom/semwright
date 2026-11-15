@@ -61,8 +61,11 @@ For a source-pinned local worker inspecting the **loaded** owner policy,
 `Policy::grant_fingerprint()`: lowercase, unprefixed SHA-256 of the
 serialized `PolicyConfig`. It includes the configured filesystem root
 paths and read/write flags, as well as profile, allow/deny and app scope.
-The response exposes the digest rather than raw root paths. Two brokers
-with the same binary, grant name and visible privileges but different
+The response exposes the digest rather than raw root paths. Owner grant
+paths that cannot be represented losslessly in UTF-8 are rejected during
+policy construction instead of being serialized ambiguously or hashed from
+an empty fallback; ordinary valid configurations retain their exact digest.
+Two brokers with the same binary, grant name and visible privileges but different
 configured roots return different digests; the digest also changes when
 the owner changes an access flag and restarts the broker. It is a
 deterministic, correlatable configuration observation, **not** a secret,
