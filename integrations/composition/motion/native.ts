@@ -285,7 +285,8 @@ type TextPixelSubject={node:Txt;visits:number;completed:boolean;calls:PendingTex
 type TextPixelFailure='native glyph operation, style, contrast or readback unsupported'
  |'native glyph before readback shape or color unavailable'|'native glyph before contrast unavailable'
  |'original native glyph operation did not complete'|'native glyph after readback unavailable'
- |'native glyph method restoration failed'|'native glyph observation wrapper unavailable';
+ |'native glyph method restoration failed'|'native glyph observation wrapper unavailable'
+ |'native glyph readback release unavailable';
 type TextPixelFrame={frame:number;fps:number;fps_num:number;fps_den:number;samples:number[];
  digest:string;background:string|null;canvas:HTMLCanvasElement;context:CanvasRenderingContext2D;
  width:number;height:number;subjects:Map<string,TextPixelSubject>;union:Uint8Array;
@@ -304,6 +305,20 @@ function textPixelReadbackInSrgb(image:ImageData,width:number,height:number,cont
  return contextSpace==='srgb'&&image instanceof ImageData&&image.width===width&&image.height===height
   &&image.data instanceof Uint8ClampedArray&&image.data.length===width*height*4
   &&(!('colorSpace' in image)||image.colorSpace==='srgb');
+}
+function releaseTextPixelReadback(image:ImageData|undefined):boolean{
+ if(image===undefined)return true;
+ try{
+  // getImageData owns a copy, not the canvas storage. Drop that copy after
+  // comparison instead of retaining full RGBA buffers until browser GC.
+  const buffer=image.data.buffer;
+  if(!(buffer instanceof ArrayBuffer))return false;
+  const transfer=(buffer as ArrayBuffer&{transferToFixedLength?:(length:number)=>ArrayBuffer}).transferToFixedLength;
+  if(typeof transfer!=='function')return false;
+  const empty=Reflect.apply(transfer,buffer,[0]) as ArrayBuffer;
+  return buffer.byteLength===0&&image.data.byteLength===0
+   &&empty instanceof ArrayBuffer&&empty.byteLength===0;
+ }catch{return false;}
 }
 function textPixelBit(bits:Uint8Array,index:number){return (bits[index>>3]&(1<<(index&7)))!==0;}
 function textPixelSet(bits:Uint8Array,index:number){bits[index>>3]|=1<<(index&7);}
@@ -353,73 +368,82 @@ function paintTextPixels(frame:TextPixelFrame,reg:ReturnType<typeof registration
  if(frame.failure)return forward();
  const native=reg.renderStack[reg.renderStack.length-1],id=native?reg.semanticIds.get(native):undefined;
  const subject=id?frame.subjects.get(id):undefined;
- let call:PendingTextCall|undefined,before:ImageData|undefined;
- let beforeFailure:TextPixelFailure='native glyph operation, style, contrast or readback unsupported';
+ let call:PendingTextCall|undefined,before:ImageData|undefined,after:ImageData|undefined;
  try{
-  requireValue(receiver===frame.context&&subject&&native===subject.node&&frame.canvas===reg.canvas,'native glyph paint owner or canvas unavailable');
-  requireValue(++frame.operations<=TEXT_PIXEL_MAX_CALLS,'native glyph paint operation budget');
-  const context=frame.context;
-  requireValue(args.length>=3&&args.length<=4&&typeof args[0]==='string'&&new TextEncoder().encode(args[0]).length<=8192,
-   'native glyph paint arguments');
-  requireValue(args.slice(1).every(v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=2e6)
-   &&(args.length===3||(args[3] as number)>0),'native glyph paint coordinates');
-  requireValue(context.globalAlpha===1&&context.globalCompositeOperation==='source-over'&&context.filter==='none'
-   &&context.shadowBlur===0&&context.shadowOffsetX===0&&context.shadowOffsetY===0
-   &&context.shadowColor==='rgba(0, 0, 0, 0)','native glyph paint context unsupported');
-  const color=textPixelRgb(method==='fillText'?context.fillStyle:context.strokeStyle);
-  requireValue(color!==null,'native glyph paint opaque solid style unavailable');
-  const authored=reg.data.shots.flatMap(s=>s.subjects).find(s=>s.id===id)!;
-  requireValue(authored.content.kind==='text','native glyph source subject type');
-  const fallback=reg.data.editorial.colors.text??Object.values(reg.data.editorial.colors)[0]??'#202020';
-  const allowed=authored.content.runs.map(r=>textPixelRgb(r.color??fallback));
-  requireValue(allowed.every(v=>v!==null)&&allowed.some(v=>v!.every((c,i)=>c===color[i])),'native glyph style differs from observed source runs');
-  const background=frame.background===null?null:textPixelRgb(frame.background);
-  requireValue(background===null||background.some((c,i)=>c!==color[i]),'native glyph and output background have identical color');
-  requireValue(typeof context.font==='string'&&context.font.length>0&&new TextEncoder().encode(context.font).length<=512,'native glyph font style unavailable');
-  const attributes=context.getContextAttributes();
-  requireValue(attributes.colorSpace==='srgb','native glyph readback color space unsupported');
-  call={serial:frame.operations-1,operation:method==='fillText'?'fill_text':'stroke_text',matrix:nativeMatrix(context.getTransform()),
-   text:args[0],font:context.font,color,x:args[1] as number,y:args[2] as number,max_width:args.length===4?args[3] as number:null,
-   changed_pixels:0,global_alpha:1,composite:'source-over',filter:'none'};
-  beforeFailure='native glyph before readback shape or color unavailable';
-  before=context.getImageData(0,0,frame.width,frame.height);
-  requireValue(textPixelReadbackInSrgb(before,frame.width,frame.height,attributes.colorSpace),'native glyph before readback incomplete');
-  beforeFailure='native glyph before contrast unavailable';
-  // Equal opaque destination color could hide glyph coverage. Existing observed
-  // text is already in the frame union; other equal-color pixels deny this proof.
-  for(let p=0;p<frame.width*frame.height;p++){
-   const at=p*4;
-   requireValue(before.data[at+3]===0||textPixelBit(frame.union,p)
-    ||color.some((c,i)=>before!.data[at+i]!==c),'native glyph contrast is not independently decidable');
-  }
- }catch{
-  frame.failure=beforeFailure;
-  before=undefined;
- }
- // The original operation executes exactly once even if observation is denied.
- let result:unknown;
- try{result=forward();}catch(error){frame.failure='original native glyph operation did not complete';throw error;}
- if(!frame.failure&&before&&call&&subject){
+  let beforeFailure:TextPixelFailure='native glyph operation, style, contrast or readback unsupported';
   try{
-   const after=frame.context.getImageData(0,0,frame.width,frame.height);
-   requireValue(textPixelReadbackInSrgb(after,frame.width,frame.height,frame.context.getContextAttributes().colorSpace),
-    'native glyph after readback incomplete');
+   requireValue(receiver===frame.context&&subject&&native===subject.node&&frame.canvas===reg.canvas,'native glyph paint owner or canvas unavailable');
+   requireValue(++frame.operations<=TEXT_PIXEL_MAX_CALLS,'native glyph paint operation budget');
+   const context=frame.context;
+   requireValue(args.length>=3&&args.length<=4&&typeof args[0]==='string'&&new TextEncoder().encode(args[0]).length<=8192,
+    'native glyph paint arguments');
+   requireValue(args.slice(1).every(v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=2e6)
+    &&(args.length===3||(args[3] as number)>0),'native glyph paint coordinates');
+   requireValue(context.globalAlpha===1&&context.globalCompositeOperation==='source-over'&&context.filter==='none'
+    &&context.shadowBlur===0&&context.shadowOffsetX===0&&context.shadowOffsetY===0
+    &&context.shadowColor==='rgba(0, 0, 0, 0)','native glyph paint context unsupported');
+   const color=textPixelRgb(method==='fillText'?context.fillStyle:context.strokeStyle);
+   requireValue(color!==null,'native glyph paint opaque solid style unavailable');
+   const authored=reg.data.shots.flatMap(s=>s.subjects).find(s=>s.id===id)!;
+   requireValue(authored.content.kind==='text','native glyph source subject type');
+   const fallback=reg.data.editorial.colors.text??Object.values(reg.data.editorial.colors)[0]??'#202020';
+   const allowed=authored.content.runs.map(r=>textPixelRgb(r.color??fallback));
+   requireValue(allowed.every(v=>v!==null)&&allowed.some(v=>v!.every((c,i)=>c===color[i])),'native glyph style differs from observed source runs');
+   const background=frame.background===null?null:textPixelRgb(frame.background);
+   requireValue(background===null||background.some((c,i)=>c!==color[i]),'native glyph and output background have identical color');
+   requireValue(typeof context.font==='string'&&context.font.length>0&&new TextEncoder().encode(context.font).length<=512,'native glyph font style unavailable');
+   const attributes=context.getContextAttributes();
+   requireValue(attributes.colorSpace==='srgb','native glyph readback color space unsupported');
+   call={serial:frame.operations-1,operation:method==='fillText'?'fill_text':'stroke_text',matrix:nativeMatrix(context.getTransform()),
+    text:args[0],font:context.font,color,x:args[1] as number,y:args[2] as number,max_width:args.length===4?args[3] as number:null,
+    changed_pixels:0,global_alpha:1,composite:'source-over',filter:'none'};
+   beforeFailure='native glyph before readback shape or color unavailable';
+   before=context.getImageData(0,0,frame.width,frame.height);
+   requireValue(textPixelReadbackInSrgb(before,frame.width,frame.height,attributes.colorSpace),'native glyph before readback incomplete');
+   beforeFailure='native glyph before contrast unavailable';
+   // Equal opaque destination color could hide glyph coverage. Existing observed
+   // text is already in the frame union; other equal-color pixels deny this proof.
    for(let p=0;p<frame.width*frame.height;p++){
     const at=p*4;
-    if(before.data[at]!==after.data[at]||before.data[at+1]!==after.data[at+1]
-      ||before.data[at+2]!==after.data[at+2]||before.data[at+3]!==after.data[at+3]){
-     textPixelSet(subject.bits,p);textPixelSet(frame.union,p);call.changed_pixels++;
-    }
+    requireValue(before.data[at+3]===0||textPixelBit(frame.union,p)
+     ||before.data[at]!==color[0]||before.data[at+1]!==color[1]
+     ||before.data[at+2]!==color[2],'native glyph contrast is not independently decidable');
    }
-   // This bound is inside the existing 512 KiB observation-line and 8 MiB
-   // FixedTxt stream budgets. Overflow denies observation, never truncates it.
-   frame.callBytes+=new TextEncoder().encode(JSON.stringify(call)).length+82;
-   requireValue(frame.callBytes<=65536,'native glyph call metadata budget');
-   subject.calls.push(call);
-  }catch{frame.failure='native glyph after readback unavailable';}
+  }catch{
+   frame.failure=beforeFailure;
+  }
+  // The original operation executes exactly once even if observation is denied.
+  let result:unknown;
+  try{result=forward();}catch(error){frame.failure='original native glyph operation did not complete';throw error;}
+  if(!frame.failure&&before&&call&&subject){
+   try{
+    after=frame.context.getImageData(0,0,frame.width,frame.height);
+    requireValue(textPixelReadbackInSrgb(after,frame.width,frame.height,frame.context.getContextAttributes().colorSpace),
+     'native glyph after readback incomplete');
+    for(let p=0;p<frame.width*frame.height;p++){
+     const at=p*4;
+     if(before.data[at]!==after.data[at]||before.data[at+1]!==after.data[at+1]
+       ||before.data[at+2]!==after.data[at+2]||before.data[at+3]!==after.data[at+3]){
+      textPixelSet(subject.bits,p);textPixelSet(frame.union,p);call.changed_pixels++;
+     }
+    }
+    // This bound is inside the existing 512 KiB observation-line and 8 MiB
+    // FixedTxt stream budgets. Overflow denies observation, never truncates it.
+    frame.callBytes+=new TextEncoder().encode(JSON.stringify(call)).length+82;
+    requireValue(frame.callBytes<=65536,'native glyph call metadata budget');
+    subject.calls.push(call);
+   }catch{frame.failure='native glyph after readback unavailable';}
+  }
+  return result;
+ }finally{
+  // Both attempts run even after a failed observation or original paint.
+  // Cleanup cannot replace the original exception or erase the union/masks.
+  const beforeReleased=releaseTextPixelReadback(before);
+  const afterReleased=releaseTextPixelReadback(after);
+  before=undefined;after=undefined;
+  if((!beforeReleased||!afterReleased)&&frame.failure===null)
+   frame.failure='native glyph readback release unavailable';
  }
- before=undefined;
- return result;
 }
 function withTextPixelFrame<T>(reg:ReturnType<typeof registration>,context:CanvasRenderingContext2D,run:()=>T):T{
  if(reg.textPixels){

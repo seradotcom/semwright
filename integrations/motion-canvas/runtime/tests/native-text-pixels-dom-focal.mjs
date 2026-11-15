@@ -28,8 +28,8 @@ const HISTORICAL = {
  RED: 'ac4df30d0bdeab0a93924d5841ea18a76f269ce99f2903a2cfebc38e254a3c12',
 };
 const OBSERVED = {
- GREEN: '0aa5b9bd414f3c7d88e9b871ee96e3523729c02caddd8d420d63d9f14c2c794d',
- RED: '2d8ab6983d0845fe0290d6f25bef277759cb530ed85e6f3bd5e94f263a5f2bb3',
+ GREEN: 'e787ab2bc03af94f7e432d380b1c5ff058fb881492232ed59b5988f487b69c96',
+ RED: 'ed4f0d8f6630f14d1c3d890b3249fab79381a2fe9c8424bdb302b1ae98488cd2',
 };
 const RED = '   if(parent instanceof Camera){let scene=parent.scene();if(!scene){scene=new Node({});parent.scene(scene);}scene.add(n);}else parent.add(n);\n';
 const GREEN = `   // Fixed Txt keeps its DOM-enabled inline runs. A non-layout parent makes
@@ -188,11 +188,15 @@ window.runFocal=async({name,mode,arm})=>{
   const oracle=Object.fromEntries(ids.map(id=>[id,{bits:new Uint8Array(W*H),calls:[],offscreen_calls:0}]));
   const owners=[],drawRestore=[],initialOwn=['fillText','strokeText'].map(key=>[key,Object.hasOwn(context,key)]);
   let producerReads=0,drawCount=0,viewDraws=0,firstProducerReadbackShape=null;
+  const producerReadbacks=[];
   const view=scene.getView(),viewDescriptor=Object.getOwnPropertyDescriptor(view,'render'),viewRender=view.render;
   try{
    Object.defineProperty(view,'render',{configurable:true,writable:true,value:function(ctx){viewDraws++;return viewRender.call(this,ctx);}});
    Object.defineProperty(proto,'getImageData',{...saved.get('getImageData'),value:function(...args){
     producerReads++;const image=nativeRead.apply(this,args);
+    need(producerReadbacks.length<128&&image.data.byteLength===W*H*4,
+     'bounded full-frame producer readback');
+    producerReadbacks.push({image,buffer:image.data.buffer,bytes:image.data.byteLength});
     if(firstProducerReadbackShape===null)firstProducerReadbackShape=imageDataShape(image);return image;
    }});
    for(const id of ids){
@@ -261,10 +265,17 @@ window.runFocal=async({name,mode,arm})=>{
    completed:capture?.completed??null,restored:capture?.restored??null,operations:capture?.operations??null,
    calls_metadata_bytes:capture?.callBytes??null,subjects:capture?[...capture.subjects].map(([id,s])=>({id,visits:s.visits,completed:s.completed,calls:s.calls.length})):[]};
   const methods=['fillText','strokeText'].map(key=>[key,Object.hasOwn(context,key)]);
+  const detached=buffer=>{try{new Uint8Array(buffer);return false;}catch(error){return error instanceof TypeError;}};
+  const readbackRelease={observed:producerReadbacks.length,
+   original_bytes:producerReadbacks.reduce((sum,row)=>sum+row.bytes,0),
+   detached:producerReadbacks.filter(row=>row.bytes>0&&row.image.data.byteLength===0
+    &&row.buffer.byteLength===0&&detached(row.buffer)).length,
+   retained_bytes:producerReadbacks.reduce((sum,row)=>sum+row.buffer.byteLength,0)};
   return {name,mode,arm,frame:playback.frame,width:canvas.width,height:canvas.height,input_binding:binding,
    pixel_sha256:await digest(pixels),post_probe_pixel_sha256:await digest(finalPixels),signals:afterSignals,probe,
    native_camera_scene_unchanged:camera.scene()===originalScene,independent_glyph_operations:independent,
-   producer_getImageData_calls:producerReads,first_producer_readback_shape:firstProducerReadbackShape,producer_capture:producerCapture,semantic_draw_calls:drawCount,view_render_calls:viewDraws,scene_render_calls:1,render_elapsed_ms:renderMs,
+   producer_getImageData_calls:producerReads,producer_readback_release:readbackRelease,
+   first_producer_readback_shape:firstProducerReadbackShape,producer_capture:producerCapture,semantic_draw_calls:drawCount,view_render_calls:viewDraws,scene_render_calls:1,render_elapsed_ms:renderMs,
    context_own_methods_before:initialOwn,context_own_methods_after:methods,
    prototypes_restored:[...saved].every(([key,descriptor])=>Object.getOwnPropertyDescriptor(proto,key).value===descriptor.value),
    mismatched_export_bindings:mismatches};
@@ -418,6 +429,13 @@ try {
     // Preserve both real draws before every verdict, including authentic negatives.
     await retain(name+'.captured.original.json',{name,arm,native_readback_API:result.native_readback_API,original_native_results:rows});
     assert.equal(before.pixel_sha256,after.pixel_sha256,'observer changed actual RGBA: '+name);
+    const release=after.producer_readback_release;
+    assert.equal(release.observed,after.producer_getImageData_calls,'readback release roster');
+    assert.equal(release.detached,release.observed,'producer retained an original RGBA buffer');
+    assert.equal(release.retained_bytes,0,'producer readback backing storage remains');
+    assert.equal(release.original_bytes,release.observed*after.width*after.height*4);
+    if(['paint-red','paint-green','same-color','operation-overflow','inactive-second'].includes(name))
+      assert(release.observed>0,'readback release check must observe actual pixel copies');
     for(const row of rows){
       assert.equal(row.pixel_sha256,row.post_probe_pixel_sha256,'probe changed actual RGBA');
       assert.equal(row.native_camera_scene_unchanged,true,'original Camera.scene reference changed');
@@ -482,6 +500,7 @@ try {
     const caseResult={name,arm,status:'REAL_TEXT_PIXEL_DOM_FOCAL_PASSED',
       captured_original:name+'.captured.original.json',pixel_sha256:after.pixel_sha256,
       producer_getImageData_calls:after.producer_getImageData_calls,
+      producer_readback_release:after.producer_readback_release,
       render_elapsed_ms:{historical:before.render_elapsed_ms,observed:after.render_elapsed_ms}};
     caseResult.actual_view_render_calls=rows.reduce((count,row)=>count+row.view_render_calls,0);
     result.cases.push(caseResult);await retain(name+'.original.json',caseResult);
