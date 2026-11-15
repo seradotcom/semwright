@@ -29,9 +29,12 @@ MCP and the CLI preserve the local protocol's execution-outcome classification. 
 rejects an oversized request before sending any command bytes, its `InvalidArgument`
 error has `outcome_known: true` and no operation was dispatched. A failed send,
 lost or uncorrelated response, or cancellation after dispatch remains uncertain
-(`outcome_known: false`). Neither classification triggers a retry or a provider
-fallback. An uncertain mutation requires reconciliation before any further effect;
-cancelling it does not roll back work that may already have happened.
+(`outcome_known: false`). A cancellation while the broker handshake is still
+pending returns a known `Cancelled` result promptly, before any `Execute` is sent;
+it does not wait out the connection timeout or send an unmatched cancellation.
+Neither classification triggers a retry or provider fallback. An uncertain
+mutation requires reconciliation before another effect; cancellation does not
+roll back work that may already have happened.
 
 The current implementation does not advertise arbitrary evaluation, approval, shell,
 roots-based grant escalation or a tool for turning policy off. MCP Tasks are an adapter over

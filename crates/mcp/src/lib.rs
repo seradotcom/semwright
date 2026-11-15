@@ -90,7 +90,25 @@ impl Server {
                 )),
             );
         }
-        let connection = tokio::time::timeout(Duration::from_secs(6), self.connect()).await;
+        // A cancelled request must not wait for an unavailable broker's handshake.
+        // No Execute has been sent yet, so the outcome is known.
+        let connection = tokio::select! {
+            biased;
+            _ = ct.cancelled() => {
+                return Envelope::finish(
+                    id,
+                    request.command,
+                    "transport".into(),
+                    start.elapsed(),
+                    request.dry_run,
+                    Err(Error::new(
+                        ErrorCode::Cancelled,
+                        "Cancelled during broker connection; no command was dispatched",
+                    )),
+                );
+            }
+            result = tokio::time::timeout(Duration::from_secs(6), self.connect()) => result,
+        };
         let mut client = match connection {
             Ok(Ok(client)) => client,
             Ok(Err(error)) => {

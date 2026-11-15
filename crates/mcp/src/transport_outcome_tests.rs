@@ -133,3 +133,42 @@ async fn cancellation_after_dispatch_remains_uncertain() {
     assert_eq!(error.code, ErrorCode::Cancelled);
     assert!(!error.outcome_known, "{error:?}");
 }
+
+#[tokio::test]
+async fn cancellation_while_awaiting_handshake_is_known_without_dispatch() {
+    let (_directory, socket, listener) = endpoint();
+    let cancellation = CancellationToken::new();
+    let peer_cancellation = cancellation.clone();
+    let peer = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let hello: ClientMessage = read_frame(&mut stream).await.unwrap();
+        assert!(
+            matches!(hello, ClientMessage::Hello { version, .. } if version == PROTOCOL_VERSION)
+        );
+        // A connected pipe is not yet a completed handshake. Do not send Welcome.
+        peer_cancellation.cancel();
+        let mut byte = [0];
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(2), stream.read(&mut byte))
+                .await
+                .expect("cancelled handshake must close promptly")
+                .unwrap(),
+            0,
+            "Cancellation before Welcome must not send Execute or Cancel"
+        );
+    });
+    let server = Server::new(socket, None).unwrap();
+    let envelope = tokio::time::timeout(
+        Duration::from_secs(2),
+        server.forward(request("never-send".into()), cancellation),
+    )
+    .await
+    .expect("MCP cancellation must not wait for the six-second connect timeout");
+    peer.await.unwrap();
+    assert!(!envelope.ok);
+    assert_eq!(envelope.execution.backend, "transport");
+    let error = envelope.error.unwrap();
+    assert_eq!(error.code, ErrorCode::Cancelled);
+    assert!(error.outcome_known, "{error:?}");
+    assert!(server.session.lock().await.is_none());
+}
