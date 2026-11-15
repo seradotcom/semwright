@@ -182,7 +182,7 @@ fn family_names(font: &FontRef<'_>) -> Option<Vec<String>> {
         if record.platform_id() > 4 {
             break;
         }
-        let start = record.string_offset().non_null().unwrap_or(0);
+        let start = usize::try_from(record.string_offset().to_u32()).ok()?;
         let Some(end) = start.checked_add(usize::from(record.length())) else {
             break;
         };
