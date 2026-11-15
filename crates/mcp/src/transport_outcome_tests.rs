@@ -8,8 +8,9 @@ use tokio::net::{UnixListener, UnixStream};
 
 fn endpoint() -> (tempfile::TempDir, PathBuf, UnixListener) {
     let directory = tempfile::tempdir().unwrap();
-    semwright_protocol::private_directory(directory.path()).unwrap();
-    let socket = directory.path().join("broker.sock");
+    let runtime = directory.path().join("runtime");
+    semwright_protocol::private_directory(&runtime).unwrap();
+    let socket = runtime.join("broker.sock");
     let listener = UnixListener::bind(&socket).unwrap();
     std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600)).unwrap();
     (directory, socket, listener)
