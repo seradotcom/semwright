@@ -56,6 +56,23 @@ backend is not declared by the command, Core now returns a known
 `backend`; it does not silently retry on a different provider or bypass policy.
 A correctly declared route can still be offline or denied by owner policy.
 
+For a source-pinned local worker inspecting the **loaded** owner policy,
+`doctor.data.policy.policy_config_sha256` is the existing Core
+`Policy::grant_fingerprint()`: lowercase, unprefixed SHA-256 of the
+serialized `PolicyConfig`. It includes the configured filesystem root
+paths and read/write flags, as well as profile, allow/deny and app scope.
+The response exposes the digest rather than raw root paths. Two brokers
+with the same binary, grant name and visible privileges but different
+configured roots return different digests; the digest also changes when
+the owner changes an access flag and restarts the broker. It is a
+deterministic, correlatable configuration observation, **not** a secret,
+a signature, an OS file-instance attestation, proof of the executing
+Blender driver/manifest or evidence of continued policy authority.
+It can help an already authorized owner client reject an unexpected
+configuration when combined with its own pinned configuration and
+Windows peer/session checks, but it never registers a worker or grants
+permission to invoke a native effect.
+
 For a binary transfer between two separately granted roots, use
 `artifact.handoff` with `overwrite=false` and a matching `expected_sha256`. On
 Windows, the native backend publishes the new file with a handle-relative,

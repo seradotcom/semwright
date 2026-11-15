@@ -318,10 +318,29 @@ def run(binary_dir: Path, output: Path):
                     process.wait(timeout=5)
                     raise
 
+            def loaded_policy_digest():
+                # Core's existing Policy::grant_fingerprint observes the exact
+                # configured root paths and rights, but grants no new authority.
+                response = subprocess.run(
+                    setup_report["next"]["doctor"], env=environment,
+                    capture_output=True, text=True, encoding="utf-8",
+                    check=True, timeout=8,
+                )
+                data = json.loads(response.stdout)["data"]
+                policy = data["policy"]
+                value = policy["policy_config_sha256"]
+                assert isinstance(value, str) and len(value) == 64
+                assert all(digit in "0123456789abcdef" for digit in value)
+                assert "filesystem" not in policy and "paths" not in policy
+                assert data["fake"] is False
+                return value
+
             try:
                 # The owner may explicitly start a NEW broker with this candidate.
                 # Observe-only is preserved: read succeeds, write is denied.
                 daemon = start_broker(candidate)
+                first_policy_digest = loaded_policy_digest()
+                assert loaded_policy_digest() == first_policy_digest
                 client = McpClient(snippet, mcp_log, environment)
                 candidate_args = {"root": "workspace", "path": "settings.json"}
                 assert check_ok(client.execute("filesystem.read", candidate_args))["text"] == before
@@ -347,6 +366,8 @@ def run(binary_dir: Path, output: Path):
                 # Explicitly select the second candidate with the same exact
                 # broker binary and endpoint. It authorizes ONLY the other root.
                 daemon = start_broker(second_candidate)
+                second_policy_digest = loaded_policy_digest()
+                assert second_policy_digest != first_policy_digest
                 client = McpClient(snippet, mcp_log, environment)
                 assert check_ok(client.execute("filesystem.read", {
                     "root": "outside", "path": "secret.txt",
@@ -377,6 +398,8 @@ def run(binary_dir: Path, output: Path):
 
                 write_config(True)
                 daemon = start_broker()
+                writable_policy_digest = loaded_policy_digest()
+                assert writable_policy_digest not in (first_policy_digest, second_policy_digest)
                 assert (data_root / "state" / "audit").is_dir()
                 assert (data_root / "runtime").is_dir()
                 client = McpClient(snippet, mcp_log, environment)
@@ -492,6 +515,9 @@ def run(binary_dir: Path, output: Path):
                 daemon.wait(timeout=5)
                 write_config(False)
                 daemon = start_broker()
+                revoked_policy_digest = loaded_policy_digest()
+                assert revoked_policy_digest != writable_policy_digest
+                assert loaded_policy_digest() == revoked_policy_digest
                 # The MCP process still holds its old session. Refreshing that handshake
                 # must not restore the old grant or redispatch either completed write.
                 check_denied(client.execute("filesystem.write", dict(args, text="revoked")))
@@ -522,6 +548,10 @@ def run(binary_dir: Path, output: Path):
                     "new_only_text_known_conflict": True,
                     "new_only_text_invalid_flag_denied": True,
                     "invalid_explicit_backend_actionable_no_fallback": True,
+                    "loaded_policy_scope_digest_stable_within_broker": True,
+                    "loaded_policy_scope_digest_changes_across_roots": True,
+                    "loaded_policy_scope_digest_changes_after_write_revoke": True,
+                    "loaded_policy_scope_digest_omits_raw_root_paths": True,
                     "native_file_observation_read_only": True,
                     "native_file_observation_instance_human_edit_stable": True,
                     "native_file_observation_instance_replacement_changes": True,

@@ -177,6 +177,77 @@ impl semwright_backend_api::Backend for DualRefBrowser {
 }
 
 #[tokio::test]
+async fn doctor_reports_loaded_policy_digest_without_exposing_root_paths() {
+    // Two owner-selected configurations can have the same public grant names
+    // and access flags while binding those names to different native roots.
+    let roots = tempfile::tempdir().unwrap();
+    let first = roots.path().join("owner-first");
+    let other = roots.path().join("owner-other");
+    std::fs::create_dir(&first).unwrap();
+    std::fs::create_dir(&other).unwrap();
+    let mut policy = PolicyConfig {
+        profile: Profile::Observe,
+        ..Default::default()
+    };
+    policy.filesystem.push(FilesystemGrant {
+        name: "project".into(),
+        path: first.clone(),
+        read: true,
+        write: false,
+    });
+    let expected = Policy::new(policy.clone()).unwrap().grant_fingerprint();
+    let fixture = Fixture::with_policy(policy.clone());
+    let response = fixture.call("doctor", json!({})).await;
+    assert!(response.ok, "{response:?}");
+    let doctor = response.data.unwrap();
+    let digest = doctor["policy"]["policy_config_sha256"].as_str().unwrap();
+    assert_eq!(digest, expected);
+    assert_eq!(digest.len(), 64);
+    assert!(
+        digest
+            .bytes()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+    );
+    assert!(doctor["policy"].get("filesystem").is_none());
+    assert!(doctor["policy"].get("paths").is_none());
+    assert!(
+        !serde_json::to_string(&doctor)
+            .unwrap()
+            .contains("owner-first")
+    );
+    assert_eq!(doctor["policy"]["shell"], false);
+
+    // The observation is stable across brokers using the same policy.
+    let repeated = Fixture::with_policy(policy.clone())
+        .call("doctor", json!({}))
+        .await;
+    assert_eq!(
+        repeated.data.unwrap()["policy"]["policy_config_sha256"],
+        digest
+    );
+
+    // Changing only the owner-selected underlying path is observable, even
+    // when the grant name, profile, permissions and visible metadata agree.
+    policy.filesystem[0].path = other;
+    let path_changed = Fixture::with_policy(policy.clone())
+        .call("doctor", json!({}))
+        .await;
+    let changed = path_changed.data.unwrap();
+    assert_ne!(changed["policy"]["policy_config_sha256"], digest);
+    assert_eq!(changed["policy"]["granted"], doctor["policy"]["granted"]);
+    assert_eq!(changed["policy"]["profile"], doctor["policy"]["profile"]);
+
+    // Permission changes must also change the digest: it is an observation,
+    // never an owner grant, an OS file-instance proof or a signed attestation.
+    policy.filesystem[0].write = true;
+    let writable = Fixture::with_policy(policy).call("doctor", json!({})).await;
+    assert_ne!(
+        writable.data.unwrap()["policy"]["policy_config_sha256"],
+        changed["policy"]["policy_config_sha256"]
+    );
+}
+
+#[tokio::test]
 async fn doctor_labels_fixture_not_live_desktop() {
     let f = Fixture::new(Profile::Observe);
     let r = f.call("doctor", json!({})).await;

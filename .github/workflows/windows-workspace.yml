@@ -2,7 +2,7 @@ name: Windows workspace connection
 
 on:
   push:
-    branches: [fix/windows-workspace-roots, fix/windows-new-only-text, fix/windows-provider-identity, feat/owner-workspace-config-candidate, feat/workspace-named-candidates, feat/filesystem-native-observation, fix/explicit-backend-route-error]
+    branches: [fix/windows-workspace-roots, fix/windows-new-only-text, fix/windows-provider-identity, feat/owner-workspace-config-candidate, feat/workspace-named-candidates, feat/filesystem-native-observation, fix/explicit-backend-route-error, fix/doctor-loaded-policy-scope-fingerprint]
   pull_request:
     paths:
       - 'crates/daemon/src/config.rs'
@@ -91,6 +91,8 @@ jobs:
         run: cargo test --locked -p semwright-core --test provider_runtime builtin_provider_identity_matches_compiled_target
       - name: Invalid explicit backend does not dispatch or bypass policy
         run: cargo test --locked -p semwright-core --test broker_contract impossible_explicit_backend_reports_usable_route_without_dispatch
+      - name: Loaded owner policy digest distinguishes scoped roots and permissions
+        run: cargo test --locked -p semwright-core --test broker_contract doctor_reports_loaded_policy_digest_without_exposing_root_paths
       - name: Closed native Blender request must not bypass Host
         run: |
           python crates/driver-blender/tests/semantic_cross_version_parity.py
@@ -307,6 +309,7 @@ jobs:
           cargo test --locked -p semwright-core --lib scoped_snapshot_tests
           cargo test --locked -p semwright-core --test provider_runtime builtin_provider_identity_matches_compiled_target
           cargo test --locked -p semwright-core --test broker_contract impossible_explicit_backend_reports_usable_route_without_dispatch
+          cargo test --locked -p semwright-core --test broker_contract doctor_reports_loaded_policy_digest_without_exposing_root_paths
           cargo test --locked -p semwright-driver-sdk --lib windows_native_profile_tests
           cargo test --locked -p semwright-driver-sdk --lib runtime_tool_session_
           cargo test --locked -p semwright-driver-host --lib host_tool_protocol_tests
