@@ -655,7 +655,8 @@ export const semwrightExporterPlugin: Plugin={name:'semwright-driver-exporter-v1
         "resolveJsonModule":true},"include":["src"]}))?);
     files.insert(
         "vite.config.ts".into(),
-        include_bytes!("../../../integrations/motion-canvas/runtime/project-vite.config.ts").to_vec(),
+        include_bytes!("../../../integrations/motion-canvas/runtime/project-vite.config.ts")
+            .to_vec(),
     );
     files.insert(
         "plugin-integrity.mjs".into(),

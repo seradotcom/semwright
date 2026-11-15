@@ -18,8 +18,10 @@ const archive = 'vendor/semwright-motion-canvas-vite-plugin-3.17.2-semwright.1.t
 const entry = root => pathToFileURL(path.join(root, directory, 'lib/index.js')).href;
 
 async function isolated(t) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'semwright-vite-contract-'));
+  const temporaryRoot = await fs.realpath(os.tmpdir());
+  const root = await fs.mkdtemp(path.join(temporaryRoot, 'semwright-vite-contract-'));
   t.after(() => fs.rm(root, {recursive:true, force:true}));
+  assert.equal(path.relative(root, await fs.realpath(root)), '', 'fixture root must have physical spelling');
   return root;
 }
 async function packageFixture(t) {

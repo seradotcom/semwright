@@ -41,10 +41,9 @@ fn deterministic_source_and_inventory() {
     assert_eq!(a.fingerprint().unwrap(), b.fingerprint().unwrap());
     assert!(a.files.contains_key("src/scenes/main.tsx"));
     assert!(a.files.contains_key("package-lock.json"));
-    let provenance: serde_json::Value = serde_json::from_slice(
-        &a.files["vendor/motion-canvas-vite-plugin.provenance.json"],
-    )
-    .unwrap();
+    let provenance: serde_json::Value =
+        serde_json::from_slice(&a.files["vendor/motion-canvas-vite-plugin.provenance.json"])
+            .unwrap();
     let archive = provenance["archive"]["path"].as_str().unwrap();
     assert_eq!(
         security::sha256(&a.files[archive]),
