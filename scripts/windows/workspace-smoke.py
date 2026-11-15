@@ -421,6 +421,21 @@ def run(binary_dir: Path, output: Path):
                 assert check_ok(client.execute(
                     "filesystem.read", args, backend="filesystem",
                 ))["text"] == before
+                # Encoding rejects this request before any Execute frame is sent.
+                # MCP must preserve that known outcome, unlike a lost response.
+                oversized = client.execute("filesystem.write", {
+                    "root": "workspace", "path": "oversized-rejected.txt",
+                    "text": "x" * 1_048_576, "overwrite": False,
+                })
+                assert not oversized["ok"], oversized
+                assert oversized["error"]["code"] == "InvalidArgument", oversized
+                assert oversized["error"]["outcome_known"] is True, oversized
+                assert "Frame size exceeds protocol budget" in oversized["error"]["message"]
+                assert oversized["execution"]["backend"] == "transport", oversized
+                assert oversized["execution"]["policy_decision"] == "not_evaluated", oversized
+                assert oversized["execution"]["fallbacks_attempted"] == [], oversized
+                assert not (workspace / "oversized-rejected.txt").exists()
+                assert data.read_bytes() == before.encode("utf-8")
                 before_observation = check_ok(client.execute("filesystem.observe", args))
                 assert before_observation["text"] == initial
                 assert before_observation["bytes"] == len(data.read_bytes())
@@ -543,6 +558,8 @@ def run(binary_dir: Path, output: Path):
                     "explicit_runtime_data_directory": True,
                     "fake": False,
                     "read_write_readback": True,
+                    "oversized_request_known_before_dispatch": True,
+                    "same_client_usable_after_local_rejection": True,
                     "new_only_text_created": True,
                     "new_only_text_human_edit_preserved": True,
                     "new_only_text_known_conflict": True,

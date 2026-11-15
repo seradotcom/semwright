@@ -121,14 +121,16 @@ impl Server {
             result=client.execute(id.clone(),request.clone())=>result,
             _=ct.cancelled()=>{let _=tokio::time::timeout(Duration::from_secs(1),client.cancel(id.clone())).await;Err(Error::new(ErrorCode::Cancelled,"Cancelled; dispatched actions may already have taken effect").uncertain())},
         };
-        result.unwrap_or_else(|e| {
+        result.unwrap_or_else(|error| {
+            // The protocol marks errors uncertain once sending may have begun.
+            // Preserve known local encoding failures, which dispatch no request.
             Envelope::finish(
                 id,
                 request.command,
                 "transport".into(),
                 start.elapsed(),
                 request.dry_run,
-                Err(e.uncertain()),
+                Err(error),
             )
         })
     }
@@ -598,3 +600,6 @@ mod tests {
         assert_eq!(task.task.poll_interval_ms, Some(250));
     }
 }
+
+#[cfg(all(test, unix))]
+mod transport_outcome_tests;
