@@ -14,3 +14,6 @@ crates/driver-mlt-video/fixtures/kdenlive/*.kdenlive text eol=lf
 crates/driver-mlt-video/fixtures/mlt/*.mlt text eol=lf
 crates/driver-mlt-video/fixtures/shotcut/*.mlt text eol=lf
 crates/driver-mlt-video/fixtures/shotcut/*.xml text eol=lf
+
+# Vendored package rosters and tar integrity require byte-exact checkout.
+integrations/motion-canvas/runtime/vendor/** -text

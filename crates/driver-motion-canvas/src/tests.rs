@@ -41,6 +41,21 @@ fn deterministic_source_and_inventory() {
     assert_eq!(a.fingerprint().unwrap(), b.fingerprint().unwrap());
     assert!(a.files.contains_key("src/scenes/main.tsx"));
     assert!(a.files.contains_key("package-lock.json"));
+    let provenance: serde_json::Value = serde_json::from_slice(
+        &a.files["vendor/motion-canvas-vite-plugin.provenance.json"],
+    )
+    .unwrap();
+    let archive = provenance["archive"]["path"].as_str().unwrap();
+    assert_eq!(
+        security::sha256(&a.files[archive]),
+        provenance["archive"]["sha256"].as_str().unwrap()
+    );
+    let lock: serde_json::Value = serde_json::from_slice(&a.files["package-lock.json"]).unwrap();
+    assert_eq!(
+        lock["packages"]["node_modules/@semwright/motion-canvas-vite-plugin"]["integrity"],
+        provenance["archive"]["integrity"]
+    );
+    assert!(a.files.contains_key("plugin-integrity.mjs"));
 }
 
 #[test]
@@ -64,7 +79,7 @@ fn hello_text_source_codegen_and_render_plan_match_goldens() {
         ),
         (
             "vite.config.ts",
-            "8e36f1608d7f12243652e60be366787d3545430352bfdc7231f5159b0420066a",
+            "46b74b8b9dee272ed8401d1bfdc78069e400eb8f0d34ffae9d857fab1fe67367",
         ),
         (
             "semwright-compiler.json",

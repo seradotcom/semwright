@@ -69,7 +69,7 @@ try {
   for (const [name, field] of [
     ['@motion-canvas/core', 'core_version'],
     ['@motion-canvas/2d', 'two_d_version'],
-    ['@motion-canvas/vite-plugin', 'vite_plugin_version'],
+    ['@semwright/motion-canvas-vite-plugin', 'vite_plugin_version'],
   ]) {
     let path;
     try {

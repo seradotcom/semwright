@@ -8,7 +8,19 @@ const nativeAuthoring = fs.readFileSync(new URL('../../../composition/motion/nat
 
 test('runtime dependencies use exact versions', () => {
   for (const [name, version] of Object.entries({...pkg.dependencies, ...pkg.devDependencies})) {
-    assert.match(version, /^\d+\.\d+\.\d+$/, `${name} must use an exact version`);
+    if (name === '@semwright/motion-canvas-vite-plugin') {
+      assert.equal(version, 'file:vendor/semwright-motion-canvas-vite-plugin-3.17.2-semwright.1.tgz');
+      const lock = JSON.parse(fs.readFileSync(new URL('../package-lock.json', import.meta.url)));
+      const provenance = JSON.parse(fs.readFileSync(new URL('../vendor/motion-canvas-vite-plugin.provenance.json', import.meta.url)));
+      const pinned = lock.packages['node_modules/' + name];
+      assert.equal(pinned.version, '3.17.2-semwright.1');
+      assert.equal(pinned.resolved, version);
+      assert.equal(pinned.integrity, provenance.archive.integrity);
+      assert.match(pinned.integrity, /^sha512-[A-Za-z0-9+/]{86}==$/);
+      assert.notEqual(pinned.link, true);
+    } else {
+      assert.match(version, /^\d+\.\d+\.\d+$/, `${name} must use an exact version`);
+    }
   }
   assert.equal(pkg.engines.node, '22.22.0');
   assert.equal(pkg.dependencies['@motion-canvas/core'], '3.17.2');
@@ -19,6 +31,8 @@ test('render harness is bound to Driver Host, runtime-bundle Firefox, and local 
   assert.ok(render.includes('SEMWRIGHT_DRIVER_SANDBOX'));
   assert.ok(render.includes('landlock-bwrap-v1'));
   assert.ok(render.includes('buildForEditor:true'));
+  assert.ok(render.includes('project:normalizePath(projectEntry)'));
+  assert.ok(render.includes("await import(motionPluginEntry)"));
   assert.ok(render.includes('firefox.launchPersistentContext'));
   assert.ok(render.includes('context.pages()[0]'));
   assert.ok(!render.includes('context.newPage()'));

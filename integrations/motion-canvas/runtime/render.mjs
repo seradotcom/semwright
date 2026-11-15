@@ -554,17 +554,23 @@ async function main() {
   // browser registry to this owner-granted runtime bundle before importing it.
   process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
   failurePhase = 'runtime_module_load';
-  failureModule = 'vite';
-  const {build} = await import('vite');
   failureModule = 'motion_canvas_vite_plugin';
-  const {default:motionCanvasModule} = await import('@motion-canvas/vite-plugin');
+  const lockBytes=await fs.readFile(await containedFile(runtimeRoot,path.join(runtimeRoot,'package-lock.json'),'dependency lock'));
+  if(createHash('sha256').update(lockBytes).digest('hex')!==config.dependencyLockDigest)fail('dependency lock binding changed');
+  const verifierBytes=await fs.readFile(await containedFile(runtimeRoot,path.join(runtimeRoot,'plugin-integrity.mjs'),'plugin verifier'));
+  if(verifierBytes.length>8192||createHash('sha256').update(verifierBytes).digest('hex')!=='4768a49131bc2852140cafd74e298cff6c798815ba0d869b5e96df0066077dc1')fail('motion plugin verifier binding changed');
+  const {verifyMotionCanvasPlugin}=await import('data:text/javascript;base64,'+verifierBytes.toString('base64'));
+  const motionPluginEntry=import.meta.resolve('@semwright/motion-canvas-vite-plugin');
+  await verifyMotionCanvasPlugin(runtimeRoot,lockBytes,motionPluginEntry);
+  failureModule = 'vite';
+  const {build,normalizePath} = await import('vite');
+  failureModule = 'motion_canvas_vite_plugin';
+  const {default:motionCanvasModule} = await import(motionPluginEntry);
   const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
   failureModule = 'playwright';
   const {firefox} = await import('playwright');
   failureModule = null;
   failurePhase = 'font_evidence';
-  const lockBytes=await fs.readFile(await containedFile(runtimeRoot,path.join(runtimeRoot,'package-lock.json'),'dependency lock'));
-  if(createHash('sha256').update(lockBytes).digest('hex')!==config.dependencyLockDigest)fail('dependency lock binding changed');
   if(!Array.isArray(config.fontResourcePins)||config.fontResourcePins.length===0||config.fontResourcePins.length>128)fail('font resource pin budget');
   const resourceHash=createHash('sha256');
   for(const pin of config.fontResourcePins){
@@ -605,7 +611,7 @@ async function main() {
     const projectEntry=path.join(work,'src/project.ts');
     const renderEntry=path.join(work,'semwright-render.html');
     failurePhase = 'vite_build';
-    await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js'),buildForEditor:true}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
+    await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:normalizePath(projectEntry),editor:path.join(runtimeRoot,'stub-editor/main.js'),buildForEditor:true,settingsFile:'.semwright-settings.json'}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
     failurePhase = 'frame_export';
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');

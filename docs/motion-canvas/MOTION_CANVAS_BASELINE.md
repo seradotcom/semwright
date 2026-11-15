@@ -27,3 +27,7 @@ Sources:
 - https://motion-canvas.io/api/core/plugin/Plugin/
 - https://motion-canvas.io/api/core/app/Exporter/
 - https://github.com/motion-canvas/motion-canvas/tree/v3.17.2/packages/core/src/app
+
+## Maintained Vite runtime update
+
+The historical upstream baseline above remains a record of its original source. The current runtime uses Vite 6.4.6 and the separately named, MIT-preserving Semwright plugin fork. See [VITE_PLUGIN_FORK.md](VITE_PLUGIN_FORK.md) for exact provenance, source/lock binding, exported-project compatibility and the limits of the development checks.

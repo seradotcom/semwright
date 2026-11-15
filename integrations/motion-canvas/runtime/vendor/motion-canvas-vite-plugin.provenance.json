@@ -1,0 +1,402 @@
+{
+  "archive": {
+    "bytes": 22666,
+    "format": "sorted regular USTAR, mode 0644, uid/gid/mtime 0, gzip mtime 0",
+    "integrity": "sha512-wRRDa8H/cF5X+EdORMmxFWDryUXcHWS8vN3+8Mmi29LlFixQKQKPsm1MmjeVV1f3yfcwguCoVGLAVMEPmYvu9Q==",
+    "path": "vendor/semwright-motion-canvas-vite-plugin-3.17.2-semwright.1.tgz",
+    "sha256": "37c1a32524131d9261f5cd0e2ff28ab6489d078eaef2dc498529d13b3946179c"
+  },
+  "fork": {
+    "modified_upstream_members": [
+      "lib/main.d.ts",
+      "lib/main.js",
+      "lib/partials/settings.d.ts",
+      "lib/partials/settings.js",
+      "lib/partials/webgl.js",
+      "package.json"
+    ],
+    "name": "@semwright/motion-canvas-vite-plugin",
+    "settings": "explicit ordinary filename in project root; no profile fallback",
+    "unmapped_modified_javascript": [
+      "lib/main.js",
+      "lib/partials/settings.js",
+      "lib/partials/webgl.js"
+    ],
+    "version": "3.17.2-semwright.1",
+    "vite": "6.4.6"
+  },
+  "members": [
+    {
+      "bytes": 1283,
+      "path": "FORK_NOTICE.md",
+      "sha256": "0475603a06528a7ba6f06b89739e22016a429ea5f23ebbd8eb820127c99dc808",
+      "upstream_sha256": null
+    },
+    {
+      "bytes": 1070,
+      "path": "LICENSE",
+      "sha256": "b3f12201916c5d478263cd210cf17f3d0c007d03bd574e0b77cac6307953068e",
+      "upstream_bytes": 1070,
+      "upstream_sha256": "b3f12201916c5d478263cd210cf17f3d0c007d03bd574e0b77cac6307953068e"
+    },
+    {
+      "bytes": 91,
+      "path": "lib/index.d.ts",
+      "sha256": "104ad5c0c5a693950994054a83964e1be271e5547ddadc4242ee598e8486beba",
+      "upstream_bytes": 91,
+      "upstream_sha256": "104ad5c0c5a693950994054a83964e1be271e5547ddadc4242ee598e8486beba"
+    },
+    {
+      "bytes": 1059,
+      "path": "lib/index.js",
+      "sha256": "5713de5502f709461dbee25f6eba07122a6f99574dc1ee7dd0390d458309a996",
+      "upstream_bytes": 1059,
+      "upstream_sha256": "5713de5502f709461dbee25f6eba07122a6f99574dc1ee7dd0390d458309a996"
+    },
+    {
+      "bytes": 167,
+      "path": "lib/index.js.map",
+      "sha256": "ca5d92080c7b06c6fbccc70ac7b654bc2fb302610bd8fc351cbb029cbf1827ab",
+      "upstream_bytes": 167,
+      "upstream_sha256": "ca5d92080c7b06c6fbccc70ac7b654bc2fb302610bd8fc351cbb029cbf1827ab"
+    },
+    {
+      "bytes": 2952,
+      "path": "lib/main.d.ts",
+      "sha256": "dacc0e4d778a667b8090fd0b83900ac90826f7be86c5edac683e1ced03abba4d",
+      "upstream_bytes": 2822,
+      "upstream_sha256": "af6b086f904365d1c3d29e215cf39821c991707a3fd755c82a12fc85a095be7e"
+    },
+    {
+      "bytes": 1895,
+      "path": "lib/main.js",
+      "sha256": "59751a53255466421852beef3c5412adaa56aca67bf812db1d6cce20f67532f4",
+      "upstream_bytes": 1811,
+      "upstream_sha256": "9a274bd36fcea94b87da78c74048bad044760b00246864f8583deb3bd9289e06"
+    },
+    {
+      "bytes": 1278,
+      "path": "lib/main.js.map",
+      "sha256": "0cb3b28b2d158cb0d1f55960498354bb96ba6afc80ca4c9db2f14340aca44b1f",
+      "upstream_bytes": 1278,
+      "upstream_sha256": "0cb3b28b2d158cb0d1f55960498354bb96ba6afc80ca4c9db2f14340aca44b1f"
+    },
+    {
+      "bytes": 60,
+      "path": "lib/openInExplorer.d.ts",
+      "sha256": "fd01a36adaae58cf1b22320d4a578fe9596d476ed0c2de91e60f05939712ef8f",
+      "upstream_bytes": 60,
+      "upstream_sha256": "fd01a36adaae58cf1b22320d4a578fe9596d476ed0c2de91e60f05939712ef8f"
+    },
+    {
+      "bytes": 1262,
+      "path": "lib/openInExplorer.js",
+      "sha256": "106c23d2a110700fd0d4a830ed46ac5d754c4b5aa123ab15a5db0ea932d9f19b",
+      "upstream_bytes": 1262,
+      "upstream_sha256": "106c23d2a110700fd0d4a830ed46ac5d754c4b5aa123ab15a5db0ea932d9f19b"
+    },
+    {
+      "bytes": 1064,
+      "path": "lib/openInExplorer.js.map",
+      "sha256": "c5ba51281c92b75fc1ecf85d6cac55bb080a4529445983955321ba8d8f5f8318",
+      "upstream_bytes": 1064,
+      "upstream_sha256": "c5ba51281c92b75fc1ecf85d6cac55bb080a4529445983955321ba8d8f5f8318"
+    },
+    {
+      "bytes": 197,
+      "path": "lib/partials/assets.d.ts",
+      "sha256": "ea069f951c831602fef9402967d4c971c6b4795d62ec4303979d8852cd7f50a1",
+      "upstream_bytes": 197,
+      "upstream_sha256": "ea069f951c831602fef9402967d4c971c6b4795d62ec4303979d8852cd7f50a1"
+    },
+    {
+      "bytes": 1855,
+      "path": "lib/partials/assets.js",
+      "sha256": "ad51692e3cc40101b8400cd4fd8568b487e3e65438a95863a9a97ab91319f772",
+      "upstream_bytes": 1855,
+      "upstream_sha256": "ad51692e3cc40101b8400cd4fd8568b487e3e65438a95863a9a97ab91319f772"
+    },
+    {
+      "bytes": 1454,
+      "path": "lib/partials/assets.js.map",
+      "sha256": "b3d22206189b699168c716b94d2a8284aef5a63c12278bc4d2812dd14cb7440b",
+      "upstream_bytes": 1454,
+      "upstream_sha256": "b3d22206189b699168c716b94d2a8284aef5a63c12278bc4d2812dd14cb7440b"
+    },
+    {
+      "bytes": 1371,
+      "path": "lib/partials/corsProxy.d.ts",
+      "sha256": "65f876fcd0f3c0ff76439e7f175fc44f38c04b6ddb1a091e4cb598bbe7dc0390",
+      "upstream_bytes": 1371,
+      "upstream_sha256": "65f876fcd0f3c0ff76439e7f175fc44f38c04b6ddb1a091e4cb598bbe7dc0390"
+    },
+    {
+      "bytes": 8463,
+      "path": "lib/partials/corsProxy.js",
+      "sha256": "9ef839a051dca460bd54d2623be8411187a49b26276b6f59f9cd25a6268ad75a",
+      "upstream_bytes": 8463,
+      "upstream_sha256": "9ef839a051dca460bd54d2623be8411187a49b26276b6f59f9cd25a6268ad75a"
+    },
+    {
+      "bytes": 5696,
+      "path": "lib/partials/corsProxy.js.map",
+      "sha256": "0a85c600a50a681f903001719c4f094c5109601b954ad88bad0855f33afabb45",
+      "upstream_bytes": 5696,
+      "upstream_sha256": "0a85c600a50a681f903001719c4f094c5109601b954ad88bad0855f33afabb45"
+    },
+    {
+      "bytes": 254,
+      "path": "lib/partials/editor.d.ts",
+      "sha256": "c6aaee4830f5b89fe7e38c15534aeaeba4aeb4b0f93216de41c4c01ff0325bae",
+      "upstream_bytes": 254,
+      "upstream_sha256": "c6aaee4830f5b89fe7e38c15534aeaeba4aeb4b0f93216de41c4c01ff0325bae"
+    },
+    {
+      "bytes": 2924,
+      "path": "lib/partials/editor.js",
+      "sha256": "856b274523f6989842fe506821e621b64f7096813b4d182d1756229df6a140e3",
+      "upstream_bytes": 2924,
+      "upstream_sha256": "856b274523f6989842fe506821e621b64f7096813b4d182d1756229df6a140e3"
+    },
+    {
+      "bytes": 2279,
+      "path": "lib/partials/editor.js.map",
+      "sha256": "528753bd6d7a50417246cd277a29b5be545adc20bfc04e57a8c2fbff65328b73",
+      "upstream_bytes": 2279,
+      "upstream_sha256": "528753bd6d7a50417246cd277a29b5be545adc20bfc04e57a8c2fbff65328b73"
+    },
+    {
+      "bytes": 187,
+      "path": "lib/partials/exporter.d.ts",
+      "sha256": "8b0ecccd0433b30a180712dc71401675e7a15a32a47499d2e319b194aa8a3f90",
+      "upstream_bytes": 187,
+      "upstream_sha256": "8b0ecccd0433b30a180712dc71401675e7a15a32a47499d2e319b194aa8a3f90"
+    },
+    {
+      "bytes": 2187,
+      "path": "lib/partials/exporter.js",
+      "sha256": "f4ff2d4567fe72b2a0402085db99c45b2c20c06696f98fa2e10d6babaeef2d73",
+      "upstream_bytes": 2187,
+      "upstream_sha256": "f4ff2d4567fe72b2a0402085db99c45b2c20c06696f98fa2e10d6babaeef2d73"
+    },
+    {
+      "bytes": 1694,
+      "path": "lib/partials/exporter.js.map",
+      "sha256": "e57a92d548aab8f7d8cc8c71c445b46ee2a45e0def365eb89ecbcb914b6f5d36",
+      "upstream_bytes": 1694,
+      "upstream_sha256": "e57a92d548aab8f7d8cc8c71c445b46ee2a45e0def365eb89ecbcb914b6f5d36"
+    },
+    {
+      "bytes": 240,
+      "path": "lib/partials/index.d.ts",
+      "sha256": "1c2ed323a6be55bebebd97238d516cabcdd2718b74439b727df3339779dcacfa",
+      "upstream_bytes": 240,
+      "upstream_sha256": "1c2ed323a6be55bebebd97238d516cabcdd2718b74439b727df3339779dcacfa"
+    },
+    {
+      "bytes": 1192,
+      "path": "lib/partials/index.js",
+      "sha256": "f5365b22e27747b9e8cbdc66931a30629570a59f42eb06d3d3a2956d82052979",
+      "upstream_bytes": 1192,
+      "upstream_sha256": "f5365b22e27747b9e8cbdc66931a30629570a59f42eb06d3d3a2956d82052979"
+    },
+    {
+      "bytes": 245,
+      "path": "lib/partials/index.js.map",
+      "sha256": "b8b4d7aabef473d2693668438212e0f63939c36499335c545f78c1251cca1207",
+      "upstream_bytes": 245,
+      "upstream_sha256": "b8b4d7aabef473d2693668438212e0f63939c36499335c545f78c1251cca1207"
+    },
+    {
+      "bytes": 77,
+      "path": "lib/partials/meta.d.ts",
+      "sha256": "964757e7799863673111d19f78898ebe39b22ae0c5e8bca26918c1976d5f0d6a",
+      "upstream_bytes": 77,
+      "upstream_sha256": "964757e7799863673111d19f78898ebe39b22ae0c5e8bca26918c1976d5f0d6a"
+    },
+    {
+      "bytes": 2244,
+      "path": "lib/partials/meta.js",
+      "sha256": "b2a57b64daca369215fec4fc1ad350e9143c93a61e3cd4aa9ae7821191b49811",
+      "upstream_bytes": 2244,
+      "upstream_sha256": "b2a57b64daca369215fec4fc1ad350e9143c93a61e3cd4aa9ae7821191b49811"
+    },
+    {
+      "bytes": 1631,
+      "path": "lib/partials/meta.js.map",
+      "sha256": "223e3c4d753f23ecd4293324b396697a736a64cd49dbdd946c0bb4119fa9abd2",
+      "upstream_bytes": 1631,
+      "upstream_sha256": "223e3c4d753f23ecd4293324b396697a736a64cd49dbdd946c0bb4119fa9abd2"
+    },
+    {
+      "bytes": 331,
+      "path": "lib/partials/projects.d.ts",
+      "sha256": "99462264c9aa244141fdbeebbef17b2c93d783c88e6b4b1d45222a5d3e1b2e0c",
+      "upstream_bytes": 331,
+      "upstream_sha256": "99462264c9aa244141fdbeebbef17b2c93d783c88e6b4b1d45222a5d3e1b2e0c"
+    },
+    {
+      "bytes": 3473,
+      "path": "lib/partials/projects.js",
+      "sha256": "0a1dd8f588d9c160f5ecae6f35cb8266353994560f5671c57a99c5d310b950f9",
+      "upstream_bytes": 3473,
+      "upstream_sha256": "0a1dd8f588d9c160f5ecae6f35cb8266353994560f5671c57a99c5d310b950f9"
+    },
+    {
+      "bytes": 2349,
+      "path": "lib/partials/projects.js.map",
+      "sha256": "a5f2ab4d7378af5abe4973c01151b71f051ca7a09d9f9601672ed3b8bde4bcc6",
+      "upstream_bytes": 2349,
+      "upstream_sha256": "a5f2ab4d7378af5abe4973c01151b71f051ca7a09d9f9601672ed3b8bde4bcc6"
+    },
+    {
+      "bytes": 79,
+      "path": "lib/partials/scenes.d.ts",
+      "sha256": "4242485a3346ca551d76ebe63a7276e846d040f49f664cce9acf56b6682291ee",
+      "upstream_bytes": 79,
+      "upstream_sha256": "4242485a3346ca551d76ebe63a7276e846d040f49f664cce9acf56b6682291ee"
+    },
+    {
+      "bytes": 1589,
+      "path": "lib/partials/scenes.js",
+      "sha256": "d81f05dd304e63e3fcde03a97f09484010e034b11f492815a30ea8d304d6d35e",
+      "upstream_bytes": 1589,
+      "upstream_sha256": "d81f05dd304e63e3fcde03a97f09484010e034b11f492815a30ea8d304d6d35e"
+    },
+    {
+      "bytes": 766,
+      "path": "lib/partials/scenes.js.map",
+      "sha256": "a09cb9bad01180753cba1d20eeffec8a6b043c1729e1576f176d3805b4ba1a49",
+      "upstream_bytes": 766,
+      "upstream_sha256": "a09cb9bad01180753cba1d20eeffec8a6b043c1729e1576f176d3805b4ba1a49"
+    },
+    {
+      "bytes": 114,
+      "path": "lib/partials/settings.d.ts",
+      "sha256": "98b2eeda05862d7fce35547951bdcd2c87f3e1cba9b5bee98a2a89b772df248c",
+      "upstream_bytes": 81,
+      "upstream_sha256": "144bc3d59dcf33af6dccd1020e6d665babc54f329770c136f96a9f1f559682c3"
+    },
+    {
+      "bytes": 6507,
+      "path": "lib/partials/settings.js",
+      "sha256": "0cc2633bcec90398a99f9cb2b629560bcbf05325cffb03bf27b2298d06d3dddb",
+      "upstream_bytes": 2725,
+      "upstream_sha256": "0e95541cf69b62be26fc2ee80934ad67dbbc658ad7fc8493f0d630f51dcb1c23"
+    },
+    {
+      "bytes": 1825,
+      "path": "lib/partials/settings.js.map",
+      "sha256": "bc4187b125f868a09e8c0d1951ad4c6372525eb09a6c3c77abd81f7acbc75204",
+      "upstream_bytes": 1825,
+      "upstream_sha256": "bc4187b125f868a09e8c0d1951ad4c6372525eb09a6c3c77abd81f7acbc75204"
+    },
+    {
+      "bytes": 254,
+      "path": "lib/partials/webgl.d.ts",
+      "sha256": "aa46d908281789ba92c6f21934d31f17c309e64a9049c1a5de1abd087e65ac97",
+      "upstream_bytes": 254,
+      "upstream_sha256": "aa46d908281789ba92c6f21934d31f17c309e64a9049c1a5de1abd087e65ac97"
+    },
+    {
+      "bytes": 3581,
+      "path": "lib/partials/webgl.js",
+      "sha256": "980ca61cd25714fd4186e3af66747e47ae8bbd7eab4a6d733759b3adff7a030b",
+      "upstream_bytes": 3514,
+      "upstream_sha256": "80a14398379cdcec87180ef20ca7499adfa4b5e40058f2b4d45594c2906ae7ba"
+    },
+    {
+      "bytes": 3224,
+      "path": "lib/partials/webgl.js.map",
+      "sha256": "1458b7ac4cc0886c5656336e0024c4230b3421dfa776b6861b6f2753afb01dce",
+      "upstream_bytes": 3224,
+      "upstream_sha256": "1458b7ac4cc0886c5656336e0024c4230b3421dfa776b6861b6f2753afb01dce"
+    },
+    {
+      "bytes": 2952,
+      "path": "lib/plugins.d.ts",
+      "sha256": "742cd7346eb0f11781b6c3e8846f45674557d677abe632705864d540e8274aa6",
+      "upstream_bytes": 2952,
+      "upstream_sha256": "742cd7346eb0f11781b6c3e8846f45674557d677abe632705864d540e8274aa6"
+    },
+    {
+      "bytes": 386,
+      "path": "lib/plugins.js",
+      "sha256": "accd8895fbeefef3d8a45b9e11cf92bf1b8673cb388f7e4bf11753efe56feadd",
+      "upstream_bytes": 386,
+      "upstream_sha256": "accd8895fbeefef3d8a45b9e11cf92bf1b8673cb388f7e4bf11753efe56feadd"
+    },
+    {
+      "bytes": 284,
+      "path": "lib/plugins.js.map",
+      "sha256": "483c4f2e51d97a638829a14a033b97d3e9abb0f64c076c046d81dcb733525ae6",
+      "upstream_bytes": 284,
+      "upstream_sha256": "483c4f2e51d97a638829a14a033b97d3e9abb0f64c076c046d81dcb733525ae6"
+    },
+    {
+      "bytes": 190,
+      "path": "lib/utils.d.ts",
+      "sha256": "145468f525fe32916b4e2be7c4ea583eb4515321a0a400e542e19ac1b3243a2c",
+      "upstream_bytes": 190,
+      "upstream_sha256": "145468f525fe32916b4e2be7c4ea583eb4515321a0a400e542e19ac1b3243a2c"
+    },
+    {
+      "bytes": 1960,
+      "path": "lib/utils.js",
+      "sha256": "d9f2f3223ba0f6f31fe9cc425fc2d97d3983ce22fda2f77fa8b15bfc8d232a35",
+      "upstream_bytes": 1960,
+      "upstream_sha256": "d9f2f3223ba0f6f31fe9cc425fc2d97d3983ce22fda2f77fa8b15bfc8d232a35"
+    },
+    {
+      "bytes": 1637,
+      "path": "lib/utils.js.map",
+      "sha256": "b99f68476c782b06bf4069e43b975d11750f922c1d7291ea361c620356ae262f",
+      "upstream_bytes": 1637,
+      "upstream_sha256": "b99f68476c782b06bf4069e43b975d11750f922c1d7291ea361c620356ae262f"
+    },
+    {
+      "bytes": 147,
+      "path": "lib/versions.d.ts",
+      "sha256": "a1811a15df058bd4718e2571b0864fc84a064a858346bc2e6884a85270116386",
+      "upstream_bytes": 147,
+      "upstream_sha256": "a1811a15df058bd4718e2571b0864fc84a064a858346bc2e6884a85270116386"
+    },
+    {
+      "bytes": 1049,
+      "path": "lib/versions.js",
+      "sha256": "7aceb2d5691fece0337d943baff9df2ddcf98c6072c989e39e1162cfce9a7b2d",
+      "upstream_bytes": 1049,
+      "upstream_sha256": "7aceb2d5691fece0337d943baff9df2ddcf98c6072c989e39e1162cfce9a7b2d"
+    },
+    {
+      "bytes": 737,
+      "path": "lib/versions.js.map",
+      "sha256": "49531e30f0c207942b84f3bad83f682ec733a84748f5ea2d152f5873d4375f4c",
+      "upstream_bytes": 737,
+      "upstream_sha256": "49531e30f0c207942b84f3bad83f682ec733a84748f5ea2d152f5873d4375f4c"
+    },
+    {
+      "bytes": 817,
+      "path": "package.json",
+      "sha256": "3ecf039b6e12a734d9229396172586c12acb1c2e02729a7573918008415a6170",
+      "upstream_bytes": 898,
+      "upstream_sha256": "f1bc17027f203b7226de362a6c48faa4b849a21da87d5fe20ece1ed05544c4ae"
+    }
+  ],
+  "schema": "semwright.motion-canvas-vite-plugin-provenance/1",
+  "upstream": {
+    "archive": {
+      "bytes": 20429,
+      "integrity": "sha512-7XrGFoyS6XWdvQN9J6Ch8ehLWD3eBX+sv4L6xxH5As5kF5YA+1MAPZ+QxMNUCcW0tp1VjE+rQkQWsZfXa7BR/g==",
+      "sha256": "3bcf37d161dc60213ea00fd64023d7c0e9fde6f85e1d00b2cf54b91c517e49ae"
+    },
+    "archive_url": "https://registry.npmjs.org/@motion-canvas/vite-plugin/-/vite-plugin-3.17.2.tgz",
+    "git_commit": "e735a995aa738ca682feb4204a39ee7db7b5d279",
+    "license": "MIT",
+    "license_sha256": "b3f12201916c5d478263cd210cf17f3d0c007d03bd574e0b77cac6307953068e",
+    "member_count": 50,
+    "name": "@motion-canvas/vite-plugin",
+    "source": "https://github.com/motion-canvas/motion-canvas",
+    "version": "3.17.2"
+  }
+}

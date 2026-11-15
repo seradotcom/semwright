@@ -836,14 +836,19 @@ mod store_tests {
 
     #[test]
     fn generated_tree_tamper_is_detected_not_reused() {
-        let temp = tempfile::tempdir().unwrap();
-        let store = store(&temp);
-        let p = fixture();
-        let saved = store.create(&p).unwrap();
-        let dir = saved.generated_dir.unwrap();
-        std::fs::write(dir.join("src/project.ts"), b"tampered").unwrap();
-        let loaded = store.load().unwrap();
-        let error = store.materialize(&loaded).unwrap_err();
-        assert_eq!(error.code, ErrorCode::Conflict);
+        for path in [
+            "src/project.ts",
+            "vendor/semwright-motion-canvas-vite-plugin-3.17.2-semwright.1.tgz",
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let store = store(&temp);
+            let p = fixture();
+            let saved = store.create(&p).unwrap();
+            let dir = saved.generated_dir.unwrap();
+            std::fs::write(dir.join(path), b"tampered").unwrap();
+            let loaded = store.load().unwrap();
+            let error = store.materialize(&loaded).unwrap_err();
+            assert_eq!(error.code, ErrorCode::Conflict);
+        }
     }
 }

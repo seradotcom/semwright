@@ -136,6 +136,11 @@ jobs:
           ./node_modules/.bin/tsc --noEmit --target ES2022 --module ESNext --moduleResolution Bundler --strict --skipLibCheck --allowSyntheticDefaultImports native-authoring-check.ts
       - name: Renderer syntax
         run: node --check integrations/motion-canvas/runtime/render.mjs
+      - name: Vite fork source and build contracts without rendering
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          node --test tests/runtime-contract.test.mjs tests/vite-fork.test.mjs
+          npm run test:vite-fork
   adapter-gate:
     if: always()
     needs: [scope, motion-rust, figma-rust, native-typecheck]

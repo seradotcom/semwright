@@ -2,7 +2,7 @@
 //! This is package diagnosis, not proof of module loading, rendering or admission.
 use crate::{
     Error, ErrorCode, Result,
-    model::{MOTION_CANVAS_VERSION, NODE_VERSION},
+    model::{MOTION_CANVAS_VERSION, MOTION_CANVAS_VITE_PLUGIN_VERSION, NODE_VERSION},
 };
 use schemars::JsonSchema;
 use semwright_driver_sdk::{DriverExecutionContext, RuntimeToolArg, RuntimeToolCwd};
@@ -144,9 +144,9 @@ fn decode(bytes: &[u8]) -> Result<RuntimeVersionProbe> {
         }
         Some(
             raw.node_version == NODE_VERSION
-                && packages
-                    .iter()
-                    .all(|value| *value == Some(MOTION_CANVAS_VERSION)),
+                && raw.core_version.as_deref() == Some(MOTION_CANVAS_VERSION)
+                && raw.two_d_version.as_deref() == Some(MOTION_CANVAS_VERSION)
+                && raw.vite_plugin_version.as_deref() == Some(MOTION_CANVAS_VITE_PLUGIN_VERSION),
         )
     } else {
         if packages.iter().any(Option::is_some) {
@@ -194,7 +194,7 @@ mod tests {
             "state":"observed", "node_version":NODE_VERSION,
             "core_version":MOTION_CANVAS_VERSION,
             "two_d_version":MOTION_CANVAS_VERSION,
-            "vite_plugin_version":MOTION_CANVAS_VERSION
+            "vite_plugin_version":MOTION_CANVAS_VITE_PLUGIN_VERSION
         })
     }
 
@@ -223,6 +223,18 @@ mod tests {
         assert_eq!(report.compatible, Some(false));
         assert_eq!(report.observed_core_version.as_deref(), Some("3.18.0"));
         assert_eq!(report.reason_code, "observed_version_mismatch");
+    }
+
+    #[test]
+    fn upstream_plugin_version_does_not_impersonate_the_maintained_fork() {
+        let mut value = observed();
+        value["vite_plugin_version"] = json!(MOTION_CANVAS_VERSION);
+        let report = decode_value(&value).unwrap();
+        assert_eq!(report.compatible, Some(false));
+        assert_eq!(
+            report.observed_vite_plugin_version.as_deref(),
+            Some(MOTION_CANVAS_VERSION)
+        );
     }
 
     #[test]

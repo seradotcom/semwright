@@ -21,6 +21,9 @@
     "integrations/motion-canvas/runtime/package.json",
     "integrations/motion-canvas/runtime/package-lock.json",
     "integrations/motion-canvas/runtime/render.mjs",
+    "integrations/motion-canvas/runtime/vendor",
+    "integrations/motion-canvas/runtime/plugin-integrity.mjs",
+    "integrations/motion-canvas/runtime/project-vite.config.ts",
     "scripts/composition/run-suite.py",
     "scripts/composition/package-dev.py",
     "scripts/composition/test-package-dev.py",
@@ -60,7 +63,11 @@
     "fuzz/fuzz_targets/audio_wav.rs",
     ".github/workflows/audio-diagnostics.yml",
     ".github/workflows/native-integrations.yml",
-    ".github/workflows/composition-av-combined.yml"
+    ".github/workflows/composition-av-combined.yml",
+    "docs/motion-canvas/VITE_PLUGIN_FORK.md",
+    "integrations/motion-canvas/runtime/tools/vite-fork-check.mjs",
+    "integrations/motion-canvas/runtime/tests/vite-fork.test.mjs",
+    "integrations/motion-canvas/runtime/tests/runtime-contract.test.mjs"
   ],
   "composition_source_sha": "16bc180a2cc6819787c805df5c391de9c11c985c",
   "audio_source_sha": "8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3"

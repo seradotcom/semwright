@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 pub const SCHEMA_VERSION: u32 = 1;
 pub const COMPONENT_VERSION: u32 = 1;
 pub const MOTION_CANVAS_VERSION: &str = "3.17.2";
+pub const MOTION_CANVAS_VITE_PLUGIN_VERSION: &str = "3.17.2-semwright.1";
 pub const NODE_VERSION: &str = "22.22.0";
 pub const MAX_PROJECT_BYTES: usize = 524_288;
 pub const MAX_SCENES: usize = 32;

@@ -5,7 +5,7 @@ import process from 'node:process';
 const require = createRequire(import.meta.url);
 await mkdir('evidence', {recursive: true});
 const versions = {node: process.version};
-for (const name of ['@motion-canvas/core', '@motion-canvas/2d', '@motion-canvas/vite-plugin', 'vite', 'playwright']) {
+for (const name of ['@motion-canvas/core', '@motion-canvas/2d', '@semwright/motion-canvas-vite-plugin', 'vite', 'playwright']) {
   versions[name] = JSON.parse(await readFile(require.resolve(`${name}/package.json`), 'utf8')).version;
 }
 let context;
