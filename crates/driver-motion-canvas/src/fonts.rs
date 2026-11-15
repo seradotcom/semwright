@@ -1,6 +1,9 @@
 //! Managed OpenType assets in the existing Motion Canvas provider.
 //! Only the ordinary asset import/handoff may admit bytes. FontSpec carries a
 //! digest reference; it is never treated as a path, URL or authority grant.
+#[path = "font_tables.rs"]
+mod font_tables;
+
 use crate::{
     Error, Result,
     model::{Asset, AssetKind, MAX_ASSET_BYTES, Project},
@@ -322,7 +325,7 @@ pub fn evidence(project: &Project, generated_root: &Path) -> Result<Vec<ManagedF
         .collect()
 }
 
-fn face(bytes: &[u8]) -> Result<ttf_parser::Face<'_>> {
+fn face(bytes: &[u8]) -> Result<font_tables::Face<'_>> {
     if bytes.is_empty()
         || bytes.len() > MAX_ASSET_BYTES
         || !(bytes.starts_with(&[0, 1, 0, 0]) || bytes.starts_with(b"OTTO"))
@@ -331,61 +334,41 @@ fn face(bytes: &[u8]) -> Result<ttf_parser::Face<'_>> {
             "Managed font profile accepts one bounded TTF/OpenType face, not collections or WOFF",
         ));
     }
-    ttf_parser::Face::parse(bytes, 0)
-        .map_err(|_| unsupported("Managed font bytes are not a valid OpenType face"))
+    font_tables::Face::parse(bytes)
+        .ok_or_else(|| unsupported("Managed font bytes are not a valid OpenType face"))
 }
 
-fn metadata(face: &ttf_parser::Face<'_>) -> Result<FontMetadata> {
-    use ttf_parser::{Permissions, Tag, name_id};
-    if face.is_italic()
-        || face.is_oblique()
-        || (face.tables().glyf.is_none()
-            && face.tables().cff.is_none()
-            && face.tables().cff2.is_none())
-    {
+fn metadata(face: &font_tables::Face<'_>) -> Result<FontMetadata> {
+    use read_fonts::types::Tag;
+    if face.is_italic() || face.is_oblique() || !face.has_outlines() {
         return Err(unsupported(
             "Managed font profile requires normal scalable outlines",
         ));
     }
-    if !matches!(
-        face.permissions(),
-        Some(Permissions::Installable | Permissions::Editable)
-    ) || !face.is_outline_embedding_allowed()
-    {
+    let embedding_rights = face.embedding_rights();
+    if !matches!(embedding_rights & 0x000f, 0 | 8) || embedding_rights & 0x0200 != 0 {
         return Err(unsupported(
-            "Font embedding metadata does not permit an editable outline asset",
+            "Managed font embedding flags require unambiguous editable outline permission",
         ));
     }
-    let names = face.names();
-    if names.len() > 256 {
-        return Err(unsupported("Managed font naming table exceeds bounds"));
-    }
-    let mut family_names = BTreeSet::new();
-    for name in names {
-        if matches!(name.name_id, name_id::FAMILY | name_id::TYPOGRAPHIC_FAMILY)
-            && name.name.len() <= 1024
-            && let Some(value) = name.to_string()
-            && security::font(&value)
-        {
-            family_names.insert(value);
-        }
-    }
+    let family_names = face
+        .names()
+        .iter()
+        .filter(|name| security::font(name))
+        .cloned()
+        .collect::<BTreeSet<_>>();
     if family_names.is_empty() || family_names.len() > 16 {
         return Err(unsupported(
             "Managed font has no bounded, decodable family identity",
         ));
     }
     let axes = face.variation_axes();
-    if axes.len() > 1
-        || axes
-            .into_iter()
-            .any(|axis| axis.tag != Tag::from_bytes(b"wght"))
-    {
+    if axes.len() > 1 || axes.iter().any(|axis| axis.tag != Tag::new(b"wght")) {
         return Err(unsupported(
             "Only a single explicit weight variation axis is admitted",
         ));
     }
-    let (weight_min, weight_max, variable_weight) = if let Some(axis) = axes.into_iter().next() {
+    let (weight_min, weight_max, variable_weight) = if let Some(axis) = axes.first() {
         if !axis.min_value.is_finite()
             || !axis.max_value.is_finite()
             || axis.min_value < 1.0
@@ -400,7 +383,7 @@ fn metadata(face: &ttf_parser::Face<'_>) -> Result<FontMetadata> {
             true,
         )
     } else {
-        let weight = face.weight().to_number();
+        let weight = face.weight();
         if !(1..=1000).contains(&weight) {
             return Err(unsupported("Managed font has no valid weight class"));
         }
@@ -408,20 +391,6 @@ fn metadata(face: &ttf_parser::Face<'_>) -> Result<FontMetadata> {
     };
     if weight_min > weight_max {
         return Err(unsupported("Managed font exposes no integral CSS weight"));
-    }
-    // OS/2 has already been parsed and its permissions checked by ttf-parser.
-    let os2 = face
-        .raw_face()
-        .table(Tag::from_bytes(b"OS/2"))
-        .ok_or_else(|| unsupported("Managed font has no OS/2 evidence"))?;
-    let fs_type = os2
-        .get(8..10)
-        .ok_or_else(|| unsupported("Managed font embedding metadata is truncated"))?;
-    let embedding_rights = u16::from_be_bytes([fs_type[0], fs_type[1]]);
-    if !matches!(embedding_rights & 0x000f, 0 | 8) || embedding_rights & 0x0200 != 0 {
-        return Err(unsupported(
-            "Managed font embedding flags require unambiguous editable outline permission",
-        ));
     }
     Ok(FontMetadata {
         family_names: family_names.into_iter().collect(),
@@ -459,7 +428,7 @@ fn inspect_for_request(bytes: &[u8], request: &FontRequest) -> Result<(FontMetad
     }
     for point in &request.codepoints {
         let glyph = char::from_u32(*point).and_then(|point| face.glyph_index(point));
-        if !glyph.is_some_and(|glyph| glyph.0 != 0 && glyph.0 < metadata.glyph_count) {
+        if !glyph.is_some_and(|glyph| glyph != 0 && glyph < metadata.glyph_count) {
             return Err(unsupported(format!(
                 "Managed font does not cover required code point U+{point:04X}"
             )));
@@ -506,12 +475,14 @@ mod tests {
     }
 
     fn with_os2_field(offset: usize, value: u16) -> Vec<u8> {
-        let face = face(TEST_FONT).unwrap();
-        let table = face
-            .raw_face()
-            .table(ttf_parser::Tag::from_bytes(b"OS/2"))
+        let count = u16::from_be_bytes(TEST_FONT[4..6].try_into().unwrap()) as usize;
+        let record = (0..count)
+            .map(|index| 12 + index * 16)
+            .find(|at| &TEST_FONT[*at..*at + 4] == b"OS/2")
             .unwrap();
-        let at = table.as_ptr() as usize - TEST_FONT.as_ptr() as usize + offset;
+        let at = u32::from_be_bytes(TEST_FONT[record + 8..record + 12].try_into().unwrap())
+            as usize
+            + offset;
         let mut altered = TEST_FONT.to_vec();
         altered[at..at + 2].copy_from_slice(&value.to_be_bytes());
         altered
@@ -563,6 +534,37 @@ mod tests {
         // fsSelection offset62: real binary flags, not caller-authored metadata.
         for flags in [1, 0x200] {
             assert!(inspect(&with_os2_field(62, flags)).is_err());
+        }
+    }
+
+    #[test]
+    fn managed_font_parser_rejects_zero_and_out_of_range_glyphs_with_valid_identity() {
+        let glyph_count = u32::from(inspect(TEST_FONT).unwrap().glyph_count);
+        for glyph in [0, glyph_count] {
+            let mut bytes = TEST_FONT.to_vec();
+            let count = u16::from_be_bytes(bytes[4..6].try_into().unwrap()) as usize;
+            let record = (0..count)
+                .map(|index| 12 + index * 16)
+                .find(|at| &bytes[*at..*at + 4] == b"cmap")
+                .unwrap();
+            let offset = bytes.len() as u32;
+            // One Unicode format-12 record; the requested point exists but its ID is inadmissible.
+            let mut cmap = vec![0u8; 40];
+            cmap[2..4].copy_from_slice(&1u16.to_be_bytes());
+            cmap[4..6].copy_from_slice(&3u16.to_be_bytes());
+            cmap[6..8].copy_from_slice(&10u16.to_be_bytes());
+            cmap[8..12].copy_from_slice(&12u32.to_be_bytes());
+            cmap[12..14].copy_from_slice(&12u16.to_be_bytes());
+            cmap[16..20].copy_from_slice(&28u32.to_be_bytes());
+            cmap[24..28].copy_from_slice(&1u32.to_be_bytes());
+            cmap[28..32].copy_from_slice(&0xF0100u32.to_be_bytes());
+            cmap[32..36].copy_from_slice(&0xF0100u32.to_be_bytes());
+            cmap[36..40].copy_from_slice(&glyph.to_be_bytes());
+            bytes[record + 8..record + 12].copy_from_slice(&offset.to_be_bytes());
+            bytes[record + 12..record + 16].copy_from_slice(&40u32.to_be_bytes());
+            bytes.extend(cmap);
+            assert!(inspect(&bytes).is_ok());
+            assert!(inspect_for_request(&bytes, &request(&bytes)).is_err());
         }
     }
 
