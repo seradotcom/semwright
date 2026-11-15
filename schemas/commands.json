@@ -184,6 +184,11 @@
               },
               "maxItems": 1024
             },
+            "policy_config_sha256": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[0-9a-f]{64}$"
+            },
             "shell": {
               "type": "boolean",
               "const": false
@@ -197,6 +202,7 @@
             "profile",
             "granted",
             "apps",
+            "policy_config_sha256",
             "shell",
             "external_confirmation"
           ],
