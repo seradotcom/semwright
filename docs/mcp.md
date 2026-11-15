@@ -25,7 +25,7 @@ its session in-process. Tickets do not grant more capabilities and cannot approv
 commands. Do not put tickets or browser debug endpoints in model prompts. Stdio stdout is
 reserved for MCP; human diagnostics go to stderr.
 
-MCP preserves the local protocol's execution-outcome classification. If encoding
+MCP and the CLI preserve the local protocol's execution-outcome classification. If encoding
 rejects an oversized request before sending any command bytes, its `InvalidArgument`
 error has `outcome_known: true` and no operation was dispatched. A failed send,
 lost or uncorrelated response, or cancellation after dispatch remains uncertain

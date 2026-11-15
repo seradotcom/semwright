@@ -1505,15 +1505,17 @@ async fn run(cli: &Cli) -> Result<i32> {
         value=client.execute(id.clone(),request.clone())=>value,
         _=tokio::signal::ctrl_c()=>{let _=tokio::time::timeout(Duration::from_secs(1),client.cancel(id.clone())).await;Err(Error::new(ErrorCode::Cancelled,"Cancellation sent; a dispatched action may already have taken effect. Do not retry blindly.").uncertain())},
     };
+    // Preserve the protocol boundary: encoding errors are known before dispatch;
+    // send/response failures and cancellation already carry an uncertain outcome.
     let envelope = match result {
-        Ok(e) => e,
-        Err(e) => Envelope::finish(
+        Ok(envelope) => envelope,
+        Err(error) => Envelope::finish(
             id,
             request.command,
             "transport".into(),
             started.elapsed(),
             request.dry_run,
-            Err(e.uncertain()),
+            Err(error),
         ),
     };
     let code = envelope.error.as_ref().map_or(0, Error::exit_code);

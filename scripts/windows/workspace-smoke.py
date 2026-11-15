@@ -436,6 +436,36 @@ def run(binary_dir: Path, output: Path):
                 assert oversized["execution"]["fallbacks_attempted"] == [], oversized
                 assert not (workspace / "oversized-rejected.txt").exists()
                 assert data.read_bytes() == before.encode("utf-8")
+                # A bounded YAML document may expand beyond the IPC frame budget.
+                # Validate only; this fixture must never execute its recipe.
+                large_recipe = base / "oversized-recipe.yaml"
+                recipe_source = (
+                    "version: 1\nname: transport-budget\ndescription: &payload "
+                    + "x" * 131_072 + "\nsteps:\n"
+                )
+                for index in range(8):
+                    recipe_source += (
+                        f"  - id: read_{index}\n    command: filesystem.read\n"
+                        "    args: {root: workspace, path: *payload}\n    timeout_ms: 1000\n"
+                    )
+                large_recipe.write_text(recipe_source, encoding="utf-8")
+                assert large_recipe.stat().st_size < 262_144
+                validation = subprocess.run(
+                    [
+                        str(binary_dir / "semwright.exe"), "--socket", endpoint,
+                        "--session-file", str(ticket), "--json",
+                        "recipe", "validate", str(large_recipe),
+                    ], env=environment, capture_output=True, text=True,
+                    encoding="utf-8", timeout=10,
+                )
+                assert validation.returncode == 2, validation.stderr
+                cli_rejected = json.loads(validation.stdout)
+                assert cli_rejected["command"] == "recipe.validate", cli_rejected
+                assert cli_rejected["error"]["code"] == "InvalidArgument", cli_rejected
+                assert cli_rejected["error"]["outcome_known"] is True, cli_rejected
+                assert "Frame size exceeds protocol budget" in cli_rejected["error"]["message"]
+                assert cli_rejected["execution"]["backend"] == "transport", cli_rejected
+                assert cli_rejected["execution"]["policy_decision"] == "not_evaluated"
                 before_observation = check_ok(client.execute("filesystem.observe", args))
                 assert before_observation["text"] == initial
                 assert before_observation["bytes"] == len(data.read_bytes())
@@ -559,6 +589,7 @@ def run(binary_dir: Path, output: Path):
                     "fake": False,
                     "read_write_readback": True,
                     "oversized_request_known_before_dispatch": True,
+                    "oversized_cli_recipe_known_before_dispatch": True,
                     "same_client_usable_after_local_rejection": True,
                     "new_only_text_created": True,
                     "new_only_text_human_edit_preserved": True,
