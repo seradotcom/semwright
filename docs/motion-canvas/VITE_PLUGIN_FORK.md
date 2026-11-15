@@ -32,9 +32,11 @@ After exact-lock installation with scripts disabled:
 
 ```sh
 npm ci --ignore-scripts --strict-peer-deps --engine-strict --no-audit --no-fund
-node --test tests/runtime-contract.test.mjs tests/vite-fork.test.mjs
+node --test tests/runtime-contract.test.mjs tests/vite-fork-installed.mjs
 npm run test:vite-fork
 ```
+
+`tests/*.test.mjs` remains the source-only roster used without npm installation. The installed fork controls live in `tests/vite-fork-installed.mjs` and are invoked explicitly after exact-lock installation by the existing composition driver diagnostics job; they are not silently skipped when dependencies are absent.
 
 The unit controls include tar/provenance/installed-member/extra-member/lock/entry/alias substitution, explicit settings ownership, invalid JSON, retained writes and ACK behavior. They separately prove the allowed exported dependency link and its rejection as a Native runtime root.
 

@@ -23,7 +23,7 @@ on:
         type: boolean
         default: false
       candidate_sha:
-        description: 'Exact candidate SHA; required when certify_all=true'
+        description: 'Exact candidate SHA; verified when supplied, required when certify_all=true'
         required: false
         type: string
 permissions:
@@ -52,6 +52,12 @@ jobs:
           CERTIFY_ALL: ${{ inputs.certify_all }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
         run: |
+          if [ -n "$CANDIDATE_SHA" ]; then
+            if [[ ! "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] || [ "$CANDIDATE_SHA" != "$GITHUB_SHA" ]; then
+              echo 'candidate_sha must equal the checked-out commit' >&2
+              exit 2
+            fi
+          fi
           mode=iteration
           if [ "$CERTIFY_ALL" = true ]; then mode=certify; fi
           args=(--mode "$mode" --after "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT")
@@ -76,6 +82,8 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: composition-motion-driver-v2
+      - name: Check Motion adapter formatting
+        run: cargo fmt --package semwright-driver-motion-canvas -- --check
       - name: Compile Motion production adapter and tests
         run: cargo check --locked -p semwright-driver-motion-canvas --all-targets
       - name: Native text observation bounds
@@ -139,7 +147,7 @@ jobs:
       - name: Vite fork source and build contracts without rendering
         working-directory: integrations/motion-canvas/runtime
         run: |
-          node --test tests/runtime-contract.test.mjs tests/vite-fork.test.mjs
+          node --test tests/runtime-contract.test.mjs tests/vite-fork-installed.mjs
           npm run test:vite-fork
   adapter-gate:
     if: always()

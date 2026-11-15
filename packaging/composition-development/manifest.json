@@ -66,7 +66,7 @@
     ".github/workflows/composition-av-combined.yml",
     "docs/motion-canvas/VITE_PLUGIN_FORK.md",
     "integrations/motion-canvas/runtime/tools/vite-fork-check.mjs",
-    "integrations/motion-canvas/runtime/tests/vite-fork.test.mjs",
+    "integrations/motion-canvas/runtime/tests/vite-fork-installed.mjs",
     "integrations/motion-canvas/runtime/tests/runtime-contract.test.mjs"
   ],
   "composition_source_sha": "16bc180a2cc6819787c805df5c391de9c11c985c",

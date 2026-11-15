@@ -1,6 +1,8 @@
 # Motion Canvas rendering
 
-Pinned renderer baseline: Motion Canvas **3.17.2**, Node **22.22.0**, Playwright **1.61.1**, Vite **5.4.21**.
+Pinned renderer baseline: Motion Canvas core/2d **3.17.2**, Node **22.22.0**, Playwright **1.61.1**, Vite **6.4.6**, and **`@semwright/motion-canvas-vite-plugin@3.17.2-semwright.1`**.
+
+The maintained plugin's source, build and editor contracts are described in [VITE_PLUGIN_FORK.md](VITE_PLUGIN_FORK.md). Native/Host acceptance at the integrated source remains a separate gate; changing the build integration does not inherit acceptance from an earlier runtime.
 
 Semwright render profiles use a half-open frame range `[first_frame, end_frame_exclusive)`. Motion Canvas 3.17.2 accepts an inclusive end time, so the pinned helper translates the final semantic frame to `(end_frame_exclusive - 1) / fps`; this prevents an extra exported frame at range boundaries.
 

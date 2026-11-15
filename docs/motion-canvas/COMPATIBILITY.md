@@ -6,11 +6,13 @@
 | Component library | 1 |
 | Driver Manifest | 1 |
 | Driver Protocol | 7 / `stdio_v1` |
-| Motion Canvas core/2d/vite-plugin/ui | 3.17.2 |
+| Motion Canvas core/2d/UI | 3.17.2 |
+| Semwright Motion Canvas Vite plugin | `@semwright/motion-canvas-vite-plugin@3.17.2-semwright.1`; [fork provenance](VITE_PLUGIN_FORK.md) |
 | Node | 22.22.0 |
 | Playwright | 1.61.1 |
 | Render browser | Playwright-pinned Firefox 151.0 (`firefox-1532`); exact build recorded by CI |
-| Vite | 5.4.21 |
+| Vite | 6.4.6 |
+| esbuild | 0.25.12 (exact runtime lock) |
 | TypeScript | 5.9.3 |
 | Fonts | Instrument Sans Variable 5.3.0; IBM Plex Mono 5.3.0 |
 
