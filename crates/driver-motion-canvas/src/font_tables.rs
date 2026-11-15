@@ -201,9 +201,11 @@ fn family_names(font: &FontRef<'_>) -> Option<Vec<String>> {
             continue;
         }
         // Unlike NameString's Display, this never replaces an invalid surrogate.
-        // chunks_exact preserves the old reader's treatment of an odd trailing byte.
+        // Discarding an odd trailing byte preserves the prior reader's behavior.
         let units = raw
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|pair| u16::from_be_bytes([pair[0], pair[1]]))
             .collect::<Vec<_>>();
         if let Ok(value) = String::from_utf16(&units) {
@@ -324,10 +326,10 @@ fn map_character(cmap: &Cmap<'_>, cp: u32) -> Option<u16> {
         let subdata = subdata.slice(..length)?;
         let subtable = CmapSubtable::read(subdata).ok()?;
         subdata.slice(subtable.min_byte_range())?;
-        if let CmapSubtable::Format4(table) = &subtable {
-            if table.seg_count_x2() < 2 {
-                return None;
-            }
+        if let CmapSubtable::Format4(table) = &subtable
+            && table.seg_count_x2() < 2
+        {
+            return None;
         }
         let headers = match &subtable {
             CmapSubtable::Format2(table) => Some(cmap2_headers(table)?),
