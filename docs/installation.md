@@ -111,11 +111,12 @@ Registration does not relocate configuration or grant workspace access. Set `SEM
 in each process before setup, as described below, to keep configuration and state on the selected
 drive. A verified bundle can also be used without registration, but then has no removal receipt.
 
-For a normal one-shot `semwright` command or `semwright watch`, Ctrl+C (or
-Ctrl+Break on Windows) during the broker connection stops before dispatch and
-reports a known `Cancelled` error (`outcome_known: true`) in JSON mode.
-Once a command may have been sent, interruption remains uncertain: inspect the
-actual target state before retrying. Cancellation never rolls back effects.
+For broker-backed `semwright` commands, including `watch`, `skill doctor`
+and `recipe test`, Ctrl+C (or Ctrl+Break on Windows) during broker connection
+stops before dispatch and reports a known `Cancelled` error
+(`outcome_known: true`) in JSON mode. Once a command or a Skill operation may
+have had effects, interruption remains uncertain: inspect the broker and any
+generated files before retrying. Cancellation never rolls back effects.
 
 The Windows workspace connection workflow produces a `windows-workspace-portable` development
 artifact from its tested binaries, with an external checksum and an install/uninstall report in

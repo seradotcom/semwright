@@ -1443,16 +1443,23 @@ where
     }
 }
 
-// Only paths that continue handling console interruption after connection
-// can safely subscribe while the handshake is pending.
-fn interruptible_during_connect(command: &Command) -> bool {
-    !matches!(
-        command,
-        Command::Skill { .. }
-            | Command::Recipe {
-                command: Recipe::Test { .. }
-            }
-    )
+/// An interrupted Skill may have observed the broker or written a local artifact.
+/// A dropped in-flight response is never proof that those effects did not happen.
+async fn skill_or_cancel_uncertain<T, A, S>(action: A, signal: S) -> Result<T>
+where
+    A: std::future::Future<Output = Result<T>>,
+    S: std::future::Future<Output = std::io::Result<()>>,
+{
+    tokio::select! {
+        value = action => value,
+        interrupted = signal => {
+            interrupted.map_err(Error::from)?;
+            Err(Error::new(
+                ErrorCode::Cancelled,
+                "Skill operation interrupted after connecting; broker or local file effects may have occurred. Inspect state before retrying",
+            ).uncertain())
+        }
+    }
 }
 
 async fn run(cli: &Cli) -> Result<i32> {
@@ -1469,18 +1476,21 @@ async fn run(cli: &Cli) -> Result<i32> {
         .clone()
         .map(Ok)
         .unwrap_or_else(|| ipc::default_session_ticket(&socket))?;
-    // One-shot and watch commands handle console interruption across connect and execution.
-    // Skill and fake-only recipe-test retain their separate post-connection handling.
+    // Every remote command can stop before the broker handshake without an effect.
+    // Keep this signal through execution: after dispatch, cancellation is uncertain.
     let interrupt = console_interrupt();
     tokio::pin!(interrupt);
-    let mut client = if interruptible_during_connect(&cli.command) {
-        connect_or_cancel_before_dispatch(ipc::connect_persistent(&socket, &ticket), &mut interrupt)
-            .await?
-    } else {
-        ipc::connect_persistent(&socket, &ticket).await?
-    };
+    let mut client = connect_or_cancel_before_dispatch(
+        ipc::connect_persistent(&socket, &ticket),
+        &mut interrupt,
+    )
+    .await?;
     if let Command::Skill { command } = &cli.command {
-        return manage_skill_remote(cli, command, &mut client).await;
+        return skill_or_cancel_uncertain(
+            manage_skill_remote(cli, command, &mut client),
+            &mut interrupt,
+        )
+        .await;
     }
     if let Command::Watch { after } = &cli.command {
         ipc::write_frame(
@@ -1531,17 +1541,29 @@ async fn run(cli: &Cli) -> Result<i32> {
             command: Recipe::Test { .. }
         }
     ) {
-        let check = client
-            .execute(
-                unique_id(),
+        let check_id = unique_id();
+        let check = tokio::select! {
+            value = client.execute(
+                check_id.clone(),
                 ExecuteRequest {
                     command: "doctor".into(),
                     args: json!({}),
                     dry_run: false,
                     backend: None,
                 },
-            )
-            .await?;
+            ) => value?,
+            interrupted = &mut interrupt => {
+                interrupted.map_err(Error::from)?;
+                let _ = tokio::time::timeout(
+                    Duration::from_secs(1),
+                    client.cancel(check_id),
+                ).await;
+                return Err(Error::new(
+                    ErrorCode::Cancelled,
+                    "Interrupted while checking the fake broker; doctor may have been dispatched. Reconcile before retrying",
+                ).uncertain());
+            }
+        };
         if check
             .data
             .as_ref()
@@ -1741,9 +1763,40 @@ mod predispatch_connection_tests {
     use std::cell::Cell;
     use std::future::{pending, ready};
 
-    #[test]
-    fn watch_uses_the_existing_signal_during_broker_connection() {
-        assert!(interruptible_during_connect(&Command::Watch { after: 0 }));
+    #[tokio::test]
+    async fn skill_interruption_after_connection_remains_uncertain() {
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (interrupt_tx, interrupt_rx) = tokio::sync::oneshot::channel();
+        let operation = tokio::spawn(async move {
+            let action = async move {
+                started_tx.send(()).unwrap();
+                pending::<Result<()>>().await
+            };
+            let signal = async move { interrupt_rx.await.map_err(std::io::Error::other) };
+            skill_or_cancel_uncertain(action, signal).await
+        });
+        started_rx.await.unwrap();
+        interrupt_tx.send(()).unwrap();
+        let error = tokio::time::timeout(Duration::from_secs(2), operation)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Cancelled);
+        assert!(!error.outcome_known);
+    }
+
+    #[tokio::test]
+    async fn skill_result_preserves_original_known_denial() {
+        let denial = Error::new(ErrorCode::PolicyDenied, "Skill policy denial");
+        let error = skill_or_cancel_uncertain(
+            ready(Err::<(), Error>(denial)),
+            pending::<std::io::Result<()>>(),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::PolicyDenied);
+        assert!(error.outcome_known);
     }
 
     #[tokio::test]
