@@ -168,6 +168,8 @@ jobs:
           cargo test --locked -p semwright-platform-windows-sys --lib native_runtime_tests
       - name: Owner workspace candidate no-overwrite and safety
         run: cargo test --locked -p semwright-cli --bin semwright workspace::tests
+      - name: CLI pre-dispatch connection interruption remains known
+        run: cargo test --locked -p semwright-cli --bin semwright predispatch_connection_tests
       - name: Shared text no-replace dispatch
         run: cargo test --locked -p semwright-platform-common --lib filesystem::tests
       - name: Workspace configuration and native confinement
@@ -310,6 +312,7 @@ jobs:
           python3 crates/driver-host/tests/windows_blender_checkpoint.py
           cargo test --locked -p semwright-cli setup_
           cargo test --locked -p semwright-cli --bin semwright workspace::tests
+          cargo test --locked -p semwright-cli --bin semwright predispatch_connection_tests
           cargo test --locked -p semwright-daemon --lib config::tests
           cargo test --locked -p semwright-platform-common --lib filesystem::tests
           cargo test --locked -p semwright-protocol --lib transport_outcome_tests

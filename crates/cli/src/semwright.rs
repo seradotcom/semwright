@@ -1406,6 +1406,43 @@ async fn local(cli: &Cli) -> Result<bool> {
     }
     Ok(true)
 }
+/// CLI consoles on Windows deliver Ctrl+C and Ctrl+Break as distinct events.
+/// One future stays live from the first broker connection through Execute.
+async fn console_interrupt() -> std::io::Result<()> {
+    #[cfg(windows)]
+    {
+        let mut ctrl_break = tokio::signal::windows::ctrl_break()?;
+        tokio::select! {
+            result = tokio::signal::ctrl_c() => result,
+            _ = ctrl_break.recv() => Ok(()),
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        tokio::signal::ctrl_c().await
+    }
+}
+
+/// A signal received during the broker handshake cannot imply an executed command.
+/// Keep the same signal future alive through the later Execute phase.
+async fn connect_or_cancel_before_dispatch<T, C, S>(connection: C, signal: S) -> Result<T>
+where
+    C: std::future::Future<Output = Result<T>>,
+    S: std::future::Future<Output = std::io::Result<()>>,
+{
+    tokio::select! {
+        biased;
+        interrupted = signal => {
+            interrupted.map_err(Error::from)?;
+            Err(Error::new(
+                ErrorCode::Cancelled,
+                "Cancelled while connecting to the broker; no command was dispatched",
+            ))
+        }
+        connected = connection => connected,
+    }
+}
+
 async fn run(cli: &Cli) -> Result<i32> {
     if local(cli).await? {
         return Ok(0);
@@ -1420,7 +1457,24 @@ async fn run(cli: &Cli) -> Result<i32> {
         .clone()
         .map(Ok)
         .unwrap_or_else(|| ipc::default_session_ticket(&socket))?;
-    let mut client = ipc::connect_persistent(&socket, &ticket).await?;
+    // Normal one-shot commands listen for console interruption before opening the broker.
+    // Skill, watch and fake-only recipe-test keep their existing special paths.
+    let interrupt = console_interrupt();
+    tokio::pin!(interrupt);
+    let one_shot = !matches!(
+        &cli.command,
+        Command::Skill { .. }
+            | Command::Watch { .. }
+            | Command::Recipe {
+                command: Recipe::Test { .. }
+            }
+    );
+    let mut client = if one_shot {
+        connect_or_cancel_before_dispatch(ipc::connect_persistent(&socket, &ticket), &mut interrupt)
+            .await?
+    } else {
+        ipc::connect_persistent(&socket, &ticket).await?
+    };
     if let Command::Skill { command } = &cli.command {
         return manage_skill_remote(cli, command, &mut client).await;
     }
@@ -1445,7 +1499,7 @@ async fn run(cli: &Cli) -> Result<i32> {
             }
         });
         let result = loop {
-            let message = tokio::select! {_=tokio::signal::ctrl_c()=>break Ok(0),message=ipc::read_frame::<_,ServerMessage>(&mut read)=>message};
+            let message = tokio::select! {_=&mut interrupt=>break Ok(0),message=ipc::read_frame::<_,ServerMessage>(&mut read)=>message};
             match message {
                 Ok(ServerMessage::Event { sequence, event }) => {
                     if let Err(e) = print_result(&json!({"sequence":sequence,"event":event}), true)
@@ -1503,7 +1557,8 @@ async fn run(cli: &Cli) -> Result<i32> {
     let started = std::time::Instant::now();
     let result = tokio::select! {
         value=client.execute(id.clone(),request.clone())=>value,
-        _=tokio::signal::ctrl_c()=>{let _=tokio::time::timeout(Duration::from_secs(1),client.cancel(id.clone())).await;Err(Error::new(ErrorCode::Cancelled,"Cancellation sent; a dispatched action may already have taken effect. Do not retry blindly.").uncertain())},
+        // Preserve the single Ctrl+C subscription across connect and Execute.
+        _=&mut interrupt=>{let _=tokio::time::timeout(Duration::from_secs(1),client.cancel(id.clone())).await;Err(Error::new(ErrorCode::Cancelled,"Cancellation sent; a dispatched action may already have taken effect. Do not retry blindly.").uncertain())},
     };
     // Preserve the protocol boundary: encoding errors are known before dispatch;
     // send/response failures and cancellation already carry an uncertain outcome.
@@ -1673,5 +1728,59 @@ mod setup_tests {
         assert!(setup_result(&cli, Some(&link.join("config"))).is_err());
         assert!(!outside.join("config").exists());
         std::fs::remove_dir(link).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod predispatch_connection_tests {
+    use super::*;
+    use std::cell::Cell;
+    use std::future::{pending, ready};
+
+    #[tokio::test]
+    async fn interrupt_ready_before_connect_never_polls_the_connection() {
+        let started = Cell::new(false);
+        let connection = async {
+            started.set(true);
+            pending::<Result<()>>().await
+        };
+        let error = connect_or_cancel_before_dispatch(connection, ready(Ok(())))
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Cancelled);
+        assert!(error.outcome_known);
+        assert!(!started.get(), "No broker handshake may begin");
+    }
+
+    #[tokio::test]
+    async fn interrupt_during_pending_handshake_remains_known() {
+        let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+        let (interrupt_tx, interrupt_rx) = tokio::sync::oneshot::channel();
+        let work = tokio::spawn(async move {
+            let connect = async move {
+                entered_tx.send(()).unwrap();
+                pending::<Result<()>>().await
+            };
+            let signal = async move { interrupt_rx.await.map_err(std::io::Error::other) };
+            connect_or_cancel_before_dispatch(connect, signal).await
+        });
+        entered_rx.await.unwrap();
+        interrupt_tx.send(()).unwrap();
+        let error = tokio::time::timeout(Duration::from_secs(2), work)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Cancelled);
+        assert!(error.outcome_known);
+    }
+
+    #[tokio::test]
+    async fn successful_connect_is_not_relabelled_or_cancelled() {
+        let connected =
+            connect_or_cancel_before_dispatch(ready(Ok(17u32)), pending::<std::io::Result<()>>())
+                .await
+                .unwrap();
+        assert_eq!(connected, 17);
     }
 }
