@@ -171,10 +171,48 @@ fn setup_mcp_document(mcp: &Path, args: &[Value], environment: &Value) -> Result
         .map_err(Into::into)
 }
 
+// Setup must not write a usable-looking MCP snippet pointing to missing binaries.
+// A dry run still reports missing components without touching the filesystem.
+fn require_setup_companions(bin_dir: &Path, dry_run: bool) -> Result<()> {
+    if dry_run {
+        return Ok(());
+    }
+    let missing = [
+        "semwrightd",
+        "semwright-mcp",
+        "semwright-inspect",
+        "semwright-sandbox",
+    ]
+    .into_iter()
+    .filter(|name| !installed_command(bin_dir, name).is_file())
+    .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        return Err(Error::unavailable(format!(
+            "Semwright setup requires a complete executable bundle next to semwright (missing: {}). Install or extract the complete package before running setup; no configuration was written",
+            missing.join(", ")
+        )));
+    }
+    Ok(())
+}
+
 fn setup_result(cli: &Cli, explicit_config: Option<&Path>) -> Result<Value> {
+    let current = std::env::current_exe()?;
+    let bin_dir = current
+        .parent()
+        .ok_or_else(|| Error::unavailable("Cannot locate the Semwright binary directory"))?;
+    setup_result_with_binary_directory(cli, explicit_config, bin_dir)
+}
+
+fn setup_result_with_binary_directory(
+    cli: &Cli,
+    explicit_config: Option<&Path>,
+    bin_dir: &Path,
+) -> Result<Value> {
     let environment = setup_environment()?;
     let config_dir = setup_config_directory(explicit_config)?;
     validate_setup_directory(&config_dir)?;
+    // Check the executables before creating any owner configuration or snippet.
+    require_setup_companions(bin_dir, cli.dry_run)?;
     if let Some(parent) = config_dir.parent()
         && !cli.dry_run
     {
@@ -185,10 +223,6 @@ fn setup_result(cli: &Cli, explicit_config: Option<&Path>) -> Result<Value> {
     }
 
     let config = config_dir.join("daemon.toml");
-    let current = std::env::current_exe()?;
-    let bin_dir = current
-        .parent()
-        .ok_or_else(|| Error::unavailable("Cannot locate the Semwright binary directory"))?;
     let daemon = installed_command(bin_dir, "semwrightd");
     let mcp = installed_command(bin_dir, "semwright-mcp");
     let inspector = installed_command(bin_dir, "semwright-inspect");
@@ -1649,6 +1683,43 @@ mod setup_tests {
     }
 
     #[test]
+    fn setup_refuses_missing_siblings_before_writing_owner_configuration() {
+        let temp = tempdir().unwrap();
+        let parent = temp.path().canonicalize().unwrap();
+        let bin_dir = parent.join("incomplete-bin");
+        std::fs::create_dir(&bin_dir).unwrap();
+        let config_dir = parent.join("private-config");
+        let mut cli = Cli::try_parse_from(["semwright", "--json", "setup"]).unwrap();
+
+        let error =
+            setup_result_with_binary_directory(&cli, Some(&config_dir), &bin_dir).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Unavailable);
+        for expected in [
+            "semwrightd",
+            "semwright-mcp",
+            "semwright-inspect",
+            "semwright-sandbox",
+        ] {
+            assert!(error.message.contains(expected));
+        }
+        assert!(
+            !config_dir.exists(),
+            "Missing executables must not create config or MCP snippets"
+        );
+
+        cli.dry_run = true;
+        let dry = setup_result_with_binary_directory(&cli, Some(&config_dir), &bin_dir).unwrap();
+        assert_eq!(dry["setup"], "dry-run");
+        assert_eq!(dry["config"]["status"], "would-create");
+        assert_eq!(dry["components"]["daemon"]["present"], false);
+        assert_eq!(dry["components"]["mcp"]["present"], false);
+        assert!(
+            !config_dir.exists(),
+            "Dry-run must not write config or MCP snippets"
+        );
+    }
+
+    #[test]
     fn setup_mcp_document_uses_exact_sibling_binary() {
         let doc = setup_mcp_document(
             Path::new("/opt/semwright/bin/semwright-mcp"),
@@ -1671,13 +1742,23 @@ mod setup_tests {
         #[cfg(unix)]
         let parent_path = parent_path.canonicalize().unwrap();
         let directory = parent_path.join("owner-config");
+        let bin_dir = parent_path.join("complete-bin");
+        std::fs::create_dir(&bin_dir).unwrap();
+        for name in [
+            "semwrightd",
+            "semwright-mcp",
+            "semwright-inspect",
+            "semwright-sandbox",
+        ] {
+            std::fs::write(installed_command(&bin_dir, name), b"test-binary").unwrap();
+        }
         let mut cli = Cli::try_parse_from(["semwright", "--json", "--dry-run", "setup"]).unwrap();
-        let dry = setup_result(&cli, Some(&directory)).unwrap();
+        let dry = setup_result_with_binary_directory(&cli, Some(&directory), &bin_dir).unwrap();
         assert_eq!(dry["config"]["status"], "would-create");
         assert!(!directory.exists());
 
         cli.dry_run = false;
-        let created = setup_result(&cli, Some(&directory)).unwrap();
+        let created = setup_result_with_binary_directory(&cli, Some(&directory), &bin_dir).unwrap();
         assert_eq!(created["config"]["status"], "created");
         assert_eq!(created["permissions_granted"], false);
         let config = directory.join("daemon.toml");
@@ -1686,7 +1767,8 @@ mod setup_tests {
         std::fs::write(&config, "[policy]\nprofile = \"workspace\"\n").unwrap();
 
         cli.socket = Some(parent.path().join("different-endpoint"));
-        let repeated = setup_result(&cli, Some(&directory)).unwrap();
+        let repeated =
+            setup_result_with_binary_directory(&cli, Some(&directory), &bin_dir).unwrap();
         assert_eq!(repeated["config"]["status"], "kept-existing");
         assert!(repeated["config"]["profile"].is_null());
         assert_eq!(repeated["mcp_client_snippet"]["status"], "kept-existing");

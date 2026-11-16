@@ -31,6 +31,12 @@ install/uninstall helpers. Third-party applications, optional application driver
 data are not bundled or automatically installed. Native system dependencies still apply; a portable
 archive is not a fully static operating-system image.
 
+Run `semwright setup` only with a complete sibling executable bundle.
+It refuses to write owner configuration or an MCP client snippet if
+`semwrightd`, `semwright-mcp`, `semwright-inspect`, or
+`semwright-sandbox` is missing next to the CLI. `--dry-run` still reports
+component presence without writing files.
+
 Verify the archive against its external checksum record before extraction, then inspect the included
 helpers. The installer verifies every internal checksum before copying files. Hashes establish
 matching bytes, not publisher identity or safety of an untrusted installer. Stop rather than bypass
