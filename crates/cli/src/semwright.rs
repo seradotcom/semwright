@@ -1443,6 +1443,18 @@ where
     }
 }
 
+// Only paths that continue handling console interruption after connection
+// can safely subscribe while the handshake is pending.
+fn interruptible_during_connect(command: &Command) -> bool {
+    !matches!(
+        command,
+        Command::Skill { .. }
+            | Command::Recipe {
+                command: Recipe::Test { .. }
+            }
+    )
+}
+
 async fn run(cli: &Cli) -> Result<i32> {
     if local(cli).await? {
         return Ok(0);
@@ -1457,19 +1469,11 @@ async fn run(cli: &Cli) -> Result<i32> {
         .clone()
         .map(Ok)
         .unwrap_or_else(|| ipc::default_session_ticket(&socket))?;
-    // Normal one-shot commands listen for console interruption before opening the broker.
-    // Skill, watch and fake-only recipe-test keep their existing special paths.
+    // One-shot and watch commands handle console interruption across connect and execution.
+    // Skill and fake-only recipe-test retain their separate post-connection handling.
     let interrupt = console_interrupt();
     tokio::pin!(interrupt);
-    let one_shot = !matches!(
-        &cli.command,
-        Command::Skill { .. }
-            | Command::Watch { .. }
-            | Command::Recipe {
-                command: Recipe::Test { .. }
-            }
-    );
-    let mut client = if one_shot {
+    let mut client = if interruptible_during_connect(&cli.command) {
         connect_or_cancel_before_dispatch(ipc::connect_persistent(&socket, &ticket), &mut interrupt)
             .await?
     } else {
@@ -1736,6 +1740,11 @@ mod predispatch_connection_tests {
     use super::*;
     use std::cell::Cell;
     use std::future::{pending, ready};
+
+    #[test]
+    fn watch_uses_the_existing_signal_during_broker_connection() {
+        assert!(interruptible_during_connect(&Command::Watch { after: 0 }));
+    }
 
     #[tokio::test]
     async fn interrupt_ready_before_connect_never_polls_the_connection() {
