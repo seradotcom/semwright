@@ -1685,7 +1685,10 @@ mod setup_tests {
     #[test]
     fn setup_refuses_missing_siblings_before_writing_owner_configuration() {
         let temp = tempdir().unwrap();
-        let parent = temp.path().canonicalize().unwrap();
+        let parent = temp.path().to_path_buf();
+        // Only Unix needs canonicalized temporary ancestors for this test.
+        #[cfg(unix)]
+        let parent = parent.canonicalize().unwrap();
         let bin_dir = parent.join("incomplete-bin");
         std::fs::create_dir(&bin_dir).unwrap();
         let config_dir = parent.join("private-config");
