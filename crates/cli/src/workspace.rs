@@ -4,7 +4,7 @@ use semwright_cli::{Cli, create, read_file};
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
 use semwright_types::{Error, ErrorCode, Result};
 use serde_json::{Value, json};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 const MAX_CONFIG_BYTES: usize = 1024 * 1024;
 const CANDIDATE: &str = "daemon-workspace.toml";
@@ -38,6 +38,67 @@ fn overlaps(a: &Path, b: &Path) -> bool {
     {
         a.starts_with(b) || b.starts_with(a)
     }
+}
+
+// Resolve an owner-private path even when its final directories do not exist.
+// Otherwise a workspace grant can enclose a future runtime state directory.
+fn prospective_private_root(path: &Path) -> Result<PathBuf> {
+    if !path.is_absolute() {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Private configuration/runtime path must be absolute",
+        ));
+    }
+    match path.canonicalize() {
+        Ok(resolved) => return Ok(resolved),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Cannot resolve a private configuration/runtime path",
+            ));
+        }
+    }
+
+    let ancestor = path
+        .ancestors()
+        .find(|parent| parent.is_dir())
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Private runtime path has no usable parent",
+            )
+        })?;
+    let suffix = path.strip_prefix(ancestor).map_err(|_| {
+        Error::new(
+            ErrorCode::PolicyDenied,
+            "Cannot resolve future private runtime path",
+        )
+    })?;
+    let mut resolved = ancestor.canonicalize()?;
+    for component in suffix.components() {
+        match component {
+            Component::Normal(name) => resolved.push(name),
+            _ => {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Future private runtime path must have ordinary components",
+                ));
+            }
+        }
+    }
+    Ok(resolved)
+}
+
+fn refuse_private_workspace_overlap(workspace: &Path, private: &Path) -> Result<()> {
+    let private = prospective_private_root(private)?;
+    if overlaps(workspace, &private) {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Workspace overlaps private configuration/runtime/state; choose a separate project",
+        ));
+    }
+    Ok(())
 }
 
 fn existing_owner_root(path: &Path) -> Result<PathBuf> {
@@ -115,14 +176,7 @@ pub(super) fn prepare_workspace(
         }
     }
     for private in protected {
-        if let Ok(private) = private.canonicalize()
-            && overlaps(&resolved, &private)
-        {
-            return Err(Error::new(
-                ErrorCode::PolicyDenied,
-                "Workspace overlaps private configuration/runtime/state; choose a separate project",
-            ));
-        }
+        refuse_private_workspace_overlap(&resolved, &private)?;
     }
 
     let grant = FilesystemGrant {
@@ -291,6 +345,43 @@ mod tests {
         );
         assert!(prepare(&cli(false), "../bad", &root, true, Some(&config)).is_err());
         assert!(!config.join(CANDIDATE).exists());
+    }
+
+    #[test]
+    fn rejects_future_private_runtime_directory_inside_workspace() {
+        let (_dir, config, root) = fixture();
+        let future_private = root.join("future-broker-state").join("cache");
+        assert!(!future_private.exists());
+        let error =
+            refuse_private_workspace_overlap(&root.canonicalize().unwrap(), &future_private)
+                .unwrap_err();
+        assert_eq!(error.code, ErrorCode::PolicyDenied);
+        assert!(
+            !future_private.exists(),
+            "Overlap check must not create private state"
+        );
+        assert!(!config.join(CANDIDATE).exists());
+    }
+
+    #[test]
+    fn separate_future_private_runtime_root_does_not_block_workspace() {
+        let (dir, _config, root) = fixture();
+        let private = dir.path().join("separate-broker-state").join("future");
+        assert!(!private.exists());
+        refuse_private_workspace_overlap(&root.canonicalize().unwrap(), &private).unwrap();
+        assert!(!private.exists());
+    }
+
+    #[test]
+    fn refuses_ambiguous_future_private_runtime_parent_path() {
+        let (_dir, _config, root) = fixture();
+        let private = root.join("missing").join("..").join("private-state");
+        assert_eq!(
+            refuse_private_workspace_overlap(&root.canonicalize().unwrap(), &private)
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
     }
 
     #[test]

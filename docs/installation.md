@@ -183,9 +183,10 @@ rather than copied (they may contain private or wider authority settings). The
 command validates the named existing non-linked directory and writes a **new**
 `daemon-workspace.toml` containing the single proposed grant. It leaves the source
 and MCP-client configuration unchanged. An existing candidate is never replaced,
-and a dry run creates nothing or initializes no runtime. Known owner data/config
-root overlap is rejected before staging; broker startup still performs its full
-independent validation of runtime, state and grant boundaries.
+and a dry run creates nothing or initializes no runtime. Workspace roots that
+overlap private configuration or runtime data are rejected even when the private
+directory has not yet been created. Broker startup still independently validates
+runtime, state and grant boundaries.
 
 For a second independent project under the **same pristine setup directory**, add
 `--candidate second` to the command. It creates
