@@ -324,6 +324,40 @@ pub fn validate_private_data_directory(path: &Path) -> Result<()> {
     semwright_platform_windows_sys::paths::validate_private_data_directory(path)
 }
 
+/// Resolve the Linux owner's default and explicit XDG private roots without
+/// initializing the broker runtime or creating any directories.
+#[cfg(target_os = "linux")]
+pub fn owner_private_roots_without_creating() -> Result<Vec<PathBuf>> {
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| Error::unavailable("HOME is required for workspace private path checks"))?;
+    if !home.is_absolute() {
+        return Err(Error::invalid("HOME must be absolute"));
+    }
+    let xdg = |key: &str, default: &str| -> Result<PathBuf> {
+        let base = std::env::var_os(key)
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join(default));
+        if !base.is_absolute() {
+            return Err(Error::invalid("XDG private data path must be absolute"));
+        }
+        Ok(base.join("semwright"))
+    };
+    let mut roots = vec![
+        xdg("XDG_STATE_HOME", ".local/state")?,
+        xdg("XDG_CONFIG_HOME", ".config")?,
+        xdg("XDG_CACHE_HOME", ".cache")?,
+    ];
+    if let Some(runtime) = std::env::var_os("XDG_RUNTIME_DIR") {
+        let runtime = PathBuf::from(runtime);
+        if !runtime.is_absolute() {
+            return Err(Error::invalid("XDG_RUNTIME_DIR must be absolute"));
+        }
+        roots.push(runtime.join("semwright"));
+    }
+    Ok(roots)
+}
+
 /// Inspect owner-private Windows runtime roots without creating any directories.
 #[cfg(target_os = "windows")]
 pub fn owner_private_roots_without_creating() -> Result<Vec<PathBuf>> {

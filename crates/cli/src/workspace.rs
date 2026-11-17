@@ -160,7 +160,7 @@ pub(super) fn prepare_workspace(
     // A dry run must never invoke it. Check the existing config location and
     // explicit owner data paths without activating any runtime or broker.
     let mut protected = vec![config_dir.clone()];
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     protected.extend(semwright_platform_services::owner_private_roots_without_creating()?);
     #[cfg(unix)]
     for name in [
@@ -403,6 +403,34 @@ mod tests {
                 ErrorCode::PolicyDenied
             );
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn protects_linux_default_xdg_roots_before_workspace_staging() {
+        let (_dir, config, _root) = fixture();
+        let home = PathBuf::from(std::env::var_os("HOME").expect("Linux HOME"));
+        let protected =
+            semwright_platform_services::owner_private_roots_without_creating().unwrap();
+        for (key, default) in [
+            ("XDG_STATE_HOME", ".local/state"),
+            ("XDG_CONFIG_HOME", ".config"),
+            ("XDG_CACHE_HOME", ".cache"),
+        ] {
+            let base = std::env::var_os(key)
+                .map(PathBuf::from)
+                .unwrap_or_else(|| home.join(default));
+            assert!(protected.contains(&base.join("semwright")), "{key}");
+        }
+        if let Some(runtime) = std::env::var_os("XDG_RUNTIME_DIR") {
+            assert!(protected.contains(&PathBuf::from(runtime).join("semwright")));
+        }
+        if protected.iter().any(|private| private.starts_with(&home)) {
+            let home = home.canonicalize().unwrap();
+            let error = prepare(&cli(true), "ownerhome", &home, true, Some(&config)).unwrap_err();
+            assert_eq!(error.code, ErrorCode::PolicyDenied);
+        }
+        assert!(!config.join(CANDIDATE).exists());
     }
 
     #[test]
