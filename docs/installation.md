@@ -185,7 +185,9 @@ command validates the named existing non-linked directory and writes a **new**
 and MCP-client configuration unchanged. An existing candidate is never replaced,
 and a dry run creates nothing or initializes no runtime. Workspace roots that
 overlap private configuration or runtime data are rejected even when the private
-directory has not yet been created. Broker startup still independently validates
+directory has not yet been created. On Windows this includes the default local
+and roaming Semwright directories when `SEMWRIGHT_DATA_DIR` is unset, even with
+a separate `--config-dir`. Broker startup still independently validates
 runtime, state and grant boundaries.
 
 For a second independent project under the **same pristine setup directory**, add

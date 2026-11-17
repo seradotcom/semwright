@@ -324,6 +324,12 @@ pub fn validate_private_data_directory(path: &Path) -> Result<()> {
     semwright_platform_windows_sys::paths::validate_private_data_directory(path)
 }
 
+/// Inspect owner-private Windows runtime roots without creating any directories.
+#[cfg(target_os = "windows")]
+pub fn owner_private_roots_without_creating() -> Result<Vec<PathBuf>> {
+    semwright_platform_windows_sys::paths::owner_private_roots_without_creating()
+}
+
 /// Resolve Windows configuration without creating broker runtime or state.
 #[cfg(target_os = "windows")]
 pub fn configuration_directory() -> Result<PathBuf> {

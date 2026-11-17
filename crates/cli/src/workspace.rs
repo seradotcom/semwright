@@ -161,9 +161,7 @@ pub(super) fn prepare_workspace(
     // explicit owner data paths without activating any runtime or broker.
     let mut protected = vec![config_dir.clone()];
     #[cfg(target_os = "windows")]
-    if let Some(data) = std::env::var_os("SEMWRIGHT_DATA_DIR") {
-        protected.push(data.into());
-    }
+    protected.extend(semwright_platform_services::owner_private_roots_without_creating()?);
     #[cfg(unix)]
     for name in [
         "XDG_RUNTIME_DIR",
@@ -382,6 +380,29 @@ mod tests {
                 .code,
             ErrorCode::PolicyDenied
         );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn protects_windows_default_private_roots_without_creating_them() {
+        let private_roots =
+            semwright_platform_services::owner_private_roots_without_creating().unwrap();
+        assert!(!private_roots.is_empty());
+        for private in private_roots {
+            let existing_ancestor = private
+                .ancestors()
+                .skip(1)
+                .find(|path| path.is_dir())
+                .unwrap()
+                .canonicalize()
+                .unwrap();
+            assert_eq!(
+                refuse_private_workspace_overlap(&existing_ancestor, &private)
+                    .unwrap_err()
+                    .code,
+                ErrorCode::PolicyDenied
+            );
+        }
     }
 
     #[test]

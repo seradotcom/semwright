@@ -250,6 +250,21 @@ pub fn validate_private_data_directory(path: &Path) -> Result<()> {
     data_directory_paths(path).map(|_| ())
 }
 
+/// Return the private runtime roots without creating or hardening directories.
+/// Workspace candidates must not grant these paths, including their ancestors,
+/// even when the owner selects a separate setup configuration directory.
+pub fn owner_private_roots_without_creating() -> Result<Vec<PathBuf>> {
+    if let Some(root) = std::env::var_os("SEMWRIGHT_DATA_DIR") {
+        let root = PathBuf::from(root);
+        data_directory_paths(&root)?;
+        return Ok(vec![root]);
+    }
+    Ok(vec![
+        known_folder(&FOLDERID_LocalAppData)?.join("Semwright"),
+        known_folder(&FOLDERID_RoamingAppData)?.join("Semwright"),
+    ])
+}
+
 /// Resolve setup's destination without creating runtime or state directories.
 pub fn configuration_directory() -> Result<PathBuf> {
     if let Some(root) = std::env::var_os("SEMWRIGHT_DATA_DIR") {
