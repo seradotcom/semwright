@@ -59,6 +59,15 @@ jobs:
         if: ${{ !inputs.helpers_only }}
         with:
           toolchain: 1.98.1
+      - name: Native CLI setup command contracts
+        if: ${{ !inputs.helpers_only }}
+        run: |
+          $env:SEMWRIGHT_TEST_POWERSHELL = (Get-Command powershell -ErrorAction Stop).Source
+          cargo test --locked -p semwright-cli --bin semwright setup_tests -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:SEMWRIGHT_TEST_POWERSHELL = (Get-Command pwsh -ErrorAction Stop).Source
+          cargo test --locked -p semwright-cli --bin semwright setup_shell_quote_preserves_powershell_literals -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build native delivery binaries
         if: ${{ !inputs.helpers_only }}
         run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins

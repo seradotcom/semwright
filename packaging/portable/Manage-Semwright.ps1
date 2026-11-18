@@ -138,9 +138,9 @@ if ($Mode -eq 'Install') {
     if ($InPlace) { Write-Output "Registered verified portable files in $Prefix" }
     else { Write-Output "Installed in $Prefix" }
     Write-Output 'PATH, registry, services, configuration and Windows security controls were not changed.'
-    # PowerShell single-quoted literals preserve metacharacters and double apostrophes.
-    $CliLiteral = "'" + (Join-Path $Prefix 'bin\semwright.exe').Replace("'", "''") + "'"
-    $UninstallLiteral = "'" + (Join-Path $Prefix 'Uninstall-Semwright.ps1').Replace("'", "''") + "'"
+    # Use PowerShell's escaper, including its typographic single-quote delimiters.
+    $CliLiteral = "'" + [System.Management.Automation.Language.CodeGeneration]::EscapeSingleQuotedStringContent((Join-Path $Prefix 'bin\semwright.exe')) + "'"
+    $UninstallLiteral = "'" + [System.Management.Automation.Language.CodeGeneration]::EscapeSingleQuotedStringContent((Join-Path $Prefix 'Uninstall-Semwright.ps1')) + "'"
     Write-Output "Next: & $CliLiteral setup"
     Write-Output "Then start the broker and run: & $CliLiteral --json doctor"
     Write-Output "Remove: & $UninstallLiteral"

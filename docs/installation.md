@@ -114,7 +114,8 @@ files cause refusal and unregistered projects remain. The ordinary copying insta
 still restricts `-Prefix` to the user profile.
 
 Printed setup, doctor and removal commands preserve the literal installation path, including spaces,
-apostrophes and PowerShell metacharacters. Copy each command into PowerShell as printed.
+ASCII or typographic apostrophes and PowerShell metacharacters. The follow-up commands printed by
+`semwright setup` use the same literal-path rules. Copy each command into PowerShell as printed.
 
 Registration does not relocate configuration or grant workspace access. Set `SEMWRIGHT_DATA_DIR`
 in each process before setup, as described below, to keep configuration and state on the selected

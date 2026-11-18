@@ -79,10 +79,24 @@ class WindowsInPlaceInstallTests(unittest.TestCase):
         self.assertEqual(self.parent_file.read_bytes(), b"preserve the sibling project\n")
 
     def test_printed_commands_preserve_literal_installation_paths(self):
-        renamed = self.root / "Owner's $cache; [portable]"
+        self.assert_printed_commands("Owner's $cache; [portable]")
+
+    def test_printed_commands_preserve_smart_quotes(self):
+        self.assert_printed_commands("Owner\u2018s\u2019 data\u201a\u201b $cache; [portable]")
+
+    def assert_printed_commands(self, name):
+        renamed = self.root / name
         self.bundle.rename(renamed)
         self.bundle = renamed
-        output = self.helper("Install", "-InPlace")
+        installed = subprocess.run(
+            [SHELL, "-NoProfile", "-NonInteractive", "-Command",
+             "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); "
+             "& $env:SEMWRIGHT_INSTALL_SCRIPT -InPlace"],
+            env={**PS_ENV, "SEMWRIGHT_INSTALL_SCRIPT": str(self.bundle / HELPERS[0])},
+            capture_output=True, encoding="utf-8", timeout=20,
+        )
+        self.assertEqual(installed.returncode, 0, installed.stdout + installed.stderr)
+        output = installed.stdout
         labels = ("Next: ", "Then start the broker and run: ", "Remove: ")
         commands = []
         for label in labels:
@@ -96,6 +110,7 @@ class WindowsInPlaceInstallTests(unittest.TestCase):
         # executables are inert; the oracle is PowerShell's actual command AST.
         parser = r"""
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 $results = foreach ($text in (Get-Content -LiteralPath $env:SEMWRIGHT_PRINTED_COMMANDS -Raw | ConvertFrom-Json)) {
     $tokens = $null
     $parseErrors = $null
@@ -121,7 +136,7 @@ ConvertTo-Json -InputObject @($results) -Depth 4 -Compress
         result = subprocess.run(
             [SHELL, "-NoProfile", "-NonInteractive", "-Command", parser],
             env={**PS_ENV, "SEMWRIGHT_PRINTED_COMMANDS": str(inputs)},
-            capture_output=True, text=True, errors="replace", timeout=15,
+            capture_output=True, encoding="utf-8", timeout=15,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         cli = str(self.bundle / "bin/semwright.exe")

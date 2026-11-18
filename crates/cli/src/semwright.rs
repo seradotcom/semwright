@@ -291,7 +291,19 @@ fn setup_result_with_binary_directory(
 fn setup_shell_quote(value: &str) -> String {
     let value = escape_terminal_text(value);
     #[cfg(target_os = "windows")]
-    return format!("'{}'", value.replace('\'', "''"));
+    {
+        // PowerShell also treats U+2018..U+201B as single-quote delimiters.
+        let mut quoted = String::with_capacity(value.len() + 2);
+        quoted.push('\'');
+        for character in value.chars() {
+            quoted.push(character);
+            if matches!(character, '\'' | '\u{2018}'..='\u{201b}') {
+                quoted.push(character);
+            }
+        }
+        quoted.push('\'');
+        return quoted;
+    }
     #[cfg(not(target_os = "windows"))]
     return format!("'{}'", value.replace('\'', "'\\''"));
 }
@@ -1658,6 +1670,52 @@ async fn main() {
 mod setup_tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn setup_shell_quote_preserves_powershell_literals() {
+        let path = "E:\\Apps\\Owner's \u{2018}data\u{2019}\u{201a}\u{201b} $cache; [portable]";
+        let arguments = json!(["semwright.exe", path, "--dry-run"]);
+        // Parse the real rendered command without executing any of its content.
+        let parser = r#"
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+$tokens = $null
+$parseErrors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseInput($env:SEMWRIGHT_SETUP_COMMAND, [ref]$tokens, [ref]$parseErrors)
+if ($parseErrors.Count -ne 0) { throw 'Invalid PowerShell command.' }
+$statements = @($ast.EndBlock.Statements)
+if ($statements.Count -ne 1) { throw 'Expected exactly one statement.' }
+$pipeline = @($statements[0].PipelineElements)
+if ($pipeline.Count -ne 1 -or $pipeline[0].InvocationOperator -ne 'Ampersand') {
+    throw 'Expected a single direct command invocation.'
+}
+$values = @($pipeline[0].CommandElements | ForEach-Object {
+    if ($_ -isnot [System.Management.Automation.Language.StringConstantExpressionAst]) {
+        throw 'Command argument is not a literal.'
+    }
+    $_.Value
+})
+ConvertTo-Json -InputObject $values -Compress
+"#;
+        let shell = std::env::var_os("SEMWRIGHT_TEST_POWERSHELL")
+            .unwrap_or_else(|| "powershell.exe".into());
+        let output = std::process::Command::new(shell)
+            .args(["-NoProfile", "-NonInteractive", "-Command", parser])
+            .env_remove("PSModulePath")
+            .env("SEMWRIGHT_SETUP_COMMAND", setup_shell_command(&arguments))
+            .output()
+            .expect("PowerShell parser must be available on Windows");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            serde_json::from_slice::<Value>(&output.stdout).unwrap(),
+            arguments
+        );
+    }
 
     #[test]
     fn setup_file_is_non_overwriting_and_idempotent() {
