@@ -1,5 +1,6 @@
 """Windows install helper contracts with isolated files and one test-owned process."""
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -76,6 +77,59 @@ class WindowsInPlaceInstallTests(unittest.TestCase):
         self.helper("Uninstall")
         self.assertEqual(self.snapshot(), {"user-project.txt": b"keep the user's project\n"})
         self.assertEqual(self.parent_file.read_bytes(), b"preserve the sibling project\n")
+
+    def test_printed_commands_preserve_literal_installation_paths(self):
+        renamed = self.root / "Owner's $cache; [portable]"
+        self.bundle.rename(renamed)
+        self.bundle = renamed
+        output = self.helper("Install", "-InPlace")
+        labels = ("Next: ", "Then start the broker and run: ", "Remove: ")
+        commands = []
+        for label in labels:
+            matching = [line[len(label):] for line in output.splitlines()
+                        if line.startswith(label)]
+            self.assertEqual(len(matching), 1, output)
+            commands.extend(matching)
+        inputs = self.root / "printed-commands.json"
+        inputs.write_text(json.dumps(commands), encoding="utf-8")
+        # Parse only: never execute installer-provided command text. The fixture
+        # executables are inert; the oracle is PowerShell's actual command AST.
+        parser = r"""
+$ErrorActionPreference = 'Stop'
+$results = foreach ($text in (Get-Content -LiteralPath $env:SEMWRIGHT_PRINTED_COMMANDS -Raw | ConvertFrom-Json)) {
+    $tokens = $null
+    $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count -ne 0) { throw 'Printed command is not valid PowerShell.' }
+    $statements = @($ast.EndBlock.Statements)
+    if ($statements.Count -ne 1) { throw 'Expected exactly one statement.' }
+    $pipeline = @($statements[0].PipelineElements)
+    if ($pipeline.Count -ne 1) { throw 'Expected exactly one command.' }
+    $command = $pipeline[0]
+    if ($command.InvocationOperator -ne 'Ampersand') { throw 'Expected direct invocation.' }
+    $elements = @($command.CommandElements)
+    if ($elements[0] -isnot [System.Management.Automation.Language.StringConstantExpressionAst]) {
+        throw 'Executable path is not a literal.'
+    }
+    [pscustomobject]@{
+        path = $elements[0].Value
+        args = @($elements | Select-Object -Skip 1 | ForEach-Object { $_.Extent.Text })
+    }
+}
+ConvertTo-Json -InputObject @($results) -Depth 4 -Compress
+"""
+        result = subprocess.run(
+            [SHELL, "-NoProfile", "-NonInteractive", "-Command", parser],
+            env={**PS_ENV, "SEMWRIGHT_PRINTED_COMMANDS": str(inputs)},
+            capture_output=True, text=True, errors="replace", timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        cli = str(self.bundle / "bin/semwright.exe")
+        self.assertEqual(json.loads(result.stdout), [
+            {"path": cli, "args": ["setup"]},
+            {"path": cli, "args": ["--json", "doctor"]},
+            {"path": str(self.bundle / "Uninstall-Semwright.ps1"), "args": []},
+        ])
 
     def test_clean_in_place_uninstall_removes_only_the_bundle(self):
         self.helper("Install", "-InPlace")

@@ -138,9 +138,12 @@ if ($Mode -eq 'Install') {
     if ($InPlace) { Write-Output "Registered verified portable files in $Prefix" }
     else { Write-Output "Installed in $Prefix" }
     Write-Output 'PATH, registry, services, configuration and Windows security controls were not changed.'
-    Write-Output "Next: & '$Prefix\bin\semwright.exe' setup"
-    Write-Output "Then start the broker and run: & '$Prefix\bin\semwright.exe' --json doctor"
-    Write-Output "Remove: & '$Prefix\Uninstall-Semwright.ps1'"
+    # PowerShell single-quoted literals preserve metacharacters and double apostrophes.
+    $CliLiteral = "'" + (Join-Path $Prefix 'bin\semwright.exe').Replace("'", "''") + "'"
+    $UninstallLiteral = "'" + (Join-Path $Prefix 'Uninstall-Semwright.ps1').Replace("'", "''") + "'"
+    Write-Output "Next: & $CliLiteral setup"
+    Write-Output "Then start the broker and run: & $CliLiteral --json doctor"
+    Write-Output "Remove: & $UninstallLiteral"
 } else {
     $Records = @(Read-Records $Receipt)
     Assert-Files $Prefix $Records

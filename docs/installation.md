@@ -113,6 +113,9 @@ Run that bundle's own uninstaller to remove only unchanged registered files; cha
 files cause refusal and unregistered projects remain. The ordinary copying installer
 still restricts `-Prefix` to the user profile.
 
+Printed setup, doctor and removal commands preserve the literal installation path, including spaces,
+apostrophes and PowerShell metacharacters. Copy each command into PowerShell as printed.
+
 Registration does not relocate configuration or grant workspace access. Set `SEMWRIGHT_DATA_DIR`
 in each process before setup, as described below, to keep configuration and state on the selected
 drive. A verified bundle can also be used without registration, but then has no removal receipt.

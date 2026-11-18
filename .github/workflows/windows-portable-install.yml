@@ -13,6 +13,11 @@ on:
       - 'tests/python/test_portable_package.py'
       - '.github/workflows/windows-portable-install.yml'
   workflow_dispatch:
+    inputs:
+      helpers_only:
+        description: Run helper contracts without rebuilding runtime binaries
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -51,11 +56,14 @@ jobs:
           python -B tests/python/test_portable_package.py -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        if: ${{ !inputs.helpers_only }}
         with:
           toolchain: 1.98.1
       - name: Build native delivery binaries
+        if: ${{ !inputs.helpers_only }}
         run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins
       - name: Package and verify both installation modes
+        if: ${{ !inputs.helpers_only }}
         run: |
           python scripts/release/portable_package.py --bin-dir target/debug --platform windows --arch x86_64 --output dist/windows-portable --report verification/windows-portable/package.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -76,7 +84,7 @@ jobs:
           path: verification/windows-portable/
           retention-days: 14
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: success()
+        if: ${{ success() && !inputs.helpers_only }}
         with:
           name: windows-portable-install-package
           path: dist/windows-portable/
