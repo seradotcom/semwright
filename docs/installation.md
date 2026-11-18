@@ -188,8 +188,10 @@ overlap private configuration or runtime data are rejected even when the private
 directory has not yet been created. On Windows this includes the default local
 and roaming Semwright directories when `SEMWRIGHT_DATA_DIR` is unset, even with
 a separate `--config-dir`. On Linux the default XDG state, config and cache
-roots are protected even if their environment variables are unset. Broker
-startup still independently validates runtime, state and grant boundaries.
+roots are protected even if their environment variables are unset. On macOS,
+private per-user runtime, Application Support and cache roots are likewise
+excluded without creating them. Broker startup independently validates runtime,
+state and grant boundaries.
 
 For a second independent project under the **same pristine setup directory**, add
 `--candidate second` to the command. It creates

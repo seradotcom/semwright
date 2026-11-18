@@ -160,7 +160,8 @@ pub(super) fn prepare_workspace(
     // A dry run must never invoke it. Check the existing config location and
     // explicit owner data paths without activating any runtime or broker.
     let mut protected = vec![config_dir.clone()];
-    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    // All supported hosts must guard their default owner-private state, not
+    // only the config-dir explicitly selected for this proposed workspace.
     protected.extend(semwright_platform_services::owner_private_roots_without_creating()?);
     #[cfg(unix)]
     for name in [
@@ -430,6 +431,46 @@ mod tests {
             let error = prepare(&cli(true), "ownerhome", &home, true, Some(&config)).unwrap_err();
             assert_eq!(error.code, ErrorCode::PolicyDenied);
         }
+        assert!(!config.join(CANDIDATE).exists());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn protects_macos_default_private_roots_before_workspace_staging() {
+        let (_dir, config, project) = fixture();
+        let private = semwright_platform_services::owner_private_roots_without_creating().unwrap();
+        assert_eq!(private.len(), 4);
+        for path in &private {
+            let ancestor = path
+                .ancestors()
+                .skip(1)
+                .find(|candidate| candidate.is_dir())
+                .unwrap()
+                .canonicalize()
+                .unwrap();
+            assert_eq!(
+                refuse_private_workspace_overlap(&ancestor, path)
+                    .unwrap_err()
+                    .code,
+                ErrorCode::PolicyDenied
+            );
+        }
+        let library = private[1]
+            .ancestors()
+            .find(|path| path.file_name().is_some_and(|name| name == "Library"))
+            .unwrap()
+            .canonicalize()
+            .unwrap();
+        assert_eq!(
+            prepare(&cli(true), "ownerlibrary", &library, true, Some(&config))
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        assert_eq!(
+            prepare(&cli(true), "project", &project, false, Some(&config)).unwrap()["status"],
+            "would-create"
+        );
         assert!(!config.join(CANDIDATE).exists());
     }
 

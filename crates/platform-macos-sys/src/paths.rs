@@ -54,7 +54,9 @@ fn home() -> Result<PathBuf> {
     }
     Ok(p)
 }
-pub fn paths() -> Result<PlatformPaths> {
+// Resolve the exact Darwin owner paths without creating them. Workspace
+// preparation must check this same set before offering filesystem grants.
+fn owner_paths_without_creating() -> Result<PlatformPaths> {
     let h = home()?;
     let mut temp = vec![0u8; 4096];
     // SAFETY: confstr writes at most the specified live buffer length.
@@ -95,6 +97,41 @@ pub fn paths() -> Result<PlatformPaths> {
         config: h.join("Library/Application Support/Semwright/config"),
         cache: h.join("Library/Caches/Semwright"),
     };
+    Ok(p)
+}
+
+pub fn owner_private_roots_without_creating() -> Result<Vec<PathBuf>> {
+    let paths = owner_paths_without_creating()?;
+    Ok(vec![paths.runtime, paths.state, paths.config, paths.cache])
+}
+
+#[cfg(test)]
+mod owner_path_tests {
+    use super::*;
+
+    #[test]
+    fn private_root_lookup_does_not_create_state_or_cache() {
+        let paths = owner_paths_without_creating().unwrap();
+        let state_existed = paths.state.exists();
+        let cache_existed = paths.cache.exists();
+        let runtime_existed = paths.runtime.exists();
+        assert_eq!(
+            owner_private_roots_without_creating().unwrap(),
+            vec![
+                paths.runtime.clone(),
+                paths.state.clone(),
+                paths.config,
+                paths.cache.clone()
+            ]
+        );
+        assert_eq!(paths.state.exists(), state_existed);
+        assert_eq!(paths.cache.exists(), cache_existed);
+        assert_eq!(paths.runtime.exists(), runtime_existed);
+    }
+}
+
+pub fn paths() -> Result<PlatformPaths> {
+    let p = owner_paths_without_creating()?;
     for d in [&p.runtime, &p.state, &p.config, &p.cache] {
         private(d)?;
     }

@@ -358,6 +358,13 @@ pub fn owner_private_roots_without_creating() -> Result<Vec<PathBuf>> {
     Ok(roots)
 }
 
+/// Inspect native macOS runtime, Application Support and cache roots without
+/// creating private directories or requesting TCC authority.
+#[cfg(target_os = "macos")]
+pub fn owner_private_roots_without_creating() -> Result<Vec<PathBuf>> {
+    semwright_platform_macos_sys::paths::owner_private_roots_without_creating()
+}
+
 /// Inspect owner-private Windows runtime roots without creating any directories.
 #[cfg(target_os = "windows")]
 pub fn owner_private_roots_without_creating() -> Result<Vec<PathBuf>> {

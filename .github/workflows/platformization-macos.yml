@@ -129,6 +129,15 @@ jobs:
           set -euo pipefail
           cargo test --locked             -p semwright-platform-api             -p semwright-platform-common             -p semwright-platform-macos             -p semwright-platform-macos-sys             -p semwright-platform-services             -p semwright-platform-host             --all-features             2>&1 | tee "verification/platform-ci/platform-tests-${{ matrix.arch }}.log"
 
+      - name: Refuse workspace grants covering macOS private runtime roots
+        run: |
+          set -euo pipefail
+          # macOS temp directories can be reached through /var -> /private/var.
+          # Use the canonical existing path for scoped filesystem tests.
+          export TMPDIR="$(python3 -c 'import os,tempfile; print(os.path.realpath(tempfile.gettempdir()))')"
+          cargo test --locked -p semwright-cli --bin semwright workspace::tests::protects_macos_default_private_roots_before_workspace_staging -- --exact \
+            2>&1 | tee "verification/platform-ci/workspace-private-${{ matrix.arch }}.log"
+
       - name: Link daemon and frontends
         run: |
           set -euo pipefail
