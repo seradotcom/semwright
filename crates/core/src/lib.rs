@@ -117,80 +117,6 @@ fn validate_snapshot_scope(
     Ok(())
 }
 
-#[cfg(test)]
-mod scoped_snapshot_tests {
-    use super::*;
-
-    #[test]
-    fn windows_window_and_ui_references_are_supported() {
-        let args = json!({"ref":"win:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"});
-        assert!(validate_snapshot_scope("ui.snapshot", &args, "windows", Some("win")).is_ok());
-        assert!(validate_snapshot_scope("ui.snapshot", &args, "windows", Some("ui")).is_ok());
-        assert!(validate_snapshot_scope("ui.snapshot", &json!({}), "windows", None).is_ok());
-    }
-
-    #[test]
-    fn unsupported_scopes_fail_closed() {
-        let target = json!({"ref":"win:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"});
-        for backend in ["macos", "atspi", "fake"] {
-            assert_eq!(
-                validate_snapshot_scope("ui.snapshot", &target, backend, Some("win"))
-                    .unwrap_err()
-                    .code,
-                ErrorCode::Unsupported
-            );
-        }
-        assert_eq!(
-            validate_snapshot_scope("ui.snapshot", &target, "windows", Some("app"))
-                .unwrap_err()
-                .code,
-            ErrorCode::InvalidArgument
-        );
-        assert_eq!(
-            validate_snapshot_scope("ui.snapshot", &target, "windows", None)
-                .unwrap_err()
-                .code,
-            ErrorCode::InvalidArgument
-        );
-    }
-
-    #[test]
-    fn windows_app_filter_is_not_silently_ignored() {
-        let args = json!({"app":"notepad.exe"});
-        assert_eq!(
-            validate_snapshot_scope("ui.snapshot", &args, "windows", None)
-                .unwrap_err()
-                .code,
-            ErrorCode::Unsupported
-        );
-        assert!(validate_snapshot_scope("ui.snapshot", &args, "atspi", None).is_ok());
-        assert_eq!(
-            validate_snapshot_scope(
-                "ui.snapshot",
-                &json!({"ref":"win:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","app":"notepad.exe"}),
-                "windows",
-                Some("win")
-            )
-            .unwrap_err()
-            .code,
-            ErrorCode::InvalidArgument
-        );
-    }
-
-    #[test]
-    fn unrelated_commands_are_unchanged() {
-        assert!(
-            validate_snapshot_scope(
-                "ui.inspect",
-                &json!({"ref":"ui:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}),
-                "atspi",
-                Some("ui")
-            )
-            .is_ok()
-        );
-    }
-}
-
 impl Broker {
     pub fn new(
         policy: Policy,
@@ -1567,5 +1493,79 @@ impl Executor for BrokerSessionExecutor {
                 Error::new(ErrorCode::Internal, "Broker returned no recipe step output")
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod scoped_snapshot_tests {
+    use super::*;
+
+    #[test]
+    fn windows_window_and_ui_references_are_supported() {
+        let args = json!({"ref":"win:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"});
+        assert!(validate_snapshot_scope("ui.snapshot", &args, "windows", Some("win")).is_ok());
+        assert!(validate_snapshot_scope("ui.snapshot", &args, "windows", Some("ui")).is_ok());
+        assert!(validate_snapshot_scope("ui.snapshot", &json!({}), "windows", None).is_ok());
+    }
+
+    #[test]
+    fn unsupported_scopes_fail_closed() {
+        let target = json!({"ref":"win:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"});
+        for backend in ["macos", "atspi", "fake"] {
+            assert_eq!(
+                validate_snapshot_scope("ui.snapshot", &target, backend, Some("win"))
+                    .unwrap_err()
+                    .code,
+                ErrorCode::Unsupported
+            );
+        }
+        assert_eq!(
+            validate_snapshot_scope("ui.snapshot", &target, "windows", Some("app"))
+                .unwrap_err()
+                .code,
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            validate_snapshot_scope("ui.snapshot", &target, "windows", None)
+                .unwrap_err()
+                .code,
+            ErrorCode::InvalidArgument
+        );
+    }
+
+    #[test]
+    fn windows_app_filter_is_not_silently_ignored() {
+        let args = json!({"app":"notepad.exe"});
+        assert_eq!(
+            validate_snapshot_scope("ui.snapshot", &args, "windows", None)
+                .unwrap_err()
+                .code,
+            ErrorCode::Unsupported
+        );
+        assert!(validate_snapshot_scope("ui.snapshot", &args, "atspi", None).is_ok());
+        assert_eq!(
+            validate_snapshot_scope(
+                "ui.snapshot",
+                &json!({"ref":"win:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","app":"notepad.exe"}),
+                "windows",
+                Some("win")
+            )
+            .unwrap_err()
+            .code,
+            ErrorCode::InvalidArgument
+        );
+    }
+
+    #[test]
+    fn unrelated_commands_are_unchanged() {
+        assert!(
+            validate_snapshot_scope(
+                "ui.inspect",
+                &json!({"ref":"ui:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}),
+                "atspi",
+                Some("ui")
+            )
+            .is_ok()
+        );
     }
 }
