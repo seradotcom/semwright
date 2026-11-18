@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-159 built-in descriptors. A descriptor is not proof of live backend support.
+160 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -60,6 +60,7 @@ for many backends at this stage; strengthening them is a release gate.
 | `process.list` | `process.observe` | read_only | 10000 ms | system |
 | `process.signal` | `process.manage` | destructive | 10000 ms | system |
 | `filesystem.read` | `filesystem.read` | read_only | 10000 ms | filesystem |
+| `filesystem.observe` | `filesystem.read` | read_only | 10000 ms | filesystem |
 | `filesystem.write` | `filesystem.write` | mutating_reversible | 10000 ms | filesystem |
 | `artifact.handoff` | `filesystem.read:source_root`, `filesystem.write:destination_root` | mutating | 30000 ms | artifacts |
 | `notifications.send` | `notifications.send` | mutating | 10000 ms | system |
@@ -570,6 +571,11 @@ Idempotency: `read_only`. Dry run: `true`.
 {
   "type": "object",
   "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win):[0-9a-f]{32}$"
+    },
     "app": {
       "type": "string",
       "maxLength": 255
@@ -1517,6 +1523,39 @@ Idempotency: `destructive`. Dry run: `true`.
 ## `filesystem.read`
 
 Descriptor-relative, no-symlink read under an explicitly configured root.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "path": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "max_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1048576
+    }
+  },
+  "required": [
+    "root",
+    "path"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `filesystem.observe`
+
+Read one owner-granted UTF-8 file and report native revalidated content/opaque instance fingerprints; observation is best-effort and is never a CAS token or permission for a later write. Unsupported native roots refuse without read fallback.
 
 Idempotency: `read_only`. Dry run: `true`.
 
