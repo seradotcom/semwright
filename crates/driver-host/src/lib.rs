@@ -5686,11 +5686,18 @@ mod windows_native_profile_tests {
             );
         }
         candidate.network = true;
+        // Windows rejects additional authority; other hosts refuse this
+        // Windows-only native profile before inspecting those permissions.
+        let incompatible_profile = if cfg!(target_os = "windows") {
+            ErrorCode::PolicyDenied
+        } else {
+            ErrorCode::Unsupported
+        };
         assert_eq!(
             validate_windows_native_profile(&candidate, true)
                 .unwrap_err()
                 .code,
-            ErrorCode::PolicyDenied
+            incompatible_profile
         );
         candidate.network = false;
         candidate.loopback_port = Some(39001);
@@ -5698,7 +5705,7 @@ mod windows_native_profile_tests {
             validate_windows_native_profile(&candidate, true)
                 .unwrap_err()
                 .code,
-            ErrorCode::PolicyDenied
+            incompatible_profile
         );
         candidate.loopback_port = None;
         candidate.tools[0].windows_native_profile = None;
