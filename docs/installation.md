@@ -176,12 +176,12 @@ After `semwright setup`, run this **local owner CLI** command to create a *separ
 configuration candidate for an existing project directory. Example on Windows:
 
 ```powershell
-& 'D:\Semwright\bin\semwright.exe' --dry-run workspace --name project --path 'D:\Projects\Example' --config-dir 'D:\SemwrightData\config'
-& 'D:\Semwright\bin\semwright.exe' workspace --name project --path 'D:\Projects\Example' --config-dir 'D:\SemwrightData\config'
+& 'D:\Semwright\bin\semwright.exe' --socket '\\.\pipe\semwright-project' --session-file 'D:\SemwrightData\project.session' --dry-run workspace --name project --path 'D:\Projects\Example' --config-dir 'D:\SemwrightData\config'
+& 'D:\Semwright\bin\semwright.exe' --socket '\\.\pipe\semwright-project' --session-file 'D:\SemwrightData\project.session' workspace --name project --path 'D:\Projects\Example' --config-dir 'D:\SemwrightData\config'
 ```
 
 Read access is the default; add `--write` only when explicitly authorizing edits.
-Without `--json`, `workspace` prints the proposed project, rights and owner-review steps instead of requiring a person to read a JSON object. `--json` retains the structured result for clients and scripts. Neither mode starts a broker or activates the candidate.
+Without `--json`, `workspace` prints the proposed project, rights and owner-review steps instead of requiring a person to read a JSON object. If `--socket` was explicitly selected, the **created** candidate output also prints literal broker and doctor commands for that exact endpoint and optional `--session-file`, along with `SEMWRIGHT_DATA_DIR` for Windows when set. Choose an unused dedicated endpoint before running them; merely preparing a candidate does not reserve it. The setup-generated MCP snippet is **not** updated to that endpoint: review and configure the client yourself. `--dry-run` never presents commands to activate a nonexistent candidate. `--json` retains the structured result for clients and scripts. Neither mode starts a broker or activates the candidate.
 For this first-use flow, the source `daemon.toml` must still be the **unmodified
 observe-only file created by `semwright setup`**. Customized policies are refused
 rather than copied (they may contain private or wider authority settings). The

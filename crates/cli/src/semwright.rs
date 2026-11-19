@@ -378,7 +378,10 @@ fn print_setup(value: &Value, machine: bool) -> Result<()> {
     Ok(())
 }
 
-fn workspace_summary(value: &Value) -> Result<String> {
+fn workspace_summary(
+    value: &Value,
+    connection: Option<(&Path, Option<&Path>, &Path, Option<&Path>)>,
+) -> Result<String> {
     use std::fmt::Write;
 
     let field = |pointer: &str| -> Result<&str> {
@@ -443,16 +446,59 @@ fn workspace_summary(value: &Value) -> Result<String> {
             "  1. Review the candidate's proposed grant and project path."
         )
         .unwrap();
-        writeln!(
-            &mut message,
-            "  2. If approved, start a separate broker using --config with that candidate."
-        )
-        .unwrap();
-        writeln!(
-            &mut message,
-            "  3. Choose a distinct broker endpoint and connect your MCP client to it."
-        )
-        .unwrap();
+        if let Some((socket, session_file, bin_dir, data_dir)) = connection {
+            #[cfg(target_os = "windows")]
+            if let Some(data_dir) = data_dir {
+                writeln!(
+                    &mut message,
+                    "  In each broker/client terminal: $env:SEMWRIGHT_DATA_DIR = {}",
+                    setup_shell_quote(&data_dir.to_string_lossy())
+                )
+                .unwrap();
+            }
+            #[cfg(not(target_os = "windows"))]
+            let _ = data_dir;
+            let broker = json!([
+                installed_command(bin_dir, "semwrightd"),
+                "--config",
+                value["candidate"],
+                "--socket",
+                socket
+            ]);
+            let mut doctor = vec![
+                json!(installed_command(bin_dir, "semwright")),
+                json!("--socket"),
+                json!(socket),
+            ];
+            if let Some(session_file) = session_file {
+                doctor.extend([json!("--session-file"), json!(session_file)]);
+            }
+            doctor.extend([json!("--json"), json!("doctor")]);
+            writeln!(
+                &mut message,
+                "  2. After review, use your selected UNUSED endpoint for the new broker:"
+            )
+            .unwrap();
+            writeln!(&mut message, "     {}", setup_shell_command(&broker)).unwrap();
+            writeln!(&mut message, "  3. Verify that new broker:").unwrap();
+            writeln!(&mut message, "     {}", setup_shell_command(&json!(doctor))).unwrap();
+            writeln!(
+                &mut message,
+                "  4. Deliberately update your MCP client entry to the same endpoint and session file."
+            )
+            .unwrap();
+        } else {
+            writeln!(
+                &mut message,
+                "  2. If approved, start a separate broker using --config with that candidate."
+            )
+            .unwrap();
+            writeln!(
+                &mut message,
+                "  3. Choose a distinct broker endpoint and connect your MCP client to it."
+            )
+            .unwrap();
+        }
         writeln!(
             &mut message,
             "Existing brokers do not reload the new configuration."
@@ -462,11 +508,24 @@ fn workspace_summary(value: &Value) -> Result<String> {
     Ok(message)
 }
 
-fn print_workspace(value: &Value, machine: bool) -> Result<()> {
-    if machine {
+fn print_workspace(value: &Value, cli: &Cli) -> Result<()> {
+    if cli.json {
         return print_result(value, true);
     }
-    print!("{}", workspace_summary(value)?);
+    let current = std::env::current_exe()?;
+    let bin_dir = current
+        .parent()
+        .ok_or_else(|| Error::unavailable("Cannot locate the Semwright binary directory"))?;
+    let data_dir = std::env::var_os("SEMWRIGHT_DATA_DIR").map(PathBuf::from);
+    let connection = cli.socket.as_deref().map(|socket| {
+        (
+            socket,
+            cli.session_file.as_deref(),
+            bin_dir,
+            data_dir.as_deref(),
+        )
+    });
+    print!("{}", workspace_summary(value, connection)?);
     Ok(())
 }
 
@@ -1403,7 +1462,7 @@ async fn local(cli: &Cli) -> Result<bool> {
                 config_dir.as_deref(),
                 candidate.as_deref(),
             )?;
-            print_workspace(&result, cli.json)?;
+            print_workspace(&result, cli)?;
         }
         Command::Completions { shell } => {
             clap_complete::generate(
@@ -1774,7 +1833,7 @@ mod setup_tests {
             "broker_started": false,
             "client_configuration_modified": false
         });
-        let human = workspace_summary(&result).unwrap();
+        let human = workspace_summary(&result, None).unwrap();
         assert!(human.starts_with("Semwright workspace\n"));
         assert!(human.contains(r"Candidate: E:\Owner's Projects\daemon-workspace.toml (created)"));
         assert!(human.contains(r"Project: E:\Example's Project"));
@@ -1794,7 +1853,7 @@ mod setup_tests {
 
         result["status"] = json!("would-create");
         result["workspace"]["write"] = json!(false);
-        let dry = workspace_summary(&result).unwrap();
+        let dry = workspace_summary(&result, None).unwrap();
         assert!(dry.contains("(would-create)"));
         assert!(dry.contains("Proposed grant: pilot (read only)"));
         assert!(dry.contains("Rerun without --dry-run"));
@@ -1803,8 +1862,70 @@ mod setup_tests {
 
     #[test]
     fn workspace_human_output_rejects_missing_or_unexpected_status() {
-        assert!(workspace_summary(&json!({})).is_err());
-        assert!(workspace_summary(&json!({"status":"executed"})).is_err());
+        assert!(workspace_summary(&json!({}), None).is_err());
+        assert!(workspace_summary(&json!({"status":"executed"}), None).is_err());
+    }
+
+    #[test]
+    fn workspace_explicit_endpoint_has_exact_broker_and_doctor_commands() {
+        let value = json!({
+            "status": "created",
+            "candidate": r"E:\Owner's ‘project’\daemon-workspace.toml",
+            "source": r"E:\Owner's ‘project’\daemon.toml",
+            "workspace": { "name": "pilot", "path": r"E:\Project $work; [safe]", "read": true, "write": false }
+        });
+        let socket = Path::new(r"\\.\pipe\semwright-owner's-‘pilot’");
+        let session = Path::new(r"E:\Sessions\owner's ‘ticket’.session");
+        let bin_dir = Path::new(r"E:\Apps\Owner's ‘Tools’\bin");
+        let data_dir = Path::new(r"E:\Data\owner's ‘runtime’");
+        let connection = Some((socket, Some(session), bin_dir, Some(data_dir)));
+        let text = workspace_summary(&value, connection).unwrap();
+
+        let broker = setup_shell_command(&json!([
+            installed_command(bin_dir, "semwrightd"),
+            "--config",
+            value["candidate"],
+            "--socket",
+            socket
+        ]));
+        let doctor = setup_shell_command(&json!([
+            installed_command(bin_dir, "semwright"),
+            "--socket",
+            socket,
+            "--session-file",
+            session,
+            "--json",
+            "doctor"
+        ]));
+        assert!(text.contains(&broker));
+        assert!(text.contains(&doctor));
+        assert!(text.contains("UNUSED endpoint"));
+        assert!(text.contains("No permission was activated"));
+        assert!(text.contains("Deliberately update your MCP client entry"));
+        #[cfg(target_os = "windows")]
+        assert!(text.contains(&format!(
+            "$env:SEMWRIGHT_DATA_DIR = {}",
+            setup_shell_quote(&data_dir.to_string_lossy())
+        )));
+
+        let without_ticket =
+            workspace_summary(&value, Some((socket, None, bin_dir, None))).unwrap();
+        let without_ticket_command = setup_shell_command(&json!([
+            installed_command(bin_dir, "semwright"),
+            "--socket",
+            socket,
+            "--json",
+            "doctor"
+        ]));
+        assert!(without_ticket.contains(&without_ticket_command));
+        assert!(!without_ticket.contains("--session-file"));
+
+        let mut planned = value.clone();
+        planned["status"] = json!("would-create");
+        let preview = workspace_summary(&planned, connection).unwrap();
+        assert!(preview.contains("Rerun without --dry-run"));
+        assert!(!preview.contains(&broker));
+        assert!(!preview.contains(&doctor));
     }
 
     #[cfg(target_os = "windows")]
