@@ -177,6 +177,17 @@ pub(super) fn prepare_workspace(
     for private in protected {
         refuse_private_workspace_overlap(&resolved, &private)?;
     }
+    // An explicit session ticket is a bearer credential, not project content.
+    // Resolve future paths as well: the token may not exist until first connect.
+    if let Some(ticket) = cli.session_file.as_deref() {
+        let ticket = prospective_private_root(ticket)?;
+        if overlaps(&resolved, &ticket) {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Session ticket must be outside the authorized workspace; choose an owner-private path",
+            ));
+        }
+    }
 
     let grant = FilesystemGrant {
         name: name.to_owned(),
@@ -343,6 +354,68 @@ mod tests {
             ErrorCode::PolicyDenied
         );
         assert!(prepare(&cli(false), "../bad", &root, true, Some(&config)).is_err());
+        assert!(!config.join(CANDIDATE).exists());
+    }
+
+    #[test]
+    fn explicit_session_ticket_inside_workspace_is_denied_before_staging() {
+        let (_dir, config, root) = fixture();
+        let future_ticket = root.join("future-owner").join("client.session");
+        assert!(!future_ticket.exists());
+        let baseline = std::fs::read(config.join("daemon.toml")).unwrap();
+
+        for dry_run in [true, false] {
+            let mut owner = cli(dry_run);
+            owner.session_file = Some(future_ticket.clone());
+            let error = prepare(&owner, "pilot", &root, false, Some(&config)).unwrap_err();
+            assert_eq!(error.code, ErrorCode::PolicyDenied);
+            assert!(error.message.contains("Session ticket must be outside"));
+            assert!(!config.join(CANDIDATE).exists());
+            assert!(!future_ticket.exists());
+        }
+
+        let existing_ticket = root.join("existing.session");
+        std::fs::write(&existing_ticket, "test-only ticket marker").unwrap();
+        let mut owner = cli(true);
+        owner.session_file = Some(existing_ticket);
+        assert_eq!(
+            prepare(&owner, "pilot", &root, true, Some(&config))
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        assert_eq!(std::fs::read(config.join("daemon.toml")).unwrap(), baseline);
+        assert!(!config.join(CANDIDATE).exists());
+    }
+
+    #[test]
+    fn separate_explicit_session_ticket_is_permitted_without_creating_it() {
+        let (dir, config, root) = fixture();
+        let separate_ticket = dir.path().join("owner-sessions").join("future.session");
+        let mut owner = cli(true);
+        owner.session_file = Some(separate_ticket.clone());
+        let result = prepare(&owner, "pilot", &root, false, Some(&config)).unwrap();
+        assert_eq!(result["status"], "would-create");
+        assert!(!separate_ticket.exists());
+        assert!(!config.join(CANDIDATE).exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn linked_session_ticket_resolving_inside_workspace_is_denied() {
+        let (dir, config, root) = fixture();
+        let ticket = root.join("inside.session");
+        std::fs::write(&ticket, "test-only ticket marker").unwrap();
+        let alias = dir.path().join("outside-ticket-alias");
+        std::os::unix::fs::symlink(&ticket, &alias).unwrap();
+        let mut owner = cli(true);
+        owner.session_file = Some(alias);
+        assert_eq!(
+            prepare(&owner, "pilot", &root, false, Some(&config))
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
         assert!(!config.join(CANDIDATE).exists());
     }
 
