@@ -378,6 +378,98 @@ fn print_setup(value: &Value, machine: bool) -> Result<()> {
     Ok(())
 }
 
+fn workspace_summary(value: &Value) -> Result<String> {
+    use std::fmt::Write;
+
+    let field = |pointer: &str| -> Result<&str> {
+        value
+            .pointer(pointer)
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Internal,
+                    "Workspace result is missing a required field",
+                )
+            })
+    };
+    let status = field("/status")?;
+    if !matches!(status, "created" | "would-create") {
+        return Err(Error::new(
+            ErrorCode::Internal,
+            "Invalid workspace preparation status",
+        ));
+    }
+    let name = escape_terminal_text(field("/workspace/name")?);
+    let path = escape_terminal_text(field("/workspace/path")?);
+    let source = escape_terminal_text(field("/source")?);
+    let candidate = escape_terminal_text(field("/candidate")?);
+    let write = value
+        .pointer("/workspace/write")
+        .and_then(Value::as_bool)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::Internal,
+                "Workspace result is missing access rights",
+            )
+        })?;
+    let mut message = String::new();
+    writeln!(&mut message, "Semwright workspace").unwrap();
+    writeln!(&mut message, "  Candidate: {candidate} ({status})").unwrap();
+    writeln!(&mut message, "  Project: {path}").unwrap();
+    writeln!(
+        &mut message,
+        "  Proposed grant: {name} ({})",
+        if write { "read and write" } else { "read only" }
+    )
+    .unwrap();
+    writeln!(&mut message, "  Owner baseline: {source} (preserved)").unwrap();
+    writeln!(&mut message).unwrap();
+    writeln!(
+        &mut message,
+        "No permission was activated, no broker was started, and no MCP client was changed."
+    )
+    .unwrap();
+    writeln!(&mut message).unwrap();
+    writeln!(&mut message, "Next:").unwrap();
+    if status == "would-create" {
+        writeln!(
+            &mut message,
+            "  1. Rerun without --dry-run to create this separate candidate."
+        )
+        .unwrap();
+    } else {
+        writeln!(
+            &mut message,
+            "  1. Review the candidate's proposed grant and project path."
+        )
+        .unwrap();
+        writeln!(
+            &mut message,
+            "  2. If approved, start a separate broker using --config with that candidate."
+        )
+        .unwrap();
+        writeln!(
+            &mut message,
+            "  3. Choose a distinct broker endpoint and connect your MCP client to it."
+        )
+        .unwrap();
+        writeln!(
+            &mut message,
+            "Existing brokers do not reload the new configuration."
+        )
+        .unwrap();
+    }
+    Ok(message)
+}
+
+fn print_workspace(value: &Value, machine: bool) -> Result<()> {
+    if machine {
+        return print_result(value, true);
+    }
+    print!("{}", workspace_summary(value)?);
+    Ok(())
+}
+
 fn load_driver_manifest(path: &std::path::Path) -> Result<DriverManifest> {
     let manifest: DriverManifest = serde_json::from_str(&read_file(path, 1_048_576)?)?;
     manifest.validate()?;
@@ -1311,7 +1403,7 @@ async fn local(cli: &Cli) -> Result<bool> {
                 config_dir.as_deref(),
                 candidate.as_deref(),
             )?;
-            print_result(&result, cli.json)?;
+            print_workspace(&result, cli.json)?;
         }
         Command::Completions { shell } => {
             clap_complete::generate(
@@ -1670,6 +1762,50 @@ async fn main() {
 mod setup_tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[test]
+    fn workspace_human_output_describes_review_without_activating_anything() {
+        let mut result = json!({
+            "status": "created",
+            "candidate": r"E:\Owner's Projects\daemon-workspace.toml",
+            "source": r"E:\Owner's Projects\daemon.toml",
+            "workspace": { "name": "pilot", "path": r"E:\Example's Project", "read": true, "write": true },
+            "authority_granted": false,
+            "broker_started": false,
+            "client_configuration_modified": false
+        });
+        let human = workspace_summary(&result).unwrap();
+        assert!(human.starts_with("Semwright workspace\n"));
+        assert!(human.contains(r"Candidate: E:\Owner's Projects\daemon-workspace.toml (created)"));
+        assert!(human.contains(r"Project: E:\Example's Project"));
+        assert!(human.contains("Proposed grant: pilot (read and write)"));
+        assert!(human.contains("No permission was activated, no broker was started"));
+        assert!(human.contains("start a separate broker using --config"));
+        assert!(human.contains("Choose a distinct broker endpoint"));
+        assert!(!human.trim_start().starts_with('{'));
+
+        // The existing JSON result remains the same typed machine contract.
+        assert_eq!(result["authority_granted"], false);
+        assert_eq!(result["workspace"]["write"], true);
+        assert_eq!(
+            result["candidate"],
+            r"E:\Owner's Projects\daemon-workspace.toml"
+        );
+
+        result["status"] = json!("would-create");
+        result["workspace"]["write"] = json!(false);
+        let dry = workspace_summary(&result).unwrap();
+        assert!(dry.contains("(would-create)"));
+        assert!(dry.contains("Proposed grant: pilot (read only)"));
+        assert!(dry.contains("Rerun without --dry-run"));
+        assert!(!dry.contains("start a separate broker"));
+    }
+
+    #[test]
+    fn workspace_human_output_rejects_missing_or_unexpected_status() {
+        assert!(workspace_summary(&json!({})).is_err());
+        assert!(workspace_summary(&json!({"status":"executed"})).is_err());
+    }
 
     #[cfg(target_os = "windows")]
     #[test]
