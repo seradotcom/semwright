@@ -184,9 +184,15 @@ Read access is the default; add `--write` only when explicitly authorizing edits
 An explicit `--session-file` is a bearer credential and must be kept **outside**
 the proposed project root. `workspace` rejects an existing or future session
 file located within that root before creating any candidate, including in
-`--dry-run` mode. Use a separate owner-private location, such as the
-`D:\SemwrightData\project.session` path above; the command never relocates or
-creates the ticket itself.
+`--dry-run` mode. It also checks the preserved `mcp-client.json` entry for
+`semwright`: a saved `--session-file` (including `--session-file=PATH`) or
+`SEMWRIGHT_DATA_DIR` pointing inside the proposed workspace causes refusal
+even when the new `workspace` command omits those options. Use separate
+owner-private paths, such as the `D:\SemwrightData\project.session` example
+above; the command never relocates or creates the ticket itself. Existing
+client configuration is inspected only in the selected setup directory and
+is never rewritten. Independently managed client configuration must still
+be reviewed by its owner.
 Without `--json`, `workspace` prints the proposed project, rights and owner-review steps instead of requiring a person to read a JSON object. If `--socket` was explicitly selected, the **created** candidate output also prints literal broker and doctor commands for that exact endpoint and optional `--session-file`, along with `SEMWRIGHT_DATA_DIR` for Windows when set. Choose an unused dedicated endpoint before running them; merely preparing a candidate does not reserve it. The setup-generated MCP snippet is **not** updated to that endpoint: review and configure the client yourself. `--dry-run` never presents commands to activate a nonexistent candidate. `--json` retains the structured result for clients and scripts. Neither mode starts a broker or activates the candidate.
 For this first-use flow, the source `daemon.toml` must still be the **unmodified
 observe-only file created by `semwright setup`**. Customized policies are refused

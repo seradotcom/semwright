@@ -101,6 +101,56 @@ fn refuse_private_workspace_overlap(workspace: &Path, private: &Path) -> Result<
     Ok(())
 }
 
+fn refuse_preserved_client_private_overlap(workspace: &Path, config_dir: &Path) -> Result<()> {
+    let snippet = config_dir.join("mcp-client.json");
+    match std::fs::symlink_metadata(&snippet) {
+        Ok(_) => validate_existing_private_file(&snippet)?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    }
+    let document: Value = serde_json::from_str(&read_file(&snippet, MAX_CONFIG_BYTES)?)
+        .map_err(|_| Error::invalid("Existing MCP client snippet is not valid JSON"))?;
+    let Some(server) = document.pointer("/mcpServers/semwright") else {
+        return Ok(());
+    };
+
+    if let Some(args) = server.get("args") {
+        let args = args
+            .as_array()
+            .ok_or_else(|| Error::invalid("Existing Semwright MCP client arguments are invalid"))?;
+        for (index, value) in args.iter().enumerate() {
+            let option = value.as_str().ok_or_else(|| {
+                Error::invalid("Existing Semwright MCP client arguments are invalid")
+            })?;
+            let ticket = if option == "--session-file" {
+                Some(args.get(index + 1).and_then(Value::as_str).ok_or_else(|| {
+                    Error::invalid("Existing MCP session-file argument is incomplete")
+                })?)
+            } else {
+                option.strip_prefix("--session-file=")
+            };
+            if let Some(ticket) = ticket {
+                refuse_private_workspace_overlap(workspace, Path::new(ticket))?;
+            }
+        }
+    }
+
+    // The setup-generated Windows snippet also carries the runtime data root.
+    // It must remain private even if the owner later changes their shell environment.
+    if let Some(env) = server.get("env") {
+        let env = env.as_object().ok_or_else(|| {
+            Error::invalid("Existing Semwright MCP client environment is invalid")
+        })?;
+        if let Some(data_root) = env.get("SEMWRIGHT_DATA_DIR") {
+            let data_root = data_root.as_str().ok_or_else(|| {
+                Error::invalid("Existing Semwright MCP data directory is invalid")
+            })?;
+            refuse_private_workspace_overlap(workspace, Path::new(data_root))?;
+        }
+    }
+    Ok(())
+}
+
 fn existing_owner_root(path: &Path) -> Result<PathBuf> {
     #[cfg(target_os = "windows")]
     semwright_platform_services::validate_filesystem_grant_path(path)?;
@@ -177,6 +227,7 @@ pub(super) fn prepare_workspace(
     for private in protected {
         refuse_private_workspace_overlap(&resolved, &private)?;
     }
+    refuse_preserved_client_private_overlap(&resolved, &config_dir)?;
     // An explicit session ticket is a bearer credential, not project content.
     // Resolve future paths as well: the token may not exist until first connect.
     if let Some(ticket) = cli.session_file.as_deref() {
@@ -354,6 +405,133 @@ mod tests {
             ErrorCode::PolicyDenied
         );
         assert!(prepare(&cli(false), "../bad", &root, true, Some(&config)).is_err());
+        assert!(!config.join(CANDIDATE).exists());
+    }
+
+    #[test]
+    fn preserved_mcp_session_ticket_inside_workspace_is_denied_without_cli_ticket() {
+        let (_dir, config, root) = fixture();
+        let future = root.join("future-owner").join("session.ticket");
+        let snippet = json!({
+            "mcpServers": {
+                "semwright": {
+                    "command": "semwright-mcp",
+                    "args": ["--socket", "test-owned", "--session-file", future]
+                }
+            }
+        });
+        let file = config.join("mcp-client.json");
+        create(&file, &snippet.to_string()).unwrap();
+        let before = std::fs::read(&file).unwrap();
+        let owner_baseline = std::fs::read(config.join("daemon.toml")).unwrap();
+        for dry_run in [true, false] {
+            let current = cli(dry_run);
+            assert!(current.session_file.is_none());
+            let error = prepare(&current, "pilot", &root, false, Some(&config)).unwrap_err();
+            assert_eq!(error.code, ErrorCode::PolicyDenied);
+            assert!(!config.join(CANDIDATE).exists());
+            assert!(!future.exists());
+        }
+        assert_eq!(std::fs::read(&file).unwrap(), before);
+        assert_eq!(
+            std::fs::read(config.join("daemon.toml")).unwrap(),
+            owner_baseline
+        );
+    }
+
+    #[test]
+    fn preserved_mcp_session_ticket_equals_form_inside_grant_is_denied() {
+        let (_dir, config, root) = fixture();
+        let ticket = root.join("future-owner.session");
+        let snippet = json!({
+            "mcpServers": {
+                "semwright": {
+                    "command": "semwright-mcp",
+                    "args": [format!("--session-file={}", ticket.display())]
+                }
+            }
+        });
+        create(&config.join("mcp-client.json"), &snippet.to_string()).unwrap();
+        assert_eq!(
+            prepare(&cli(true), "pilot", &root, false, Some(&config))
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        assert!(!config.join(CANDIDATE).exists());
+        assert!(!ticket.exists());
+    }
+
+    #[test]
+    fn preserved_mcp_data_root_inside_grant_is_denied() {
+        let (_dir, config, root) = fixture();
+        let data = root.join("owner-runtime-private");
+        let snippet = json!({
+            "mcpServers": {
+                "semwright": {
+                    "command": "semwright-mcp",
+                    "env": { "SEMWRIGHT_DATA_DIR": data }
+                }
+            }
+        });
+        create(&config.join("mcp-client.json"), &snippet.to_string()).unwrap();
+        assert_eq!(
+            prepare(&cli(true), "pilot", &root, false, Some(&config))
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        assert!(!config.join(CANDIDATE).exists());
+        assert!(!data.exists());
+    }
+
+    #[test]
+    fn preserved_mcp_private_paths_outside_grant_still_allow_candidate() {
+        let (dir, config, root) = fixture();
+        let ticket = dir.path().join("owner-tickets").join("session.ticket");
+        let data = dir.path().join("owner-data");
+        let snippet = json!({
+            "mcpServers": {
+                "semwright": {
+                    "command": "semwright-mcp",
+                    "args": ["--session-file", ticket],
+                    "env": { "SEMWRIGHT_DATA_DIR": data }
+                }
+            }
+        });
+        let file = config.join("mcp-client.json");
+        create(&file, &snippet.to_string()).unwrap();
+        let old = std::fs::read(&file).unwrap();
+        let planned = prepare(&cli(true), "pilot", &root, false, Some(&config)).unwrap();
+        assert_eq!(planned["status"], "would-create");
+        assert!(!config.join(CANDIDATE).exists());
+        let prepared = prepare(&cli(false), "pilot", &root, false, Some(&config)).unwrap();
+        assert_eq!(prepared["status"], "created");
+        assert_eq!(prepared["broker_started"], false);
+        assert_eq!(prepared["authority_granted"], false);
+        assert_eq!(std::fs::read(&file).unwrap(), old);
+        assert!(!ticket.exists());
+        assert!(!data.exists());
+    }
+
+    #[test]
+    fn invalid_preserved_mcp_session_argument_cannot_silently_pass() {
+        let (_dir, config, root) = fixture();
+        let snippet = json!({
+            "mcpServers": {
+                "semwright": {
+                    "command": "semwright-mcp",
+                    "args": ["--session-file"]
+                }
+            }
+        });
+        create(&config.join("mcp-client.json"), &snippet.to_string()).unwrap();
+        assert_eq!(
+            prepare(&cli(true), "pilot", &root, false, Some(&config))
+                .unwrap_err()
+                .code,
+            ErrorCode::InvalidArgument
+        );
         assert!(!config.join(CANDIDATE).exists());
     }
 
