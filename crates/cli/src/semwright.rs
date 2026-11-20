@@ -208,6 +208,13 @@ fn setup_result_with_binary_directory(
     explicit_config: Option<&Path>,
     bin_dir: &Path,
 ) -> Result<Value> {
+    // All persistent transports require an absolute bearer session ticket.
+    // Reject unusable client settings before even creating owner configuration.
+    if let Some(ticket) = cli.session_file.as_deref()
+        && !ticket.is_absolute()
+    {
+        return Err(Error::invalid("Session ticket must be an absolute path"));
+    }
     let environment = setup_environment()?;
     let config_dir = setup_config_directory(explicit_config)?;
     validate_setup_directory(&config_dir)?;
@@ -1972,6 +1979,61 @@ ConvertTo-Json -InputObject $values -Compress
             serde_json::from_slice::<Value>(&output.stdout).unwrap(),
             arguments
         );
+    }
+
+    #[test]
+    fn setup_rejects_relative_session_ticket_before_any_files_are_created() {
+        let temp = tempdir().unwrap();
+        let config_dir = temp.path().join("owner-config");
+        let incomplete_bin = temp.path().join("missing-companions");
+        let mut cli = Cli::try_parse_from([
+            "semwright",
+            "--json",
+            "--session-file",
+            "relative-client.ticket",
+            "setup",
+        ])
+        .unwrap();
+
+        for dry_run in [true, false] {
+            cli.dry_run = dry_run;
+            let error =
+                setup_result_with_binary_directory(&cli, Some(&config_dir), &incomplete_bin)
+                    .unwrap_err();
+            assert_eq!(error.code, ErrorCode::InvalidArgument);
+            assert_eq!(error.message, "Session ticket must be an absolute path");
+            assert!(!config_dir.exists());
+            assert!(!temp.path().join("relative-client.ticket").exists());
+        }
+    }
+
+    #[test]
+    fn setup_dry_run_preserves_absolute_session_ticket_for_doctor() {
+        let temp = tempdir().unwrap();
+        let parent = temp.path().to_path_buf();
+        #[cfg(unix)]
+        let parent = parent.canonicalize().unwrap();
+        let config_dir = parent.join("owner-config");
+        let ticket = parent.join("owner-private").join("client.ticket");
+        let cli = Cli::try_parse_from([
+            "semwright",
+            "--json",
+            "--dry-run",
+            "--session-file",
+            ticket.to_str().unwrap(),
+            "setup",
+        ])
+        .unwrap();
+        let result = setup_result_with_binary_directory(&cli, Some(&config_dir), &parent).unwrap();
+        assert_eq!(result["setup"], "dry-run");
+        let arguments = result["next"]["doctor"].as_array().unwrap();
+        let ticket_index = arguments
+            .iter()
+            .position(|value| value == "--session-file")
+            .unwrap();
+        assert_eq!(arguments[ticket_index + 1], json!(ticket));
+        assert!(!config_dir.exists());
+        assert!(!ticket.exists());
     }
 
     #[test]

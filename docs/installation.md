@@ -164,6 +164,11 @@ non-authorizing onboarding:
 
 The command is intentionally idempotent and **never overwrites** existing config/snippet files. Use
 `semwright --dry-run --json setup` to inspect the proposed paths without writing anything.
+An explicit `--session-file` must be an **absolute path** on every supported platform:
+relative paths are refused before setup creates owner configuration or an MCP snippet,
+including when running a dry run. Broker clients cannot persist relative session tickets.
+Keep session tickets outside any project you plan to authorize; `workspace` separately
+checks that containment boundary.
 
 It does not edit PATH, install/start a service, modify Claude/ChatGPT/Codex/other MCP clients, grant
 broker policy, change TCC/portal settings, or approve sensitive operations. Those boundaries remain
