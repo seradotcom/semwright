@@ -213,9 +213,11 @@ impl WindowsBrokerPin {
             .map_err(|_| denied())?;
         let receipt = std::fs::read_to_string(&receipt_path).map_err(|_| denied())?;
         let sums = std::fs::read_to_string(&sums_path).map_err(|_| denied())?;
-        if format!("{:x}", Sha256::digest(sums.as_bytes()))
-            != Self::manifest_digest(&receipt, "SHA256SUMS")?
-        {
+        let sums_digest = Sha256::digest(sums.as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        if sums_digest != Self::manifest_digest(&receipt, "SHA256SUMS")? {
             return Err(denied());
         }
         let mcp_hash = Self::manifest_digest(&receipt, "bin/semwright-mcp.exe")?;
