@@ -11,6 +11,8 @@ use rmcp::{
     service::RequestContext,
 };
 use semwright_protocol::{Client, connect_persistent, validate_local_endpoint};
+#[cfg(target_os = "windows")]
+use semwright_protocol::{WindowsBrokerPin, connect_persistent_attested_windows};
 use semwright_types::{
     Envelope, Error, ErrorCode, ExecuteRequest, JobSnapshot, JobState, Result, unique_id,
 };
@@ -21,6 +23,8 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::Mutex;
+#[cfg(target_os = "windows")]
+use tokio::sync::OnceCell;
 use tokio_util::sync::CancellationToken;
 const MAPPINGS: [(&str, &str); 9] = [
     ("semwright_doctor", "doctor"),
@@ -39,6 +43,8 @@ pub struct Server {
     ticket: Option<PathBuf>,
     session: Arc<Mutex<Option<String>>>,
     tools: Arc<Vec<Tool>>,
+    #[cfg(target_os = "windows")]
+    broker_pin: Arc<OnceCell<WindowsBrokerPin>>,
 }
 impl Server {
     pub fn new(socket: PathBuf, ticket: Option<PathBuf>) -> Result<Self> {
@@ -53,29 +59,63 @@ impl Server {
             ticket,
             session: Arc::new(Mutex::new(None)),
             tools: Arc::new(tools()?),
+            #[cfg(target_os = "windows")]
+            broker_pin: Arc::new(OnceCell::new()),
         })
     }
+
+    #[cfg(target_os = "windows")]
+    async fn trusted_broker(&self) -> Result<&WindowsBrokerPin> {
+        self.broker_pin
+            .get_or_try_init(|| async { WindowsBrokerPin::from_registered_mcp_installation() })
+            .await
+    }
+
+    async fn connect_once(&self, session: Option<String>) -> Result<Client> {
+        #[cfg(target_os = "windows")]
+        {
+            let pin = self.trusted_broker().await?;
+            return Client::connect_attested_windows(&self.socket, session, pin).await;
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Client::connect(&self.socket, session).await
+        }
+    }
+
+    async fn connect_saved(&self, path: &std::path::Path) -> Result<Client> {
+        #[cfg(target_os = "windows")]
+        {
+            let pin = self.trusted_broker().await?;
+            return connect_persistent_attested_windows(&self.socket, path, pin).await;
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            connect_persistent(&self.socket, path).await
+        }
+    }
+
     async fn connect(&self) -> Result<Client> {
         // Lock only the handshake, not a command or an approval wait.
         let mut ticket = self.session.lock().await;
         let client = if let Some(session) = ticket.clone() {
-            match Client::connect(&self.socket, Some(session)).await {
+            match self.connect_once(Some(session)).await {
                 Ok(client) => client,
                 // A daemon restart invalidates the in-memory ticket. Recover
                 // the handshake only, never the previous command or its effects.
                 Err(error) if error.code == ErrorCode::StaleReference => {
                     if let Some(path) = &self.ticket {
-                        connect_persistent(&self.socket, path).await?
+                        self.connect_saved(path).await?
                     } else {
-                        Client::connect(&self.socket, None).await?
+                        self.connect_once(None).await?
                     }
                 }
                 Err(error) => return Err(error),
             }
         } else if let Some(path) = &self.ticket {
-            connect_persistent(&self.socket, path).await?
+            self.connect_saved(path).await?
         } else {
-            Client::connect(&self.socket, None).await?
+            self.connect_once(None).await?
         };
         *ticket = Some(client.session.clone());
         Ok(client)

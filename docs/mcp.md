@@ -29,6 +29,20 @@ be an absolute Unix path, or on Windows a named pipe beginning with
 `\\.\pipe\semwright-` (maximum 256 characters). Invalid connection settings fail
 before MCP initialization and tool discovery, rather than advertising tools that can never
 connect. A valid configuration does not require the broker to be running during discovery.
+
+On Windows, the first-party MCP client additionally verifies the **actual opened** named-pipe
+server, not merely a server advertised at the selected name. Before reading a saved
+session ticket or sending the broker `Hello`, it checks the server's user SID,
+logon session, pinned process instance, executable identity and SHA-256 from the
+same registered Semwright portable bundle. The client's and broker's installed
+executables and checksum/receipt files must have trusted Windows ACLs that prevent
+modification by other authenticated users. A package with inherited broad write
+permissions, a missing/altered receipt, or a foreign pipe server fails closed;
+there is no alternate unverified connection. Install into an owner-protected
+location and do not treat a pre-launch peer check as a replacement for this
+connected-handle verification. A registered bundle is a local source-integrity
+check, not a public code-signing or release certification.
+
 Do not put tickets or browser debug endpoints in model prompts. Stdio stdout is
 reserved for MCP; human diagnostics go to stderr.
 

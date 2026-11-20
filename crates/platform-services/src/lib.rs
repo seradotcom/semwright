@@ -109,6 +109,21 @@ pub fn validate_windows_client_peer(
     semwright_platform_windows_sys::pipe::validate_tokio_client_peer(pipe)
 }
 
+/// Verify the actual Windows pipe server process, image and bundle digest
+/// while its connected pipe and process handles are pinned.
+#[cfg(target_os = "windows")]
+pub fn validate_windows_client_broker_image(
+    pipe: &tokio::net::windows::named_pipe::NamedPipeClient,
+    expected_image: &Path,
+    expected_digest: &str,
+) -> Result<()> {
+    semwright_platform_windows_sys::pipe::validate_tokio_client_broker_image(
+        pipe,
+        expected_image,
+        expected_digest,
+    )
+}
+
 #[cfg(target_os = "linux")]
 pub fn verifier() -> impl ExecutableVerifier {
     semwright_platform_linux_sys::launch::LinuxVerifier

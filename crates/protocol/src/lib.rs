@@ -134,6 +134,109 @@ pub fn validate_local_endpoint(socket: &Path) -> Result<()> {
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
+#[derive(Clone, Debug)]
+pub struct WindowsBrokerPin {
+    image: PathBuf,
+    sha256: String,
+}
+
+#[cfg(target_os = "windows")]
+impl WindowsBrokerPin {
+    fn manifest_digest(text: &str, target: &str) -> Result<String> {
+        let mut result: Option<String> = None;
+        for line in text.lines() {
+            let (hash, name) = line.split_once("  ").ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Invalid installed Semwright file receipt",
+                )
+            })?;
+            if hash.len() != 64
+                || !hash
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                || name.is_empty()
+            {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Invalid installed Semwright file receipt",
+                ));
+            }
+            if name == target {
+                if result.replace(hash.to_owned()).is_some() {
+                    return Err(Error::new(
+                        ErrorCode::PermissionDenied,
+                        "Duplicate installed Semwright file identity",
+                    ));
+                }
+            }
+        }
+        result.ok_or_else(|| {
+            Error::new(
+                ErrorCode::PermissionDenied,
+                "Missing installed Semwright peer identity",
+            )
+        })
+    }
+
+    /// Resolve the daemon from the same registered Windows portable as the running MCP.
+    /// An unregistered or ACL-untrusted package is never an authentication root.
+    pub fn from_registered_mcp_installation() -> Result<Self> {
+        use sha2::{Digest, Sha256};
+        let denied = || {
+            Error::new(
+                ErrorCode::PermissionDenied,
+                "Semwright MCP requires a verified owner-private Windows installation",
+            )
+        };
+        let current = std::env::current_exe().map_err(|_| denied())?;
+        if !current.file_name().is_some_and(|name| {
+            name.to_string_lossy()
+                .eq_ignore_ascii_case("semwright-mcp.exe")
+        }) {
+            return Err(denied());
+        }
+        let bin = current.parent().ok_or_else(denied)?;
+        if !bin
+            .file_name()
+            .is_some_and(|name| name.to_string_lossy().eq_ignore_ascii_case("bin"))
+        {
+            return Err(denied());
+        }
+        let installation = bin.parent().ok_or_else(denied)?;
+        let receipt_path = installation.join(".semwright-install-receipt");
+        let sums_path = installation.join("SHA256SUMS");
+        semwright_platform_services::verify_private_data_file(&receipt_path, 65_536)
+            .map_err(|_| denied())?;
+        semwright_platform_services::verify_private_data_file(&sums_path, 65_536)
+            .map_err(|_| denied())?;
+        let receipt = std::fs::read_to_string(&receipt_path).map_err(|_| denied())?;
+        let sums = std::fs::read_to_string(&sums_path).map_err(|_| denied())?;
+        if format!("{:x}", Sha256::digest(sums.as_bytes()))
+            != Self::manifest_digest(&receipt, "SHA256SUMS")?
+        {
+            return Err(denied());
+        }
+        let mcp_hash = Self::manifest_digest(&receipt, "bin/semwright-mcp.exe")?;
+        let daemon_hash = Self::manifest_digest(&receipt, "bin/semwrightd.exe")?;
+        if mcp_hash != Self::manifest_digest(&sums, "bin/semwright-mcp.exe")?
+            || daemon_hash != Self::manifest_digest(&sums, "bin/semwrightd.exe")?
+        {
+            return Err(denied());
+        }
+        semwright_platform_services::verify_executable(&current, &mcp_hash)
+            .map_err(|_| denied())?;
+        let image = bin.join("semwrightd.exe");
+        semwright_platform_services::verify_executable(&image, &daemon_hash)
+            .map_err(|_| denied())?;
+        Ok(Self {
+            image,
+            sha256: daemon_hash,
+        })
+    }
+}
+
 /// Default CLI/TUI session persistence must use a real filesystem path.
 /// Windows endpoints are named pipes, not directories that can hold tickets.
 pub fn default_session_ticket(socket: &Path) -> Result<PathBuf> {
@@ -220,8 +323,37 @@ impl Client {
     }
 
     pub async fn connect(path: &Path, session: Option<String>) -> Result<Self> {
-        let mut stream = Self::open_local(path).await?;
+        let stream = Self::open_local(path).await?;
         validate_client_peer(&stream)?;
+        Self::finish_hello(stream, session).await
+    }
+
+    #[cfg(target_os = "windows")]
+    async fn open_attested_windows(
+        socket: &Path,
+        pin: &WindowsBrokerPin,
+    ) -> Result<LocalClientStream> {
+        let stream = Self::open_local(socket).await?;
+        validate_client_peer(&stream)?;
+        semwright_platform_services::validate_windows_client_broker_image(
+            &stream,
+            &pin.image,
+            &pin.sha256,
+        )?;
+        Ok(stream)
+    }
+
+    #[cfg(target_os = "windows")]
+    pub async fn connect_attested_windows(
+        socket: &Path,
+        session: Option<String>,
+        pin: &WindowsBrokerPin,
+    ) -> Result<Self> {
+        let stream = Self::open_attested_windows(socket, pin).await?;
+        Self::finish_hello(stream, session).await
+    }
+
+    async fn finish_hello(mut stream: LocalClientStream, session: Option<String>) -> Result<Self> {
         write_frame(
             &mut stream,
             &ClientMessage::Hello {
@@ -699,6 +831,24 @@ pub fn save_ticket(path: &Path, ticket: &str) -> Result<()> {
 
 #[cfg(target_os = "windows")]
 pub async fn connect_persistent(socket: &Path, ticket: &Path) -> Result<Client> {
+    connect_persistent_windows_impl(socket, ticket, None).await
+}
+
+#[cfg(target_os = "windows")]
+pub async fn connect_persistent_attested_windows(
+    socket: &Path,
+    ticket: &Path,
+    pin: &WindowsBrokerPin,
+) -> Result<Client> {
+    connect_persistent_windows_impl(socket, ticket, Some(pin)).await
+}
+
+#[cfg(target_os = "windows")]
+async fn connect_persistent_windows_impl(
+    socket: &Path,
+    ticket: &Path,
+    expected: Option<&WindowsBrokerPin>,
+) -> Result<Client> {
     if !ticket.is_absolute() {
         return Err(Error::invalid("Session ticket must be an absolute path"));
     }
@@ -720,26 +870,102 @@ pub async fn connect_persistent(socket: &Path, ticket: &Path) -> Result<Client> 
         }
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     }
-    let session = load_ticket(ticket)?;
-    let client = match tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        Client::connect(socket, session),
-    )
-    .await
-    {
+    let first = async {
+        if let Some(pin) = expected {
+            // Verify the actual opened pipe/process before loading the bearer ticket.
+            let stream = Client::open_attested_windows(socket, pin).await?;
+            let session = load_ticket(ticket)?;
+            Client::finish_hello(stream, session).await
+        } else {
+            let session = load_ticket(ticket)?;
+            Client::connect(socket, session).await
+        }
+    };
+    let client = match tokio::time::timeout(std::time::Duration::from_secs(5), first).await {
         Ok(Ok(client)) => client,
-        Ok(Err(error)) if error.code == ErrorCode::StaleReference => tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            Client::connect(socket, None),
-        )
-        .await
-        .map_err(|_| Error::new(ErrorCode::Timeout, "Broker handshake timed out"))??,
+        // Only a broker-authenticated, known pre-dispatch stale session can retry Hello.
+        // Every new connection must independently pass the actual-pipe attestation.
+        Ok(Err(error)) if error.code == ErrorCode::StaleReference => {
+            let recovered = async {
+                if let Some(pin) = expected {
+                    Client::connect_attested_windows(socket, None, pin).await
+                } else {
+                    Client::connect(socket, None).await
+                }
+            };
+            tokio::time::timeout(std::time::Duration::from_secs(5), recovered)
+                .await
+                .map_err(|_| Error::new(ErrorCode::Timeout, "Broker handshake timed out"))??
+        }
         Ok(Err(error)) => return Err(error),
         Err(_) => return Err(Error::new(ErrorCode::Timeout, "Broker handshake timed out")),
     };
     save_ticket(ticket, &client.session)?;
     drop(lock_file);
     Ok(client)
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod windows_broker_peer_attestation_tests {
+    use super::*;
+    use tokio::{io::AsyncReadExt, net::windows::named_pipe::ServerOptions};
+
+    #[tokio::test]
+    async fn foreign_process_at_the_selected_pipe_never_receives_hello_or_bearer() {
+        let temp = tempfile::tempdir().unwrap();
+        let wrong_image = temp.path().join("not-semwrightd.exe");
+        std::fs::write(&wrong_image, b"unexpected executable image").unwrap();
+        let pin = WindowsBrokerPin {
+            image: wrong_image,
+            sha256: "0".repeat(64),
+        };
+        let pipe = PathBuf::from(format!(
+            r"\\.\pipe\semwright-foreign-peer-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let mut server = ServerOptions::new()
+            .first_pipe_instance(true)
+            .create(&pipe)
+            .unwrap();
+        let peer = tokio::spawn(async move {
+            server.connect().await.unwrap();
+            let mut byte = [0u8; 1];
+            let read =
+                tokio::time::timeout(std::time::Duration::from_secs(5), server.read(&mut byte))
+                    .await
+                    .expect("Client must disconnect without sending a Hello frame")
+                    .unwrap();
+            assert_eq!(read, 0, "The foreign server received a broker Hello byte");
+        });
+        let error =
+            Client::connect_attested_windows(&pipe, Some(uuid::Uuid::new_v4().to_string()), &pin)
+                .await
+                .err()
+                .expect("Wrong peer image must be rejected before Hello");
+        assert_eq!(error.code, ErrorCode::PermissionDenied);
+        assert!(error.outcome_known);
+        peer.await.unwrap();
+    }
+
+    #[test]
+    fn registered_broker_pin_refuses_missing_or_duplicated_digest() {
+        let valid = "a".repeat(64);
+        let manifest = format!("{valid}  bin/semwrightd.exe\n");
+        assert_eq!(
+            WindowsBrokerPin::manifest_digest(&manifest, "bin/semwrightd.exe").unwrap(),
+            valid
+        );
+        let duplicate = format!("{manifest}{valid}  bin/semwrightd.exe\n");
+        assert!(WindowsBrokerPin::manifest_digest(&duplicate, "bin/semwrightd.exe").is_err());
+        assert!(WindowsBrokerPin::manifest_digest(&manifest, "bin/semwright-mcp.exe").is_err());
+        assert!(
+            WindowsBrokerPin::manifest_digest(
+                &format!("{}  bin/semwrightd.exe\n", "z".repeat(64)),
+                "bin/semwrightd.exe"
+            )
+            .is_err()
+        );
+    }
 }
 
 #[cfg(all(test, target_os = "windows"))]

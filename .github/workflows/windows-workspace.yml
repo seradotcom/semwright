@@ -170,6 +170,8 @@ jobs:
         run: |
           cargo test --locked -p semwright-cli --bin semwright workspace
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-protocol --lib windows_broker_peer_attestation_tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-mcp --lib mcp_startup_
       - name: CLI pre-dispatch connection interruption remains known
         run: cargo test --locked -p semwright-cli --bin semwright predispatch_connection_tests
@@ -234,10 +236,10 @@ jobs:
             sha256 = (Get-FileHash -Algorithm SHA256 $binary).Hash.ToLowerInvariant()
             runner = 'windows-2025'; built_only = $true; interactive_accepted = $false
           } | ConvertTo-Json | Set-Content -Encoding utf8 verification/windows-uia/manifest.json
-      - name: Real broker and MCP workspace roundtrip
-        run: python scripts/windows/workspace-smoke.py --bin-dir target/debug --output verification/windows-workspace
       - name: Package Windows delivery and check install lifecycle
         run: python scripts/release/portable_package.py --bin-dir target/debug --platform windows --arch x86_64 --output dist/windows-workspace --report verification/windows-workspace/package.json
+      - name: Verify real MCP workspace and actual opened Windows peer before bearer forwarding
+        run: python scripts/windows/pinned-pipe-peer-smoke.py --archive dist/windows-workspace/semwright-1.0.0-windows-x86_64.zip --output verification/windows-pipe-peer --workspace-output verification/windows-workspace --source '${{ github.sha }}'
       - name: Bind binary hashes to source
         if: success()
         run: |
@@ -255,6 +257,7 @@ jobs:
           path: |
             verification/windows-workspace/
             verification/windows-pipe/
+            verification/windows-pipe-peer/
             verification/windows-project-restart/
           retention-days: 14
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

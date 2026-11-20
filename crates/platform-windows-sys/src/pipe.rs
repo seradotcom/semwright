@@ -574,6 +574,139 @@ pub fn validate_tokio_server_peer(pipe: &NamedPipeServer) -> Result<u32> {
     authenticate_same_user(raw, &owner, session)
 }
 
+pub fn validate_tokio_client_broker_image(
+    pipe: &NamedPipeClient,
+    expected_image: &std::path::Path,
+    expected_digest: &str,
+) -> Result<()> {
+    use semwright_platform_api::launch::ExecutableVerifier;
+    use std::{fs::File, os::windows::io::AsRawHandle};
+    use windows::{
+        Win32::{
+            Foundation::{CloseHandle, FILETIME},
+            Storage::FileSystem::{BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle},
+            System::{
+                Pipes::{GetNamedPipeServerProcessId, GetNamedPipeServerSessionId},
+                Threading::{
+                    GetProcessId, GetProcessTimes, OpenProcess, PROCESS_NAME_WIN32,
+                    PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
+                },
+            },
+        },
+        core::PWSTR,
+    };
+
+    fn denied() -> Error {
+        Error::new(
+            ErrorCode::PermissionDenied,
+            "Connected Windows broker is not the pinned installed Semwright daemon",
+        )
+    }
+    struct Process(windows::Win32::Foundation::HANDLE);
+    impl Drop for Process {
+        fn drop(&mut self) {
+            // SAFETY: OpenProcess returned one owned query-only process handle.
+            unsafe {
+                let _ = CloseHandle(self.0);
+            }
+        }
+    }
+    fn file_identity(file: &File) -> Result<(u32, u32, u32)> {
+        let mut info = BY_HANDLE_FILE_INFORMATION::default();
+        // SAFETY: file owns the live handle and info is writable for this call.
+        unsafe {
+            GetFileInformationByHandle(
+                windows::Win32::Foundation::HANDLE(file.as_raw_handle()),
+                &mut info,
+            )
+        }
+        .map_err(|_| denied())?;
+        if info.nNumberOfLinks != 1 || info.nFileIndexLow == 0 && info.nFileIndexHigh == 0 {
+            return Err(denied());
+        }
+        Ok((
+            info.dwVolumeSerialNumber,
+            info.nFileIndexHigh,
+            info.nFileIndexLow,
+        ))
+    }
+    fn created(process: windows::Win32::Foundation::HANDLE) -> Result<u64> {
+        let (mut first, mut exit, mut kernel, mut user) = (
+            FILETIME::default(),
+            FILETIME::default(),
+            FILETIME::default(),
+            FILETIME::default(),
+        );
+        // SAFETY: the process handle remains pinned; all four FILETIMEs are stack storage.
+        unsafe { GetProcessTimes(process, &mut first, &mut exit, &mut kernel, &mut user) }
+            .map_err(|_| denied())?;
+        let generation = (u64::from(first.dwHighDateTime) << 32) | u64::from(first.dwLowDateTime);
+        if generation == 0 {
+            return Err(denied());
+        }
+        Ok(generation)
+    }
+
+    // GetNamedPipeServerProcessId is queried on this connected pipe instance,
+    // not on a name checked before Connect. No Hello or bearer bytes have been sent.
+    let pid = validate_tokio_client_peer(pipe)?;
+    // SAFETY: query-only, non-inheritable handle pins the process instance so the PID
+    // cannot be silently reused while we compare its image and recheck this pipe.
+    let process = Process(
+        unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }
+            .map_err(|_| denied())?,
+    );
+    if unsafe { GetProcessId(process.0) } != pid {
+        return Err(denied());
+    }
+    let generation = created(process.0)?;
+    if crate::identity::process_user_sid_bytes(pid)? != crate::identity::current_user_sid_bytes()? {
+        return Err(denied());
+    }
+    let mut image_buf = vec![0u16; 32_768];
+    let mut image_length = image_buf.len() as u32;
+    // SAFETY: pinned process handle, Win32-format result and bounded writable buffer.
+    unsafe {
+        QueryFullProcessImageNameW(
+            process.0,
+            PROCESS_NAME_WIN32,
+            PWSTR(image_buf.as_mut_ptr()),
+            &mut image_length,
+        )
+    }
+    .map_err(|_| denied())?;
+    if image_length == 0 || image_length as usize > image_buf.len() {
+        return Err(denied());
+    }
+    let image = std::path::PathBuf::from(String::from_utf16_lossy(
+        &image_buf[..image_length as usize],
+    ));
+    let actual_file = File::open(&image).map_err(|_| denied())?;
+    let expected_file = File::open(expected_image).map_err(|_| denied())?;
+    if file_identity(&actual_file)? != file_identity(&expected_file)? {
+        return Err(denied());
+    }
+    // The shared Windows verifier checks the pinned SHA-256, file identity,
+    // trusted executable ACL, reparse/hard links, architecture and signature policy.
+    // An owner-writable package inherited by other principals is not a trusted pin.
+    crate::launch::WindowsVerifier
+        .verify(expected_image, expected_digest)
+        .map_err(|_| denied())?;
+    let raw = windows::Win32::Foundation::HANDLE(pipe.as_raw_handle());
+    let mut current_pid = 0;
+    let mut current_session = 0;
+    // SAFETY: these calls query the same live connected pipe handle immediately before Hello.
+    unsafe { GetNamedPipeServerProcessId(raw, &mut current_pid) }.map_err(|_| denied())?;
+    unsafe { GetNamedPipeServerSessionId(raw, &mut current_session) }.map_err(|_| denied())?;
+    if current_pid != pid
+        || current_session != crate::identity::current_session_id()?
+        || created(process.0)? != generation
+    {
+        return Err(denied());
+    }
+    Ok(())
+}
+
 pub fn validate_tokio_client_peer(pipe: &NamedPipeClient) -> Result<u32> {
     use windows::Win32::System::Pipes::{GetNamedPipeServerProcessId, GetNamedPipeServerSessionId};
     let raw = windows::Win32::Foundation::HANDLE(pipe.as_raw_handle());
