@@ -167,7 +167,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-platform-windows-sys --lib native_runtime_tests
       - name: Owner workspace candidate no-overwrite and safety
-        run: cargo test --locked -p semwright-cli --bin semwright workspace
+        run: |
+          cargo test --locked -p semwright-cli --bin semwright workspace
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-mcp --lib mcp_startup_
       - name: CLI pre-dispatch connection interruption remains known
         run: cargo test --locked -p semwright-cli --bin semwright predispatch_connection_tests
       - name: Shared text no-replace dispatch
@@ -317,6 +320,7 @@ jobs:
           cargo test --locked -p semwright-platform-common --lib filesystem::tests
           cargo test --locked -p semwright-protocol --lib transport_outcome_tests
           cargo test --locked -p semwright-mcp --lib transport_outcome_tests
+          cargo test --locked -p semwright-mcp --lib mcp_startup_
           cargo test --locked -p semwright-core --lib scoped_snapshot_tests
           cargo test --locked -p semwright-core --test provider_runtime builtin_provider_identity_matches_compiled_target
           cargo test --locked -p semwright-core --test broker_contract impossible_explicit_backend_reports_usable_route_without_dispatch

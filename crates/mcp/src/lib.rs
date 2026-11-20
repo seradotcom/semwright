@@ -10,7 +10,7 @@ use rmcp::{
     },
     service::RequestContext,
 };
-use semwright_protocol::{Client, connect_persistent};
+use semwright_protocol::{Client, connect_persistent, validate_local_endpoint};
 use semwright_types::{
     Envelope, Error, ErrorCode, ExecuteRequest, JobSnapshot, JobState, Result, unique_id,
 };
@@ -42,6 +42,12 @@ pub struct Server {
 }
 impl Server {
     pub fn new(socket: PathBuf, ticket: Option<PathBuf>) -> Result<Self> {
+        // Reject unusable stdio client settings before advertising MCP tools.
+        // The same endpoint syntax is used by owner setup/workspace.
+        validate_local_endpoint(&socket)?;
+        if ticket.as_ref().is_some_and(|ticket| !ticket.is_absolute()) {
+            return Err(Error::invalid("Session ticket must be an absolute path"));
+        }
         Ok(Self {
             socket,
             ticket,
@@ -531,6 +537,52 @@ impl ServerHandler for Server {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn valid_host_socket() -> PathBuf {
+        #[cfg(target_os = "windows")]
+        {
+            PathBuf::from(r"\\.\pipe\semwright-mcp-startup-test")
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            std::env::temp_dir().join("semwright-mcp-startup-test.sock")
+        }
+    }
+
+    #[test]
+    fn mcp_startup_rejects_relative_ticket_before_tool_advertisement() {
+        let error = Server::new(
+            valid_host_socket(),
+            Some(PathBuf::from("relative-host-session.ticket")),
+        )
+        .err()
+        .expect("An unusable session ticket must prevent MCP initialization");
+        assert_eq!(error.code, ErrorCode::InvalidArgument);
+        assert_eq!(error.message, "Session ticket must be an absolute path");
+    }
+
+    #[test]
+    fn mcp_startup_rejects_invalid_endpoint_before_tool_advertisement() {
+        let error = Server::new(PathBuf::from("relative-local-endpoint"), None)
+            .err()
+            .expect("An unusable socket must prevent MCP initialization");
+        assert_eq!(error.code, ErrorCode::InvalidArgument);
+        #[cfg(target_os = "windows")]
+        assert_eq!(error.message, "Invalid Semwright Named Pipe path");
+        #[cfg(not(target_os = "windows"))]
+        assert_eq!(error.message, "Broker socket must be an absolute path");
+    }
+
+    #[test]
+    fn mcp_startup_keeps_valid_local_owner_settings_without_connecting() {
+        let ticket = std::env::temp_dir().join("semwright-mcp-startup-test.ticket");
+        let server = Server::new(valid_host_socket(), Some(ticket.clone()))
+            .expect("Valid owner settings should permit MCP tool discovery");
+        assert_eq!(server.ticket.as_deref(), Some(ticket.as_path()));
+        assert_eq!(server.tools.len(), 11);
+        assert!(server.session.try_lock().unwrap().is_none());
+    }
+
     #[test]
     fn discovery_is_small_typed_and_semwright_branded() {
         let list = tools().unwrap();

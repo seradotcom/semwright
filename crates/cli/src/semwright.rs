@@ -204,20 +204,8 @@ fn setup_result(cli: &Cli, explicit_config: Option<&Path>) -> Result<Value> {
 }
 
 fn validate_local_owner_socket(socket: Option<&Path>) -> Result<()> {
-    let Some(socket) = socket else {
-        return Ok(());
-    };
-    #[cfg(target_os = "windows")]
-    {
-        // Match the named-pipe server's accepted namespace and length.
-        let spelling = socket.as_os_str().to_string_lossy();
-        if !spelling.starts_with(r"\\.\pipe\semwright-") || spelling.len() > 256 {
-            return Err(Error::invalid("Invalid Semwright Named Pipe path"));
-        }
-    }
-    #[cfg(not(target_os = "windows"))]
-    if !socket.is_absolute() {
-        return Err(Error::invalid("Broker socket must be an absolute path"));
+    if let Some(socket) = socket {
+        ipc::validate_local_endpoint(socket)?;
     }
     Ok(())
 }

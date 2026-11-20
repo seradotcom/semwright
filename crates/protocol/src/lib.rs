@@ -116,6 +116,24 @@ pub fn default_socket() -> Result<PathBuf> {
     default_endpoint("broker")
 }
 
+/// Validate the syntax shared by owner onboarding and MCP clients before
+/// either one offers a connection it cannot establish. No transport is opened.
+pub fn validate_local_endpoint(socket: &Path) -> Result<()> {
+    #[cfg(target_os = "windows")]
+    {
+        // Keep in sync with create_tokio_server's local named-pipe namespace.
+        let spelling = socket.as_os_str().to_string_lossy();
+        if !spelling.starts_with(r"\\.\pipe\semwright-") || spelling.len() > 256 {
+            return Err(Error::invalid("Invalid Semwright Named Pipe path"));
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    if !socket.is_absolute() {
+        return Err(Error::invalid("Broker socket must be an absolute path"));
+    }
+    Ok(())
+}
+
 /// Default CLI/TUI session persistence must use a real filesystem path.
 /// Windows endpoints are named pipes, not directories that can hold tickets.
 pub fn default_session_ticket(socket: &Path) -> Result<PathBuf> {
