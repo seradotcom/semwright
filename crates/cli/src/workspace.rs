@@ -191,6 +191,8 @@ pub(super) fn prepare_workspace(
     config_dir: Option<&Path>,
     candidate_id: Option<&str>,
 ) -> Result<Value> {
+    // A candidate must not advertise an endpoint the broker cannot bind.
+    super::validate_local_owner_socket(cli.socket.as_deref())?;
     let config_dir = setup_config_directory(config_dir)?;
     validate_setup_directory(&config_dir)?;
     let candidate = candidate_path(&config_dir, candidate_id)?;
@@ -405,6 +407,33 @@ mod tests {
             ErrorCode::PolicyDenied
         );
         assert!(prepare(&cli(false), "../bad", &root, true, Some(&config)).is_err());
+        assert!(!config.join(CANDIDATE).exists());
+    }
+
+    #[test]
+    fn refuses_invalid_selected_endpoint_without_writing_a_candidate() {
+        let (_dir, config, root) = fixture();
+        let source = std::fs::read(config.join("daemon.toml")).unwrap();
+        let mut owner = cli(false);
+        owner.socket = Some(PathBuf::from("ordinary-relative-socket"));
+        let error = prepare(&owner, "pilot", &root, false, Some(&config)).unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidArgument);
+        assert!(!config.join(CANDIDATE).exists());
+        assert_eq!(std::fs::read(config.join("daemon.toml")).unwrap(), source);
+    }
+
+    #[test]
+    fn valid_selected_endpoint_preserves_dry_run_candidate_preview() {
+        let (dir, config, root) = fixture();
+        let mut owner = cli(true);
+        #[cfg(windows)]
+        let socket = PathBuf::from(r"\\.\pipe\semwright-owner-workspace-test");
+        #[cfg(not(windows))]
+        let socket = dir.path().join("owner-workspace.sock");
+        owner.socket = Some(socket);
+        let result = prepare(&owner, "pilot", &root, false, Some(&config)).unwrap();
+        assert_eq!(result["status"], "would-create");
+        assert_eq!(result["broker_started"], false);
         assert!(!config.join(CANDIDATE).exists());
     }
 

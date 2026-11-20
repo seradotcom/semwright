@@ -203,11 +203,32 @@ fn setup_result(cli: &Cli, explicit_config: Option<&Path>) -> Result<Value> {
     setup_result_with_binary_directory(cli, explicit_config, bin_dir)
 }
 
+fn validate_local_owner_socket(socket: Option<&Path>) -> Result<()> {
+    let Some(socket) = socket else {
+        return Ok(());
+    };
+    #[cfg(target_os = "windows")]
+    {
+        // Match the named-pipe server's accepted namespace and length.
+        let spelling = socket.as_os_str().to_string_lossy();
+        if !spelling.starts_with(r"\\.\pipe\semwright-") || spelling.len() > 256 {
+            return Err(Error::invalid("Invalid Semwright Named Pipe path"));
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    if !socket.is_absolute() {
+        return Err(Error::invalid("Broker socket must be an absolute path"));
+    }
+    Ok(())
+}
+
 fn setup_result_with_binary_directory(
     cli: &Cli,
     explicit_config: Option<&Path>,
     bin_dir: &Path,
 ) -> Result<Value> {
+    // Do not advertise a broker endpoint that the local transport cannot bind.
+    validate_local_owner_socket(cli.socket.as_deref())?;
     // All persistent transports require an absolute bearer session ticket.
     // Reject unusable client settings before even creating owner configuration.
     if let Some(ticket) = cli.session_file.as_deref()
@@ -1982,6 +2003,68 @@ ConvertTo-Json -InputObject $values -Compress
     }
 
     #[test]
+    fn setup_refuses_invalid_local_socket_before_owner_files() {
+        let temp = tempdir().unwrap();
+        let config = temp.path().join("private-config");
+        let mut cli = Cli::try_parse_from(["semwright", "--json", "setup"]).unwrap();
+        cli.socket = Some(PathBuf::from("ordinary-relative-socket"));
+        for dry_run in [true, false] {
+            cli.dry_run = dry_run;
+            let error =
+                setup_result_with_binary_directory(&cli, Some(&config), temp.path()).unwrap_err();
+            assert_eq!(error.code, ErrorCode::InvalidArgument);
+            #[cfg(windows)]
+            assert_eq!(error.message, "Invalid Semwright Named Pipe path");
+            #[cfg(not(windows))]
+            assert_eq!(error.message, "Broker socket must be an absolute path");
+            assert!(!config.exists());
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn setup_rejects_wrong_namespace_and_oversized_pipe_paths() {
+        let temp = tempdir().unwrap();
+        let config = temp.path().join("owner-config");
+        let mut cli = Cli::try_parse_from(["semwright", "--json", "--dry-run", "setup"]).unwrap();
+        let invalid = [
+            r"\\.\pipe\unrelated-name".to_string(),
+            format!(r"\\.\pipe\semwright-{}", "x".repeat(260)),
+        ];
+        for socket in invalid {
+            cli.socket = Some(PathBuf::from(socket));
+            let error =
+                setup_result_with_binary_directory(&cli, Some(&config), temp.path()).unwrap_err();
+            assert_eq!(error.code, ErrorCode::InvalidArgument);
+            assert_eq!(error.message, "Invalid Semwright Named Pipe path");
+            assert!(!config.exists());
+        }
+    }
+
+    #[test]
+    fn setup_keeps_valid_local_socket_in_owner_next_steps() {
+        let temp = tempdir().unwrap();
+        let parent = temp.path().to_path_buf();
+        #[cfg(unix)]
+        let parent = parent.canonicalize().unwrap();
+        let config = parent.join("private-config");
+        #[cfg(windows)]
+        let socket = PathBuf::from(r"\\.\pipe\semwright-owner-setup-test");
+        #[cfg(not(windows))]
+        let socket = parent.join("owner-setup.sock");
+        let mut cli = Cli::try_parse_from(["semwright", "--json", "--dry-run", "setup"]).unwrap();
+        cli.socket = Some(socket.clone());
+        let result = setup_result_with_binary_directory(&cli, Some(&config), &parent).unwrap();
+        assert_eq!(result["setup"], "dry-run");
+        for key in ["broker", "doctor", "tui"] {
+            let args = result["next"][key].as_array().unwrap();
+            let position = args.iter().position(|value| value == "--socket").unwrap();
+            assert_eq!(args[position + 1], json!(socket), "{key}");
+        }
+        assert!(!config.exists());
+    }
+
+    #[test]
     fn setup_rejects_relative_session_ticket_before_any_files_are_created() {
         let temp = tempdir().unwrap();
         let config_dir = temp.path().join("owner-config");
@@ -2146,7 +2229,11 @@ ConvertTo-Json -InputObject $values -Compress
         let existing = std::fs::read(&snippet).unwrap();
         std::fs::write(&config, "[policy]\nprofile = \"workspace\"\n").unwrap();
 
-        cli.socket = Some(parent.path().join("different-endpoint"));
+        #[cfg(windows)]
+        let changed_socket = PathBuf::from(r"\\.\pipe\semwright-test-different-endpoint");
+        #[cfg(not(windows))]
+        let changed_socket = parent.path().join("different-endpoint");
+        cli.socket = Some(changed_socket);
         let repeated =
             setup_result_with_binary_directory(&cli, Some(&directory), &bin_dir).unwrap();
         assert_eq!(repeated["config"]["status"], "kept-existing");

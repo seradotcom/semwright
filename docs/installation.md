@@ -164,6 +164,10 @@ non-authorizing onboarding:
 
 The command is intentionally idempotent and **never overwrites** existing config/snippet files. Use
 `semwright --dry-run --json setup` to inspect the proposed paths without writing anything.
+An explicitly selected `--socket` must name a valid broker endpoint. On Windows,
+use a pipe beginning with `\\.\pipe\semwright-` (at most 256 characters);
+on Unix, use an absolute socket path. Both `setup` and `workspace` reject invalid
+endpoint selections before writing configuration or workspace candidates.
 An explicit `--session-file` must be an **absolute path** on every supported platform:
 relative paths are refused before setup creates owner configuration or an MCP snippet,
 including when running a dry run. Broker clients cannot persist relative session tickets.
