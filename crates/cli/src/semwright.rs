@@ -1679,6 +1679,9 @@ async fn run(cli: &Cli) -> Result<i32> {
     if local(cli).await? {
         return Ok(0);
     }
+    // Parse local command inputs before making a session or contacting a broker.
+    // Skill and Watch have no ExecuteRequest and retain their dedicated routes.
+    let prepared_request = request(cli)?;
     let socket = cli
         .socket
         .clone()
@@ -1790,7 +1793,7 @@ async fn run(cli: &Cli) -> Result<i32> {
             ));
         }
     }
-    let request = request(cli)?
+    let request = prepared_request
         .ok_or_else(|| Error::new(ErrorCode::Internal, "Command has no request mapping"))?;
     let id = unique_id();
     let started = std::time::Instant::now();
@@ -2299,6 +2302,41 @@ mod predispatch_connection_tests {
     use super::*;
     use std::cell::Cell;
     use std::future::{pending, ready};
+
+    #[tokio::test]
+    async fn invalid_local_json_is_rejected_before_any_session_or_broker_contact() {
+        let temp = tempfile::tempdir().unwrap();
+        let ticket = temp.path().join("owner-private").join("cli.session");
+        #[cfg(windows)]
+        let socket = PathBuf::from(r"\\.\pipe\semwright-unbound-bad-json-test");
+        #[cfg(not(windows))]
+        let socket = temp.path().join("unbound.sock");
+        let cli = Cli::try_parse_from([
+            "semwright".to_owned(),
+            "--json".to_owned(),
+            "--socket".to_owned(),
+            socket.to_string_lossy().into_owned(),
+            "--session-file".to_owned(),
+            ticket.to_string_lossy().into_owned(),
+            "execute".to_owned(),
+            "filesystem.read".to_owned(),
+            "--args-json".to_owned(),
+            "[]".to_owned(),
+        ])
+        .unwrap();
+        assert!(!ticket.parent().unwrap().exists());
+        let error = tokio::time::timeout(Duration::from_secs(3), run(&cli))
+            .await
+            .expect("Invalid local JSON should never wait for a broker")
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidArgument);
+        assert_eq!(error.message, "Arguments must be a JSON object");
+        assert!(error.outcome_known);
+        assert!(
+            !ticket.parent().unwrap().exists(),
+            "Invalid local input must not create a session ticket or lock directory"
+        );
+    }
 
     #[tokio::test]
     async fn skill_interruption_after_connection_remains_uncertain() {

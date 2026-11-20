@@ -164,6 +164,10 @@ non-authorizing onboarding:
 
 The command is intentionally idempotent and **never overwrites** existing config/snippet files. Use
 `semwright --dry-run --json setup` to inspect the proposed paths without writing anything.
+For broker-backed CLI commands, malformed local JSON or text inputs are rejected before
+the broker connection and before a session ticket/lock is created. Such pre-dispatch
+input failures are not permission denials or evidence that an operation ran; broker
+policy and command schemas are still checked after a valid request is dispatched.
 An explicitly selected `--socket` must name a valid broker endpoint. On Windows,
 use a pipe beginning with `\\.\pipe\semwright-` (at most 256 characters);
 on Unix, use an absolute socket path. Both `setup` and `workspace` reject invalid
