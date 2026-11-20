@@ -34,7 +34,7 @@ def run(args,timeout=30,**kwargs):
 
 def owner_sid():
     code="[Security.Principal.WindowsIdentity]::GetCurrent().User.Value"
-    return run(["powershell","-NoProfile","-NonInteractive","-Command",code]).strip()
+    return run(["pwsh","-NoProfile","-NonInteractive","-Command",code]).strip()
 
 def restrict_bundle(root,sid):
     # This fixture is isolated under runner LOCALAPPDATA; the user's E: is never modified.
@@ -132,7 +132,7 @@ def main():
         daemon=bundle/"bin/semwrightd.exe"
         client=bundle/"bin/semwright-mcp.exe"
         assert daemon.is_file() and client.is_file()
-        run(["powershell","-NoProfile","-NonInteractive","-File",
+        run(["pwsh","-NoProfile","-NonInteractive","-File",
              bundle/"Install-Semwright.ps1","-InPlace"],timeout=30)
         restrict_bundle(root,owner_sid())
         # Run the pre-existing real broker/MCP workspace proof ONCE, against
