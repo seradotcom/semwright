@@ -197,6 +197,10 @@ impl WindowsBrokerPin {
         }) {
             return Err(denied());
         }
+        // The file itself can be immutable while a broadly writable parent
+        // permits a different process to replace its directory entry.
+        semwright_platform_services::verify_trusted_windows_installation_ancestors(&current)
+            .map_err(|_| denied())?;
         let bin = current.parent().ok_or_else(denied)?;
         if !bin
             .file_name()

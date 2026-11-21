@@ -35,10 +35,14 @@ server, not merely a server advertised at the selected name. Before reading a sa
 session ticket or sending the broker `Hello`, it checks the server's user SID,
 logon session, pinned process instance, executable identity and SHA-256 from the
 same registered Semwright portable bundle. The client's and broker's installed
-executables and checksum/receipt files must have trusted Windows ACLs that prevent
-modification by other authenticated users. A package with inherited broad write
-permissions, a missing/altered receipt, or a foreign pipe server fails closed;
-there is no alternate unverified connection. Install into an owner-protected
+executables and checksum/receipt files **and every directory ancestor up to the
+volume root** must have trusted Windows ACLs that prevent replacement or
+modification by other authenticated users. The filesystem-root exception allows
+only normal new-sibling directory creation, not replacing or deleting installed
+children. Authenticated Users, Users, or Everyone write, delete-child, or ACL
+mutation permission on a package ancestor fails closed. A package with inherited
+broad write permissions, a missing/altered receipt, or a foreign pipe server
+fails closed; there is no alternate unverified connection. Install into an owner-protected
 location and do not treat a pre-launch peer check as a replacement for this
 connected-handle verification. A registered bundle is a local source-integrity
 check, not a public code-signing or release certification.

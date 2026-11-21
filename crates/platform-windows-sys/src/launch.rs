@@ -346,6 +346,7 @@ fn untrusted_acl_restricted_mask(private_data: bool) -> u32 {
         | FILE_WRITE_EA.0
         | FILE_WRITE_ATTRIBUTES.0
         | DELETE.0
+        | FILE_DELETE_CHILD.0
         | WRITE_DAC.0
         | WRITE_OWNER.0
         | GENERIC_WRITE.0
@@ -366,6 +367,8 @@ enum WindowsAclPurpose {
     PrivateData,
     Executable,
     NativeRuntime,
+    InstallationDirectory,
+    InstallationVolumeRoot,
 }
 
 fn trusted_installer_sid_bytes() -> Vec<u8> {
@@ -391,6 +394,8 @@ fn verify_trusted_file_acl(file: &File, purpose: WindowsAclPurpose) -> Result<()
         WindowsAclPurpose::PrivateData => ("private data file", true),
         WindowsAclPurpose::Executable => ("executable", false),
         WindowsAclPurpose::NativeRuntime => ("native runtime", false),
+        WindowsAclPurpose::InstallationDirectory => ("installation directory", false),
+        WindowsAclPurpose::InstallationVolumeRoot => ("installation volume root", false),
     };
     let mut owner = PSID::default();
     let mut dacl: *mut ACL = std::ptr::null_mut();
@@ -428,11 +433,19 @@ fn verify_trusted_file_acl(file: &File, purpose: WindowsAclPurpose) -> Result<()
     let system = well_known_sid(WinLocalSystemSid)?;
     let admins = well_known_sid(WinBuiltinAdministratorsSid)?;
     let trusted = [&current[..], &system[..], &admins[..]];
-    let native_installer =
-        (purpose == WindowsAclPurpose::NativeRuntime).then(trusted_installer_sid_bytes);
-    // TrustedInstaller can service a vendor runtime, but may NOT become the
-    // owner of Semwright private data or the broad executable verifier.
-    if !trusted.iter().any(|expected| sid_matches(owner, expected)) {
+    let native_installer = matches!(
+        purpose,
+        WindowsAclPurpose::NativeRuntime | WindowsAclPurpose::InstallationVolumeRoot
+    )
+    .then(trusted_installer_sid_bytes);
+    // TrustedInstaller owns some Windows volume roots; this narrow exception is
+    // never an authority for the installed files or other parent directories.
+    if !trusted.iter().any(|expected| sid_matches(owner, expected))
+        && !(purpose == WindowsAclPurpose::InstallationVolumeRoot
+            && native_installer
+                .as_ref()
+                .is_some_and(|expected| sid_matches(owner, expected)))
+    {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
             format!("Windows {kind} owner is not the current user, SYSTEM or Administrators"),
@@ -463,7 +476,15 @@ fn verify_trusted_file_acl(file: &File, purpose: WindowsAclPurpose) -> Result<()
         ));
     }
 
-    let restricted = untrusted_acl_restricted_mask(private_data);
+    // Windows volume roots conventionally allow Authenticated Users to create a
+    // new sibling subdirectory (FILE_APPEND_DATA). That right alone cannot
+    // replace an already protected installation child. All other mutation
+    // bits remain refused, and all descendants use the strict directory rule.
+    let restricted = if purpose == WindowsAclPurpose::InstallationVolumeRoot {
+        untrusted_acl_restricted_mask(false) & !FILE_APPEND_DATA.0
+    } else {
+        untrusted_acl_restricted_mask(private_data)
+    };
 
     for index in 0..acl_info.AceCount {
         let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
@@ -688,6 +709,59 @@ pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
             ErrorCode::Conflict,
             "Windows private data file changed while it was being verified",
         ));
+    }
+    Ok(())
+}
+
+/// Reject installed Core packages replaceable through a parent directory's
+/// DELETE_CHILD, add-file, ACL mutation or reparse/link redirection rights.
+/// The queried handles are scoped to this check; no installed ACLs are altered.
+pub fn verify_trusted_installation_ancestors(path: &Path) -> Result<()> {
+    let rejected = || {
+        Error::new(
+            ErrorCode::PermissionDenied,
+            "Windows Semwright installation ancestors are not owner-protected",
+        )
+    };
+    if !path.is_absolute()
+        || path
+            .components()
+            .any(|part| matches!(part, Component::CurDir | Component::ParentDir))
+    {
+        return Err(rejected());
+    }
+    let spelling = path.as_os_str().to_string_lossy();
+    if spelling.starts_with(r"\\") || spelling.starts_with(r"//") {
+        return Err(rejected());
+    }
+    let parent = path.parent().ok_or_else(rejected)?;
+    let mut levels = 0usize;
+    for ancestor in parent.ancestors() {
+        levels += 1;
+        if levels > 64 || !ancestor.is_absolute() || ancestor.as_os_str().is_empty() {
+            return Err(rejected());
+        }
+        let mut opts = std::fs::OpenOptions::new();
+        opts.read(true)
+            .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0 | FILE_SHARE_DELETE.0)
+            .custom_flags((FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT).0);
+        let directory = opts.open(ancestor).map_err(|_| rejected())?;
+        let before = info(&directory).map_err(|_| rejected())?;
+        if before.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 == 0
+            || before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+        {
+            return Err(rejected());
+        }
+        let purpose = if ancestor.parent().is_none() {
+            WindowsAclPurpose::InstallationVolumeRoot
+        } else {
+            WindowsAclPurpose::InstallationDirectory
+        };
+        verify_trusted_file_acl(&directory, purpose).map_err(|_| rejected())?;
+        let after = info(&directory).map_err(|_| rejected())?;
+        if !same_identity(&before, &after) {
+            return Err(rejected());
+        }
     }
     Ok(())
 }
@@ -3461,6 +3535,7 @@ mod verifier_tests {
             FILE_WRITE_EA.0,
             FILE_WRITE_ATTRIBUTES.0,
             DELETE.0,
+            FILE_DELETE_CHILD.0,
             WRITE_DAC.0,
             WRITE_OWNER.0,
             FILE_GENERIC_WRITE.0,
@@ -3473,6 +3548,94 @@ mod verifier_tests {
                 "Write bit {write:#x} escaped ACL rejection"
             );
         }
+    }
+
+    #[test]
+    fn executable_acl_installation_ancestors_reject_untrusted_mutation() {
+        let temp = tempfile::tempdir().expect("isolated Windows ACL test root");
+        let bundle = temp.path().join("registered");
+        let bin = bundle.join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let daemon = bin.join("semwrightd.exe");
+        std::fs::write(&daemon, b"fixture only, never executed").unwrap();
+        let username = std::env::var("USERNAME").expect("Windows owner username");
+        let owner = match std::env::var("USERDOMAIN") {
+            Ok(domain) if !domain.is_empty() => format!(r"{domain}\{username}"),
+            _ => username,
+        };
+        let acl = |path: &Path, args: &[String]| {
+            let result = std::process::Command::new("icacls")
+                .arg(path)
+                .args(args)
+                .status()
+                .expect("hosted Windows icacls must be available");
+            assert!(result.success(), "icacls failed for {}", path.display());
+        };
+        // Harden only owned fixture folders, never an existing drive or owner installation.
+        for directory in [temp.path(), bundle.as_path(), bin.as_path()] {
+            acl(
+                directory,
+                &[
+                    "/inheritance:r".into(),
+                    "/grant:r".into(),
+                    format!("{owner}:(OI)(CI)F"),
+                ],
+            );
+        }
+        verify_trusted_installation_ancestors(&daemon)
+            .expect("owner-protected installation chain should be accepted");
+        for directory in [temp.path(), bundle.as_path(), bin.as_path()] {
+            for sid in ["S-1-5-11", "S-1-5-32-545", "S-1-1-0"] {
+                acl(directory, &["/grant:r".into(), format!("*{sid}:(OI)(CI)M")]);
+                assert_eq!(
+                    verify_trusted_installation_ancestors(&daemon)
+                        .expect_err("untrusted ancestor Modify must fail closed")
+                        .code,
+                    ErrorCode::PermissionDenied,
+                    "untrusted {sid} can replace an installation from {}",
+                    directory.display()
+                );
+                acl(directory, &["/remove:g".into(), format!("*{sid}")]);
+                verify_trusted_installation_ancestors(&daemon)
+                    .expect("restoring owner-only ACL should restore trust");
+            }
+        }
+        acl(
+            &bin,
+            &["/grant:r".into(), "*S-1-5-32-545:(OI)(CI)RX".into()],
+        );
+        verify_trusted_installation_ancestors(&daemon)
+            .expect("an untrusted read/execute ACE alone is not a mutation grant");
+    }
+
+    #[test]
+    fn executable_acl_installation_root_exception_is_narrow() {
+        let root = untrusted_acl_restricted_mask(false) & !FILE_APPEND_DATA.0;
+        assert_eq!(
+            FILE_APPEND_DATA.0 & root,
+            0,
+            "normal Windows drive-root sibling creation cannot replace a protected child"
+        );
+        for unsafe_write in [
+            FILE_WRITE_DATA.0,
+            FILE_DELETE_CHILD.0,
+            DELETE.0,
+            WRITE_DAC.0,
+            WRITE_OWNER.0,
+            GENERIC_WRITE.0,
+            GENERIC_ALL.0,
+        ] {
+            assert_ne!(
+                unsafe_write & root,
+                0,
+                "volume-root exception cannot permit mutation or deletion"
+            );
+        }
+        assert_ne!(
+            FILE_APPEND_DATA.0 & untrusted_acl_restricted_mask(false),
+            0,
+            "subdirectory ancestors must reject write/create permission"
+        );
     }
 
     #[test]

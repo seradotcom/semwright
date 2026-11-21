@@ -206,6 +206,13 @@ pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
     semwright_platform_windows_sys::launch::verify_private_data_file(path, max_bytes)
 }
 
+/// Validate every directory that could replace a registered Windows Core
+/// executable or manifest, without changing any filesystem permissions.
+#[cfg(target_os = "windows")]
+pub fn verify_trusted_windows_installation_ancestors(path: &Path) -> Result<()> {
+    semwright_platform_windows_sys::launch::verify_trusted_installation_ancestors(path)
+}
+
 /// Host-internal native runtime preparation. No client, app or manifest can
 /// acquire this authority by supplying a path.
 #[cfg(target_os = "windows")]

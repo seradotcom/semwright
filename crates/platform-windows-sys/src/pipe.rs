@@ -689,6 +689,7 @@ pub fn validate_tokio_client_broker_image(
     // The shared Windows verifier checks the pinned SHA-256, file identity,
     // trusted executable ACL, reparse/hard links, architecture and signature policy.
     // An owner-writable package inherited by other principals is not a trusted pin.
+    crate::launch::verify_trusted_installation_ancestors(expected_image).map_err(|_| denied())?;
     crate::launch::WindowsVerifier
         .verify(expected_image, expected_digest)
         .map_err(|_| denied())?;

@@ -162,6 +162,36 @@ def main():
         finally:
             ensure_stopped(rogue)
 
+        # Mutation tests operate only on this hosted runner's disposable copy.
+        # A file-level SHA is not enough if an ancestor can replace the name.
+        invalid_files=[daemon,client,bundle/"SHA256SUMS",
+                       bundle/".semwright-install-receipt"]
+        invalid_parents=[root,bundle,bundle/"bin"]
+        untrusted=["S-1-5-11","S-1-5-32-545","S-1-1-0"]
+        original_ticket=ticket.read_bytes()
+        file_negative_count=0
+        ancestor_negative_count=0
+        for target in [*invalid_files,*invalid_parents]:
+            for sid in untrusted:
+                permission=f"*{sid}:(OI)(CI)M" if target.is_dir() else f"*{sid}:(M)"
+                run(["icacls",target,"/grant:r",permission],timeout=10)
+                try:
+                    ret,reply=mcp_call(client,socket,ticket,env)
+                    failure=(reply.get("structuredContent") or {}).get("error") or {}
+                    if (ret!=0 or reply.get("isError") is not True
+                        or failure.get("code")!="PermissionDenied"
+                        or failure.get("outcome_known") is not True):
+                        fail("Untrusted ACL write was not known-denied for "
+                             +target.name+" / "+sid+" / "+repr(reply))
+                    if target.is_dir():
+                        ancestor_negative_count+=1
+                    else:
+                        file_negative_count+=1
+                finally:
+                    run(["icacls",target,"/remove:g",f"*{sid}"],timeout=10)
+        if ticket.read_bytes()!=original_ticket:
+            fail("Negative ACL tests changed the saved synthetic session ticket")
+
         # Modification of a file from the recorded source bundle must not permit
         # an attacker to re-pin it by the pipe name. No original user files touched.
         with open(daemon,"ab") as stream:
@@ -178,6 +208,9 @@ def main():
             "replacement_used_same_pipe_name":True,
             "replacement_pipe_wrong_process_rejected":True,
             "replacement_received_hello_bytes":0,
+            "untrusted_executable_and_manifest_mutation_denials":file_negative_count,
+            "untrusted_ancestor_mutation_denials":ancestor_negative_count,
+            "saved_synthetic_ticket_unchanged":True,
             "modified_package_rejected":True,
             "automatic_retry":False,
             "original_owner_broker_touched":False,
