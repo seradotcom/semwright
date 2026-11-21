@@ -34,13 +34,28 @@ def owner_sid():
     return run(["pwsh","-NoProfile","-NonInteractive","-Command",code]).strip()
 
 def restrict_bundle(root,sid):
-    # This fixture is isolated under runner LOCALAPPDATA; the user's E: is never modified.
+    # This fixture is isolated under the hosted runner temp; user disks are untouched.
     nodes=[root]+sorted(root.rglob("*"),key=lambda x:(len(x.parts),str(x)))
     for node in nodes:
         access="(OI)(CI)F" if node.is_dir() else "F"
         run(["icacls",node,"/inheritance:r","/grant:r",
              f"*{sid}:{access}",f"*S-1-5-18:{access}",
              f"*S-1-5-32-544:{access}"],timeout=10)
+
+def capture_ancestor_acls(executable,destination):
+    # Read-only diagnostics on the hosted runner; no global ACL mutations.
+    rows=[]
+    ancestor=executable.parent
+    for _ in range(64):
+        acl=subprocess.run(["icacls",str(ancestor)],capture_output=True,text=True,
+                           encoding="utf-8",errors="replace",timeout=8)
+        rows.append("DIRECTORY="+str(ancestor)+"\n"
+                    +"ICACLS_EXIT="+str(acl.returncode)+"\n"
+                    +acl.stdout+"\n"+acl.stderr+"\n")
+        if ancestor.parent==ancestor:
+            break
+        ancestor=ancestor.parent
+    destination.write_text("\n".join(rows),encoding="utf-8")
 
 def mcp_call(executable,socket,ticket,env):
     lines=[MCP_INIT,{"jsonrpc":"2.0","method":"notifications/initialized"},MCP_CALL]
@@ -101,9 +116,9 @@ def main():
     assert archive.is_file()
     dest=Path(args.output).resolve()
     dest.mkdir(parents=True,exist_ok=True)
-    # A hardened, test-owned LOCALAPPDATA directory avoids inherited world-write ACLs.
-    local=Path(os.environ["LOCALAPPDATA"])
-    with tempfile.TemporaryDirectory(prefix="semwright-pipe-peer-",dir=local) as tmp:
+    # Use the same isolated runner temporary root as the passing Windows ACL
+    # unit fixture, not an assumed-safe LOCALAPPDATA directory.
+    with tempfile.TemporaryDirectory(prefix="semwright-pipe-peer-") as tmp:
         root=Path(tmp)
         with zipfile.ZipFile(archive) as z:
             files=z.infolist()
@@ -121,6 +136,7 @@ def main():
         run(["pwsh","-NoProfile","-NonInteractive","-File",
              bundle/"Install-Semwright.ps1","-InPlace"],timeout=30)
         restrict_bundle(root,owner_sid())
+        capture_ancestor_acls(client,dest/"ancestor-acl-diagnostic.txt")
         # The existing real-broker/MCP workspace proof verifies legitimate
         # read, write, doctor, reconnect and revocation with this protected
         # registered bundle. Return its now-released pipe name so the same
