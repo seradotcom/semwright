@@ -40,9 +40,11 @@ volume root** must have trusted Windows ACLs that prevent replacement or
 modification by other authenticated users. The filesystem-root exception allows
 only normal new-sibling directory creation, not replacing or deleting installed
 children. Authenticated Users, Users, or Everyone write, delete-child, or ACL
-mutation permission on a package ancestor fails closed. A package with inherited
-broad write permissions, a missing/altered receipt, or a foreign pipe server
-fails closed; there is no alternate unverified connection. Install into an owner-protected
+mutation permission on a package ancestor fails closed. Windows `OWNER RIGHTS`
+(`S-1-3-4`) is accepted only for the directory's already verified
+trusted owner, not as a grant to arbitrary authenticated users. A package with
+inherited broad write permissions, a missing/altered receipt, or a foreign pipe
+server fails closed; there is no alternate unverified connection. Install into an owner-protected
 location and do not treat a pre-launch peer check as a replacement for this
 connected-handle verification. A registered bundle is a local source-integrity
 check, not a public code-signing or release certification.

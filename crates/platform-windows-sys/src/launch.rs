@@ -66,7 +66,8 @@ use windows::Win32::{
         NO_INHERITANCE, OWNER_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
         PSECURITY_DESCRIPTOR, PSID, SE_DACL_PROTECTED, SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES,
         SECURITY_MAX_SID_SIZE, SID_AND_ATTRIBUTES, SUB_CONTAINERS_AND_OBJECTS_INHERIT,
-        WinBuiltinAdministratorsSid, WinCapabilityInternetClientSid, WinLocalSystemSid,
+        WinBuiltinAdministratorsSid, WinCapabilityInternetClientSid, WinCreatorOwnerRightsSid,
+        WinLocalSystemSid,
         WinTrust::{
             WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_DATA_0, WINTRUST_FILE_INFO,
             WTD_CACHE_ONLY_URL_RETRIEVAL, WTD_CHOICE_FILE, WTD_REVOCATION_CHECK_NONE,
@@ -485,6 +486,11 @@ fn verify_trusted_file_acl(file: &File, purpose: WindowsAclPurpose) -> Result<()
     } else {
         untrusted_acl_restricted_mask(private_data)
     };
+    // OWNER RIGHTS (S-1-3-4) represents the verified current owner of this
+    // object. It is not CREATOR OWNER, nor an arbitrary group write grant.
+    // The owner SID was accepted as current user/SYSTEM/Admins (or the narrow
+    // volume-root TrustedInstaller exception) before evaluating this ACE.
+    let owner_rights = well_known_sid(WinCreatorOwnerRightsSid)?;
 
     for index in 0..acl_info.AceCount {
         let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
@@ -540,6 +546,7 @@ fn verify_trusted_file_acl(file: &File, purpose: WindowsAclPurpose) -> Result<()
             }
             let sid = PSID((&ace.SidStart as *const u32).cast_mut().cast());
             if !trusted.iter().any(|expected| sid_matches(sid, expected))
+                && !sid_matches(sid, &owner_rights)
                 && !native_installer
                     .as_ref()
                     .is_some_and(|expected| sid_matches(sid, expected))
@@ -3584,6 +3591,14 @@ mod verifier_tests {
         }
         verify_trusted_installation_ancestors(&daemon)
             .expect("owner-protected installation chain should be accepted");
+        // Windows temporary folders may contain OWNER RIGHTS (S-1-3-4) Full:
+        // this grants the already verified owner control, not an outsider.
+        acl(
+            temp.path(),
+            &["/grant:r".into(), "*S-1-3-4:(OI)(CI)F".into()],
+        );
+        verify_trusted_installation_ancestors(&daemon)
+            .expect("verified owner's OWNER RIGHTS ACE must not be a false denial");
         for directory in [temp.path(), bundle.as_path(), bin.as_path()] {
             for sid in ["S-1-5-11", "S-1-5-32-545", "S-1-1-0"] {
                 acl(directory, &["/grant:r".into(), format!("*{sid}:(OI)(CI)M")]);
