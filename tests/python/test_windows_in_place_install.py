@@ -139,6 +139,40 @@ if ($env:SEMWRIGHT_ACL_RESTORE) {
                     finally:
                         self.acl(path, restore=original_acl)
 
+    def test_inherit_only_ancestor_mutation_does_not_trust_new_children(self):
+        # A protected existing bundle can be trusted even when a parent
+        # contains an inherit-only mutation template for FUTURE children.
+        subprocess.run(
+            ["icacls", str(self.bundle), "/inheritance:d"],
+            env=PS_ENV, capture_output=True, check=True, timeout=15,
+        )
+        original_bundle = self.snapshot()
+        subprocess.run(
+            ["icacls", str(self.root), "/grant", "*S-1-5-11:(OI)(CI)(IO)M"],
+            env=PS_ENV, capture_output=True, check=True, timeout=15,
+        )
+        self.helper("Install", "-InPlace", "-Check")
+        self.assertFalse(self.receipt.exists())
+        self.assertEqual(self.snapshot(), original_bundle)
+
+        # A new sibling receives the broad mutation as effective access.
+        # It must not gain admission merely because the existing bundle did.
+        future_bundle = self.root / "Bundle created after template"
+        shutil.copytree(self.bundle, future_bundle)
+        future_before = {p.relative_to(future_bundle).as_posix(): p.read_bytes()
+                         for p in future_bundle.rglob("*") if p.is_file()}
+        output = self.helper(
+            "Install", "-InPlace", "-Check", success=False, bundle=future_bundle,
+        )
+        self.assertIn("Untrusted Windows installation path", output)
+        self.assertIn(future_bundle.name, output)
+        self.assertFalse((future_bundle / ".semwright-install-receipt").exists())
+        self.assertEqual(
+            {p.relative_to(future_bundle).as_posix(): p.read_bytes()
+             for p in future_bundle.rglob("*") if p.is_file()},
+            future_before,
+        )
+
     def test_parent_delete_child_refuses_before_registration(self):
         self.acl(self.root, sid="S-1-1-0", rights="DeleteSubdirectoriesAndFiles")
         before = self.snapshot()
