@@ -4,18 +4,15 @@ One legitimate semwrightd -> semwright-mcp doctor and one replacement/wrong-imag
 pipe server. No real desktop work, model invocation, policy grants or bearer output.
 """
 import argparse
-import ctypes
-import getpass
 import json
+import runpy
 import os
 from pathlib import Path, PurePosixPath
 import subprocess
 import sys
 import tempfile
-import time
+import uuid
 import zipfile
-
-K32=ctypes.WinDLL("kernel32",use_last_error=True) if os.name=="nt" else None
 MCP_INIT={"jsonrpc":"2.0","id":1,"method":"initialize","params":{
     "protocolVersion":"2025-06-18","capabilities":{},
     "clientInfo":{"name":"pinned-core-runner-check","version":"1"}}}
@@ -60,17 +57,6 @@ def mcp_call(executable,socket,ticket,env):
     if not isinstance(tool,dict):
         fail("MCP returned no tool response")
     return proc.returncode,tool
-
-def wait_pipe(pipe,process):
-    K32.WaitNamedPipeW.argtypes=[ctypes.c_wchar_p,ctypes.c_uint32]
-    K32.WaitNamedPipeW.restype=ctypes.c_int
-    for _ in range(100):
-        if process.poll() is not None:
-            fail("Server exited before establishing a pipe")
-        if K32.WaitNamedPipeW(pipe,100):
-            return
-        time.sleep(0.02)
-    fail("Server never made a named pipe available")
 
 ROGUE=r'''
 import ctypes,sys
@@ -135,29 +121,29 @@ def main():
         run(["pwsh","-NoProfile","-NonInteractive","-File",
              bundle/"Install-Semwright.ps1","-InPlace"],timeout=30)
         restrict_bundle(root,owner_sid())
-        # Run the pre-existing real broker/MCP workspace proof ONCE, against
-        # this exact registered and ACL-protected source bundle.
-        run([sys.executable,"scripts/windows/workspace-smoke.py",
-             "--bin-dir",bundle/"bin","--output",args.workspace_output],timeout=180)
+        # The existing real-broker/MCP workspace proof verifies legitimate
+        # read, write, doctor, reconnect and revocation with this protected
+        # registered bundle. Return its now-released pipe name so the same
+        # endpoint can be reoccupied by an unrelated process.
+        workspace_runner=runpy.run_path("scripts/windows/workspace-smoke.py")["run"]
+        socket=workspace_runner(bundle/"bin",Path(args.workspace_output).resolve())
+        workspace=json.loads(
+            (Path(args.workspace_output)/"workspace.json").read_text(encoding="utf-8"))
+        if (not isinstance(socket,str)
+            or not socket.startswith(r"\\.\pipe\semwright-")
+            or workspace.get("fake") is not False
+            or workspace.get("generated_mcp_configuration_used") is not True
+            or workspace.get("read_write_readback") is not True
+            or workspace.get("second_task_after_reconnect") is not True):
+            fail("Registered protected bundle did not complete the real MCP workspace proof")
         owner=root/"owner-private"
         owner.mkdir()
         restrict_bundle(owner,owner_sid())
         env={**os.environ,"SEMWRIGHT_DATA_DIR":str(owner),"SEMWRIGHT_MCP_UPSTREAMS":""}
-        socket=rf"\\.\pipe\semwright-pinned-peer-{os.getpid()}"
         ticket=owner/"client.session"
-        with open(root/"broker.err","w",encoding="utf-8") as stderr:
-            broker=subprocess.Popen([str(daemon),"--config",
-                str(bundle/"config/observe.toml"),"--socket",socket],
-                stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=stderr,env=env)
-            try:
-                wait_pipe(socket,broker)
-                good_code,good_result=mcp_call(client,socket,ticket,env)
-                if good_code!=0 or good_result.get("isError",False):
-                    fail("Trusted source-bound broker doctor call was not accepted")
-                if not ticket.is_file():
-                    fail("Trusted broker did not create an owner-only session ticket")
-            finally:
-                ensure_stopped(broker)
+        # A synthetic UUID models a saved bearer without using a real user's
+        # credential. Even this value must never reach the replacement server.
+        ticket.write_text(str(uuid.uuid4())+"\n",encoding="ascii")
 
         # A different process now binds the previously trusted name. The actual
         # client handle must fail regardless of the former server's identity.
@@ -187,8 +173,9 @@ def main():
             "source":args.source,
             "status":"PASS_PINNED_ACTUAL_PIPE_WINDOWS",
             "registered_owner_private_bundle":True,
-            "trusted_doctor_accepted":True,
-            "owner_ticket_created_by_genuine_broker":True,
+            "genuine_broker_workspace_mcp_reconnect_accepted":True,
+            "synthetic_preexisting_ticket_for_negative":True,
+            "replacement_used_same_pipe_name":True,
             "replacement_pipe_wrong_process_rejected":True,
             "replacement_received_hello_bytes":0,
             "modified_package_rejected":True,

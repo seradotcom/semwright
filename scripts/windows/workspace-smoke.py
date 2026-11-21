@@ -627,6 +627,10 @@ def run(binary_dir: Path, output: Path):
                     daemon.wait(timeout=5)
                 junction.rmdir()
 
+    # Private test callers may rebind this released endpoint to check that the
+    # next client authenticates the connected process rather than the pipe name.
+    return endpoint
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
