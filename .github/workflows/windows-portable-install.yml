@@ -45,7 +45,8 @@ jobs:
       - name: Native helper contracts on both PowerShell editions
         run: |
           New-Item -ItemType Directory -Force verification/windows-portable | Out-Null
-          $env:SEMWRIGHT_INSTALL_TEST_ROOT = $env:RUNNER_TEMP
+          # The OS temp folder has protected ancestry; the checkout drive may be shared.
+          $env:SEMWRIGHT_INSTALL_TEST_ROOT = [IO.Path]::GetTempPath()
           foreach ($edition in @('powershell', 'pwsh')) {
             $env:SEMWRIGHT_TEST_POWERSHELL = (Get-Command $edition -ErrorAction Stop).Source
             python -B tests/python/test_windows_in_place_install.py -v 2>&1 |

@@ -133,9 +133,9 @@ def main():
         daemon=bundle/"bin/semwrightd.exe"
         client=bundle/"bin/semwright-mcp.exe"
         assert daemon.is_file() and client.is_file()
+        restrict_bundle(root,owner_sid())
         run(["pwsh","-NoProfile","-NonInteractive","-File",
              bundle/"Install-Semwright.ps1","-InPlace"],timeout=30)
-        restrict_bundle(root,owner_sid())
         capture_ancestor_acls(client,dest/"ancestor-acl-diagnostic.txt")
         # The existing real-broker/MCP workspace proof verifies legitimate
         # read, write, doctor, reconnect and revocation with this protected

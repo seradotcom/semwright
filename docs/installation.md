@@ -102,9 +102,9 @@ $env:SEMWRIGHT_DATA_DIR = 'D:\SemwrightData'
 .\Uninstall-Semwright.ps1
 ```
 
-`-InPlace` verifies every internal checksum and all five commands, then creates an installation
-receipt beside the extracted files. It does not copy or move the bundle and cannot be combined
-with `-Prefix`. Use a non-root directory on a local drive; network paths and reparse points are
+`-InPlace` verifies every internal checksum, all five commands and the installation permissions,
+then creates an installation receipt beside the extracted files. It does not copy or move the bundle
+and cannot be combined with `-Prefix`. Use a non-root directory on a local drive; network paths and reparse points are
 refused. Registration refuses an existing receipt. Stop commands running from that bundle before
 uninstalling: the Windows helper checks active Semwright executable paths and refuses
 removal before any deletion if one belongs to that bundle or cannot be identified.
@@ -113,13 +113,32 @@ Run that bundle's own uninstaller to remove only unchanged registered files; cha
 files cause refusal and unregistered projects remain. The ordinary copying installer
 still restricts `-Prefix` to the user profile.
 
+Before installation, run `Install-Semwright.ps1 -InPlace -Check` to inspect an extracted or
+registered bundle without creating a receipt, launching a binary or changing any files or permissions.
+For a copying installation, use `Install-Semwright.ps1 -Prefix <new-directory> -Check`; the destination
+is not created. The regular installer performs the same preflight before copying or registration.
+
+The Windows MCP client requires a registered, owner-protected package. The installer checks the
+binary files, private checksums/receipt and every existing installation directory ancestor, including
+the volume root. It also checks the inheritance that will apply to new private files. If another
+account or group can modify a source file, replace an ancestor or read private manifests, installation
+stops with `Untrusted Windows installation path` and the offending path. Protecting only the innermost
+folder is insufficient when a parent remains writable. Choose a protected location or have the
+machine owner review that location's permissions; the installer does not change existing ACLs or
+bypass an organization policy. Ordinary read/execute access to executables remains permitted.
+
+This is a permission preflight, not a lock against later changes or proof of publisher identity.
+MCP still verifies the actual connected broker process and installed source before sending a session
+ticket. A successful check alone does not prove a broker connection or third-party client acceptance.
+
 Printed setup, doctor and removal commands preserve the literal installation path, including spaces,
 ASCII or typographic apostrophes and PowerShell metacharacters. The follow-up commands printed by
 `semwright setup` use the same literal-path rules. Copy each command into PowerShell as printed.
 
 Registration does not relocate configuration or grant workspace access. Set `SEMWRIGHT_DATA_DIR`
 in each process before setup, as described below, to keep configuration and state on the selected
-drive. A verified bundle can also be used without registration, but then has no removal receipt.
+drive. Windows MCP broker connections require registration; an unregistered bundle has no removal
+receipt and cannot supply the client's trusted broker identity.
 
 For broker-backed `semwright` commands, including `watch`, `skill doctor`
 and `recipe test`, Ctrl+C (or Ctrl+Break on Windows) during broker connection

@@ -22,12 +22,29 @@ PS_ENV = {key: value for key, value in os.environ.items() if key.upper() != "PSM
 
 @unittest.skipUnless(os.name == "nt" and SHELL, "requires native Windows PowerShell")
 class WindowsInPlaceInstallTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.owner_sid = subprocess.check_output(
+            [SHELL, "-NoProfile", "-NonInteractive", "-Command",
+             "[Security.Principal.WindowsIdentity]::GetCurrent().User.Value"],
+            env=PS_ENV, text=True, timeout=15,
+        ).strip()
+        if not cls.owner_sid.startswith("S-1-"):
+            raise RuntimeError("Cannot identify the test fixture owner")
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(
             prefix="semwright-in-place-", dir=os.environ.get("SEMWRIGHT_INSTALL_TEST_ROOT")
         )
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
+        # Only the disposable fixture changes permissions; ancestors are never changed.
+        subprocess.run(
+            ["icacls", str(self.root), "/inheritance:r", "/grant:r",
+             f"*{self.owner_sid}:(OI)(CI)F", "*S-1-5-18:(OI)(CI)F",
+             "*S-1-5-32-544:(OI)(CI)F"],
+            env=PS_ENV, capture_output=True, check=True, timeout=15,
+        )
         self.bundle = self.root / "Portable bundle with spaces"
         (self.bundle / "bin").mkdir(parents=True)
         self.parent_file = self.root / "unrelated-project.txt"
@@ -61,6 +78,109 @@ class WindowsInPlaceInstallTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
         return result.stdout + result.stderr
+
+    def acl(self, path, *, sid=None, rights=None, restore=None, template=False):
+        code = r"""
+$ErrorActionPreference = 'Stop'
+$acl = Get-Acl -LiteralPath $env:SEMWRIGHT_ACL_PATH
+if ($env:SEMWRIGHT_ACL_RESTORE) {
+    $acl.SetSecurityDescriptorSddlForm($env:SEMWRIGHT_ACL_RESTORE)
+    Set-Acl -LiteralPath $env:SEMWRIGHT_ACL_PATH -AclObject $acl
+} elseif ($env:SEMWRIGHT_ACL_SID) {
+    $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+        [Security.Principal.SecurityIdentifier]::new($env:SEMWRIGHT_ACL_SID),
+        [Security.AccessControl.FileSystemRights]$env:SEMWRIGHT_ACL_RIGHTS,
+        [Security.AccessControl.InheritanceFlags]$env:SEMWRIGHT_ACL_INHERITANCE,
+        [Security.AccessControl.PropagationFlags]$env:SEMWRIGHT_ACL_PROPAGATION,
+        [Security.AccessControl.AccessControlType]::Allow)
+    $acl.AddAccessRule($rule)
+    Set-Acl -LiteralPath $env:SEMWRIGHT_ACL_PATH -AclObject $acl
+} else { $acl.Sddl }
+"""
+        return subprocess.check_output(
+            [SHELL, "-NoProfile", "-NonInteractive", "-Command", code],
+            env={**PS_ENV, "SEMWRIGHT_ACL_PATH": str(path),
+                 "SEMWRIGHT_ACL_SID": sid or "", "SEMWRIGHT_ACL_RIGHTS": rights or "",
+                 "SEMWRIGHT_ACL_RESTORE": restore or "",
+                 "SEMWRIGHT_ACL_INHERITANCE": "ContainerInherit, ObjectInherit" if template else "None",
+                 "SEMWRIGHT_ACL_PROPAGATION": "InheritOnly" if template else "None"},
+            text=True, timeout=15,
+        ).strip()
+
+    def test_read_only_preflight_preserves_new_and_registered_bundles(self):
+        before = self.snapshot()
+        acls = {p: self.acl(p) for p in (self.root, self.bundle, self.bundle / "SHA256SUMS")}
+        output = self.helper("Install", "-InPlace", "-Check")
+        self.assertIn("Installation preflight passed", output)
+        self.assertEqual(self.snapshot(), before)
+        self.assertFalse(self.receipt.exists())
+        for path, acl in acls.items():
+            self.assertEqual(self.acl(path), acl)
+        self.helper("Install", "-InPlace")
+        registered = self.snapshot()
+        self.helper("Install", "-InPlace", "-Check")
+        self.assertEqual(self.snapshot(), registered)
+
+    def test_untrusted_mutation_refuses_before_registration(self):
+        for sid in ("S-1-5-11", "S-1-5-32-545", "S-1-1-0"):
+            for path in (self.root, self.bundle / "bin/semwright-mcp.exe",
+                         self.bundle / "SHA256SUMS"):
+                with self.subTest(sid=sid, path=path.name):
+                    original_acl = self.acl(path)
+                    try:
+                        self.acl(path, sid=sid, rights="Modify")
+                        before = self.snapshot()
+                        for args in (("-Check",), ()):
+                            output = self.helper("Install", "-InPlace", *args, success=False)
+                            self.assertIn("Untrusted Windows installation path", output)
+                            self.assertIn(path.name, output)
+                            self.assertFalse(self.receipt.exists())
+                            self.assertEqual(self.snapshot(), before)
+                    finally:
+                        self.acl(path, restore=original_acl)
+
+    def test_parent_delete_child_refuses_before_registration(self):
+        self.acl(self.root, sid="S-1-1-0", rights="DeleteSubdirectoriesAndFiles")
+        before = self.snapshot()
+        output = self.helper("Install", "-InPlace", success=False)
+        self.assertIn("Untrusted Windows installation path", output)
+        self.assertFalse(self.receipt.exists())
+        self.assertEqual(self.snapshot(), before)
+
+    def test_copy_preflight_rejects_private_data_read_inheritance(self):
+        if not self.root.is_relative_to(Path.home()):
+            self.skipTest("copy fixture must be under the actual user profile")
+        parent = self.root / "destination"
+        parent.mkdir()
+        self.acl(parent, sid="S-1-5-32-545", rights="Read", template=True)
+        prefix = parent / "new-install"
+        for args in (("-Check",), ()):
+            output = self.helper("Install", "-Prefix", prefix, *args, success=False)
+            self.assertIn("Untrusted Windows installation path", output)
+            self.assertFalse(prefix.exists())
+
+    def test_public_executable_read_is_allowed_but_manifest_read_is_private(self):
+        executable = self.bundle / "bin/semwright-mcp.exe"
+        self.acl(executable, sid="S-1-5-32-545", rights="ReadAndExecute")
+        self.helper("Install", "-InPlace", "-Check")
+        manifest = self.bundle / "SHA256SUMS"
+        self.acl(manifest, sid="S-1-5-32-545", rights="Read")
+        before = self.snapshot()
+        output = self.helper("Install", "-InPlace", success=False)
+        self.assertIn("Untrusted Windows installation path", output)
+        self.assertFalse(self.receipt.exists())
+        self.assertEqual(self.snapshot(), before)
+
+    def test_copy_preflight_does_not_create_destination(self):
+        if not self.root.is_relative_to(Path.home()):
+            self.skipTest("copy fixture must be under the actual user profile")
+        prefix = self.root / "new" / "copied-install"
+        self.helper("Install", "-Prefix", prefix, "-Check")
+        self.assertFalse(prefix.parent.exists())
+        self.helper("Install", "-Prefix", prefix)
+        self.assertTrue((prefix / ".semwright-install-receipt").is_file())
+        self.assertEqual(self.acl(prefix / "SHA256SUMS"),
+                         self.acl(prefix / ".semwright-install-receipt"))
 
     def test_registration_and_own_helper_removal_preserve_unowned_files(self):
         before = self.snapshot()
@@ -207,9 +327,8 @@ ConvertTo-Json -InputObject @($results) -Depth 4 -Compress
         self.assertEqual(self.snapshot(), before)
 
     def test_copy_install_still_refuses_a_prefix_outside_the_user_profile(self):
-        outside = self.root / "copied-install"
-        if outside.is_relative_to(Path.home()):
-            self.skipTest("fixture root must be outside the actual user profile")
+        # No directory is created: the prefix gate must refuse even in check mode.
+        outside = Path(self.root.anchor) / (self.root.name + '-outside-profile')
         output = self.helper("Install", "-Prefix", outside, success=False)
         self.assertIn("Install prefix must be a child of your user profile", output)
         self.assertFalse(outside.exists())
