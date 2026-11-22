@@ -1440,6 +1440,168 @@ async fn provider_progress_and_artifacts_flow_into_session_scoped_job_snapshot()
 }
 
 #[tokio::test]
+async fn revoking_session_cancels_unpolled_direct_call_before_dispatch() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let session = unique_id();
+    let parent = CancellationToken::new();
+    let pending = fixture.broker.clone().execute(
+        session.clone(),
+        unique_id(),
+        ExecuteRequest {
+            command: "driver.fixture.count".into(),
+            args: json!({}),
+            dry_run: false,
+            backend: None,
+        },
+        parent.clone(),
+    );
+
+    // No poll has occurred, but the Broker already owns this request's
+    // cancellation child. Session revocation must still prevent dispatch.
+    fixture.broker.revoke_session(&session);
+    let result = pending.await;
+    assert!(!result.ok, "{result:?}");
+    let error = result.error.unwrap();
+    assert_eq!(error.code, ErrorCode::Cancelled);
+    assert!(error.outcome_known, "The provider was never dispatched");
+    assert!(
+        !parent.is_cancelled(),
+        "Revocation must not cancel the caller"
+    );
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn revoking_session_cancels_dispatched_direct_call_with_uncertain_outcome() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    fixture.provider.blocked.store(true, Ordering::SeqCst);
+    let session = unique_id();
+    let parent = CancellationToken::new();
+    let pending = fixture.broker.clone().execute(
+        session.clone(),
+        unique_id(),
+        ExecuteRequest {
+            command: "driver.fixture.count".into(),
+            args: json!({}),
+            dry_run: false,
+            backend: None,
+        },
+        parent.clone(),
+    );
+    let running = tokio::spawn(pending);
+    tokio::time::timeout(Duration::from_secs(2), fixture.provider.entered.notified())
+        .await
+        .unwrap();
+
+    fixture.broker.revoke_session(&session);
+    let result = tokio::time::timeout(Duration::from_secs(3), running)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(!result.ok, "{result:?}");
+    let error = result.error.unwrap();
+    assert_eq!(error.code, ErrorCode::Cancelled);
+    assert!(
+        !error.outcome_known,
+        "An already-dispatched call must not be replayed"
+    );
+    assert!(!parent.is_cancelled(), "Caller authority was not revoked");
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+    assert!(
+        fixture.provider.cancelled.load(Ordering::SeqCst),
+        "The native provider must receive the cancellation signal"
+    );
+
+    fixture.provider.blocked.store(false, Ordering::SeqCst);
+    let unrelated = fixture
+        .call_in_session(&unique_id(), "count", json!({}))
+        .await;
+    assert!(
+        unrelated.ok,
+        "Revocation must not stop another session: {unrelated:?}"
+    );
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn revoking_session_cancels_dispatched_session_executor_call() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    fixture.provider.blocked.store(true, Ordering::SeqCst);
+    let session = unique_id();
+    let executor = fixture.broker.session_executor(session.clone());
+    let running = tokio::spawn(async move {
+        executor
+            .execute(
+                ExecuteRequest {
+                    command: "driver.fixture.count".into(),
+                    args: json!({}),
+                    dry_run: false,
+                    backend: None,
+                },
+                CancellationToken::new(),
+            )
+            .await
+    });
+    tokio::time::timeout(Duration::from_secs(2), fixture.provider.entered.notified())
+        .await
+        .unwrap();
+
+    fixture.broker.revoke_session(&session);
+    let error = tokio::time::timeout(Duration::from_secs(3), running)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap_err();
+    assert_eq!(error.code, ErrorCode::Cancelled);
+    assert!(!error.outcome_known);
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+    assert!(fixture.provider.cancelled.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn revoking_unrelated_session_preserves_running_direct_call() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    fixture.provider.blocked.store(true, Ordering::SeqCst);
+    let original = unique_id();
+    let pending = fixture.broker.clone().execute(
+        original,
+        unique_id(),
+        ExecuteRequest {
+            command: "driver.fixture.count".into(),
+            args: json!({}),
+            dry_run: false,
+            backend: None,
+        },
+        CancellationToken::new(),
+    );
+    let running = tokio::spawn(pending);
+    tokio::time::timeout(Duration::from_secs(2), fixture.provider.entered.notified())
+        .await
+        .unwrap();
+
+    fixture.broker.revoke_session(&unique_id());
+    assert!(
+        !running.is_finished(),
+        "Revocation of another session must not terminate a pending call"
+    );
+    fixture.provider.release.notify_one();
+    let result = tokio::time::timeout(Duration::from_secs(3), running)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        result.ok,
+        "An unrelated session must still finish: {result:?}"
+    );
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+    assert!(!fixture.provider.cancelled.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
 async fn revoking_a_session_cancels_and_removes_its_running_job() {
     let fixture = Fixture::new(true);
     fixture.mount().await;

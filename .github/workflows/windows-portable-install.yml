@@ -78,6 +78,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-core --test broker_contract ui_find_pushdown_is_optional_and_portably_refiltered -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Core session revocation cancels direct in-flight operations
+        if: ${{ !inputs.helpers_only }}
+        run: |
+          cargo test --locked -p semwright-core --test provider_runtime revoking_ -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build native delivery binaries
         if: ${{ !inputs.helpers_only }}
         run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins

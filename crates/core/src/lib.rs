@@ -58,10 +58,32 @@ struct Events {
     sequence: u64,
     history: VecDeque<Event>,
 }
+
+/// One direct Broker execution belongs to one session until its result has
+/// finished auditing. Dropping the caller future also unregisters it.
+struct ActiveCall {
+    broker: Arc<Broker>,
+    session: String,
+    key: String,
+}
+impl Drop for ActiveCall {
+    fn drop(&mut self) {
+        if let Ok(mut active) = self.broker.active_calls.lock()
+            && let Some(calls) = active.get_mut(&self.session)
+        {
+            calls.remove(&self.key);
+            if calls.is_empty() {
+                active.remove(&self.session);
+            }
+        }
+    }
+}
+
 pub struct Broker {
     registry: StdRwLock<ProviderCatalog>,
     policy: Policy,
     references: StdMutex<RefStore>,
+    active_calls: StdMutex<BTreeMap<String, BTreeMap<String, CancellationToken>>>,
     audit: Arc<audit::Audit>,
     approver: Arc<dyn Approver>,
     plugins: Option<Arc<Host>>,
@@ -154,6 +176,7 @@ impl Broker {
             registry: StdRwLock::new(catalog),
             policy,
             references: StdMutex::new(RefStore::new(Duration::from_secs(60), 65536)),
+            active_calls: StdMutex::new(BTreeMap::new()),
             audit,
             approver,
             plugins,
@@ -186,6 +209,18 @@ impl Broker {
             .clone())
     }
     pub fn revoke_session(&self, session: &str) {
+        // Cancel direct in-flight requests as well as managed jobs. Their
+        // providers receive the original cancellation signal; if an operation
+        // was already dispatched its outcome must remain uncertain.
+        let pending = self
+            .active_calls
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .remove(session)
+            .unwrap_or_default();
+        for cancellation in pending.into_values() {
+            cancellation.cancel();
+        }
         if let Ok(mut store) = self.references.lock() {
             store.revoke_session(session);
         }
@@ -658,6 +693,44 @@ impl Broker {
         }
         Ok(())
     }
+    fn track_active_call(
+        self: &Arc<Self>,
+        session: &str,
+        parent: &CancellationToken,
+    ) -> Result<(ActiveCall, CancellationToken)> {
+        // The local child can be cancelled on session revocation without
+        // cancelling work owned by a different session or the transport itself.
+        let cancellation = parent.child_token();
+        let key = unique_id();
+        let mut active = self.active_calls.lock().map_err(|_| {
+            Error::new(
+                ErrorCode::Internal,
+                "Active execution registry is unavailable",
+            )
+        })?;
+        let calls = active.entry(session.to_owned()).or_default();
+        if calls.len() >= 256 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Session already has too many in-flight Core operations",
+            ));
+        }
+        if calls.contains_key(&key) {
+            return Err(Error::new(
+                ErrorCode::Internal,
+                "Duplicate active execution identity",
+            ));
+        }
+        calls.insert(key.clone(), cancellation.clone());
+        Ok((
+            ActiveCall {
+                broker: self.clone(),
+                session: session.to_owned(),
+                key,
+            },
+            cancellation,
+        ))
+    }
     pub fn execute(
         self: Arc<Self>,
         session: String,
@@ -665,7 +738,26 @@ impl Broker {
         request: ExecuteRequest,
         cancellation: CancellationToken,
     ) -> Pin<Box<dyn Future<Output = Envelope> + Send>> {
-        Box::pin(async move { self.execute_inner(session, id, request, cancellation).await })
+        // Register synchronously, before the returned future is first polled,
+        // so a revocation cannot miss an already-submitted pending operation.
+        let tracked = self.track_active_call(&session, &cancellation);
+        Box::pin(async move {
+            let (_active_call, session_cancellation) = match tracked {
+                Ok(tracked) => tracked,
+                Err(error) => {
+                    return Envelope::finish(
+                        id,
+                        request.command,
+                        "core".into(),
+                        Duration::ZERO,
+                        request.dry_run,
+                        Err(error),
+                    );
+                }
+            };
+            self.execute_inner(session, id, request, session_cancellation)
+                .await
+        })
     }
     async fn execute_inner(
         self: Arc<Self>,

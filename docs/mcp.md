@@ -63,6 +63,13 @@ Neither classification triggers a retry or provider fallback. An uncertain
 mutation requires reconciliation before another effect; cancellation does not
 roll back work that may already have happened.
 
+Revoking a broker session cancels its in-flight direct Core operations as well
+as its managed jobs. Operations cancelled before provider dispatch return a
+known `Cancelled`; after dispatch the result remains uncertain and cannot be
+replayed automatically. Revocation does not cancel the transport's parent
+token or another session's operations. The transport or connected host still
+owns admission of new requests and must reject an expired session ticket.
+
 The current implementation does not advertise arbitrary evaluation, approval, shell,
 roots-based grant escalation or a tool for turning policy off. MCP Tasks are an adapter over
 Semwright's bounded in-memory JobStore: task IDs remain broker-session scoped, are not durable
