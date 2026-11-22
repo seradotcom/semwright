@@ -134,7 +134,7 @@ impl WindowsFindFixture {
         let broker = Broker::new(
             Policy::new(PolicyConfig {
                 profile: Profile::Observe,
-                apps: vec!["pid:42".into()],
+                apps: ["pid:42".to_owned()].into_iter().collect(),
                 ..Default::default()
             })
             .unwrap(),
