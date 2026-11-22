@@ -437,7 +437,12 @@ impl Broker {
             let backend = self.provider(&reference.backend).ok_or_else(|| {
                 Error::new(ErrorCode::StaleReference, "Origin backend disappeared")
             })?;
-            if !backend.supports(&request.command) {
+            let actual_command = if request.command == "ui.find" {
+                "ui.snapshot"
+            } else {
+                &request.command
+            };
+            if !backend.supports(actual_command) {
                 return Err(Error::new(
                     ErrorCode::Unsupported,
                     "The reference's backend does not implement this command",
@@ -532,6 +537,20 @@ impl Broker {
     }
     fn resolve_reference(&self, session: &str, args: &Value) -> Result<Option<Reference>> {
         self.resolve_reference_field(session, args, "ref")
+    }
+    /// ui.find's ancestor is an origin-bound reference, just like a direct ref.
+    /// Resolve it before choosing the backend and checking application policy;
+    /// it must never become an untrusted hint for a desktop-wide search.
+    fn resolve_request_reference(
+        &self,
+        session: &str,
+        request: &ExecuteRequest,
+    ) -> Result<Option<Reference>> {
+        if request.command == "ui.find" {
+            self.resolve_reference_field(session, &request.args["selector"], "ancestor")
+        } else {
+            self.resolve_reference(session, &request.args)
+        }
     }
     fn application<'a>(
         &self,
@@ -770,7 +789,7 @@ impl Broker {
             ));
         }
         let reference = if native_ref_capable {
-            self.resolve_reference(session, &request.args)?
+            self.resolve_request_reference(session, request)?
         } else {
             None
         };
@@ -983,7 +1002,7 @@ impl Broker {
             audit.decision("allow_after_confirmation");
         }
         let reference = if native_ref_capable {
-            self.resolve_reference(session, &request.args)?
+            self.resolve_request_reference(session, request)?
         } else {
             None
         };
@@ -1177,7 +1196,45 @@ impl Broker {
         let max_nodes = args["max_nodes"].as_u64().unwrap_or(500).min(2_000) as usize;
         let max_depth = args["max_depth"].as_u64().unwrap_or(8).min(32) as usize;
         let mut snapshot_args = json!({"max_nodes":max_nodes,"max_depth":max_depth});
-        if let Some(app) = &selector.app {
+        // Windows cannot enforce an app filter during a native UIA snapshot.
+        // A live, session-bound window/element ancestor is mandatory: it was
+        // already validated by perform(), and the exact native target is
+        // rederived from the broker's reference store rather than caller JSON.
+        if backend == "windows" {
+            let ancestor = self
+                .resolve_reference_field(session, &args["selector"], "ancestor")?
+                .ok_or_else(|| {
+                    Error::invalid("Windows ui.find requires an exact live ancestor reference")
+                })?;
+            if ancestor.backend != backend {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "UI discovery ancestor belongs to a different backend",
+                ));
+            }
+            if !matches!(ancestor.target.kind.as_str(), "win" | "ui") {
+                return Err(Error::invalid(
+                    "Windows ui.find ancestor must be a window or UI element reference",
+                ));
+            }
+            if selector
+                .app
+                .as_deref()
+                .is_some_and(|app| app != ancestor.target.app)
+            {
+                return Err(Error::invalid(
+                    "UI discovery app filter conflicts with its bound ancestor",
+                ));
+            }
+            let allowed_apps = &self.policy.config().apps;
+            if !allowed_apps.is_empty() && !allowed_apps.contains(&ancestor.target.app) {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "UI discovery ancestor is outside the permitted application scope",
+                ));
+            }
+            snapshot_args["_target"] = serde_json::to_value(&ancestor.target)?;
+        } else if let Some(app) = &selector.app {
             snapshot_args["app"] = json!(app);
         }
         let provider = self
@@ -1209,14 +1266,42 @@ impl Broker {
                 .lock()
                 .map_err(|_| Error::new(ErrorCode::Internal, "Reference lock poisoned"))?;
             let wanted = store.get(&old, session)?;
-            let current = nodes.iter().find(|node| {
-                store.get(&node.reference, session).is_ok_and(|r| {
-                    r.backend == wanted.backend
-                        && r.target.identity == wanted.target.identity
-                        && r.target.revision == wanted.target.revision
-                        && r.target.fingerprint == wanted.target.fingerprint
+            let current = if backend == "windows"
+                && wanted.target.kind == "win"
+                && wanted.target.identity.starts_with("win:")
+            {
+                // window.list and UIA use different native identity namespaces.
+                // Only the trusted Windows snapshot_hwnd path may rebind its
+                // exact HWND to the first (root) UIA node. Never look for the
+                // ancestor elsewhere in the desktop or accept another PID.
+                let root = nodes.first().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::StaleReference,
+                        "Scoped Windows snapshot returned no root element",
+                    )
+                })?;
+                let root_ref = store.get(&root.reference, session)?;
+                if root.parent_ref.is_some()
+                    || root.app != wanted.target.app
+                    || root_ref.backend != wanted.backend
+                    || root_ref.target.app != wanted.target.app
+                {
+                    return Err(Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Scoped Windows UIA root does not match its window ancestor",
+                    ));
+                }
+                Some(root)
+            } else {
+                nodes.iter().find(|node| {
+                    store.get(&node.reference, session).is_ok_and(|r| {
+                        r.backend == wanted.backend
+                            && r.target.identity == wanted.target.identity
+                            && r.target.revision == wanted.target.revision
+                            && r.target.fingerprint == wanted.target.fingerprint
+                    })
                 })
-            });
+            };
             selector.ancestor = Some(
                 current
                     .ok_or_else(|| {
@@ -1495,6 +1580,9 @@ impl Executor for BrokerSessionExecutor {
         }
     }
 }
+
+#[cfg(test)]
+mod windows_find_tests;
 
 #[cfg(test)]
 mod scoped_snapshot_tests {

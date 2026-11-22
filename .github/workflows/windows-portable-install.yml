@@ -71,6 +71,13 @@ jobs:
           $env:SEMWRIGHT_TEST_POWERSHELL = (Get-Command pwsh -ErrorAction Stop).Source
           cargo test --locked -p semwright-cli --bin semwright setup_shell_quote_preserves_powershell_literals -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Windows UI discovery ancestor boundary contracts
+        if: ${{ !inputs.helpers_only }}
+        run: |
+          cargo test --locked -p semwright-core --lib windows_ui_find_ -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-core --test broker_contract ui_find_pushdown_is_optional_and_portably_refiltered -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build native delivery binaries
         if: ${{ !inputs.helpers_only }}
         run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins
