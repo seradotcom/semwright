@@ -943,10 +943,7 @@ impl Broker {
             audit.backend(selected);
             audit.executed_provider("semwright-core", None);
             let recipe: Recipe = serde_json::from_value(request.args["recipe"].clone())?;
-            let bridge = BrokerSessionExecutor {
-                broker: self.clone(),
-                session: session.into(),
-            };
+            let bridge = self.session_executor(session.to_owned());
             let output = recipe
                 .run(
                     &bridge,
@@ -1541,10 +1538,7 @@ impl Broker {
             ),
             "recipe.validate" => {
                 let recipe: Recipe = serde_json::from_value(args["recipe"].clone())?;
-                recipe.validate(&BrokerSessionExecutor {
-                    broker: self.clone(),
-                    session: session.into(),
-                })
+                recipe.validate(&self.session_executor(session.to_owned()))
             }
             "plugin.list" => match &self.plugins {
                 Some(host) => host.list(),

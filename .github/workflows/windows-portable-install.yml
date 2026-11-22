@@ -83,6 +83,13 @@ jobs:
         run: |
           cargo test --locked -p semwright-core --test provider_runtime revoking_ -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Revocable executor workflow integration
+        if: ${{ !inputs.helpers_only }}
+        run: |
+          cargo test --locked -p semwright-core --test broker_contract learned_workflow_infers_input_verifies_replays_promotes_and_executes -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-core --test broker_contract v3_proposal_is_sanitized_plannable_and_requires_acceptance_before_persistence -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build native delivery binaries
         if: ${{ !inputs.helpers_only }}
         run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins

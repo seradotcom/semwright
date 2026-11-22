@@ -168,10 +168,7 @@ impl Broker {
             && build
                 .candidate
                 .recipe
-                .validate(&BrokerSessionExecutor {
-                    broker: self.clone(),
-                    session: session.into(),
-                })
+                .validate(&self.session_executor(session.to_owned()))
                 .is_ok()
         {
             build.proposal.static_verified = true;
@@ -347,10 +344,7 @@ impl Broker {
             if build
                 .candidate
                 .recipe
-                .validate(&BrokerSessionExecutor {
-                    broker: self.clone(),
-                    session: session.into(),
-                })
+                .validate(&self.session_executor(session.to_owned()))
                 .is_err()
             {
                 continue;
@@ -411,10 +405,7 @@ impl Broker {
             .candidate
             .recipe
             .run(
-                &BrokerSessionExecutor {
-                    broker: self.clone(),
-                    session: session.into(),
-                },
+                &self.session_executor(session.to_owned()),
                 inputs,
                 true,
                 cancellation,
@@ -538,10 +529,9 @@ impl Broker {
     pub(super) fn workflow_verify(self: &Arc<Self>, session: &str, id: &str) -> Result<Value> {
         let candidate = self.workflow_candidate(id)?;
         let drift = verify_drift(&candidate, self.as_ref())?;
-        let validation = candidate.recipe.validate(&BrokerSessionExecutor {
-            broker: self.clone(),
-            session: session.into(),
-        })?;
+        let validation = candidate
+            .recipe
+            .validate(&self.session_executor(session.to_owned()))?;
         let candidate = self
             .workflows
             .lock()
@@ -571,17 +561,13 @@ impl Broker {
                 "Workflow candidate must pass workflow.verify before a live replay",
             ));
         }
-        candidate.recipe.validate(&BrokerSessionExecutor {
-            broker: self.clone(),
-            session: session.into(),
-        })?;
+        candidate
+            .recipe
+            .validate(&self.session_executor(session.to_owned()))?;
         let output = candidate
             .recipe
             .run(
-                &BrokerSessionExecutor {
-                    broker: self.clone(),
-                    session: session.into(),
-                },
+                &self.session_executor(session.to_owned()),
                 inputs,
                 dry_run,
                 cancellation,
@@ -698,10 +684,7 @@ impl Broker {
             .candidate
             .recipe
             .run(
-                &BrokerSessionExecutor {
-                    broker: self.clone(),
-                    session: session.into(),
-                },
+                &self.session_executor(session.to_owned()),
                 inputs,
                 dry_run,
                 cancellation,
