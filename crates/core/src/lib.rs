@@ -1615,9 +1615,28 @@ impl Broker {
         Ok(())
     }
     pub fn session_executor(self: &Arc<Self>, session: impl Into<String>) -> BrokerSessionExecutor {
+        let session = session.into();
+        // Keep an executor lease registered even between operations. A caller
+        // holding an old executor must not be able to dispatch again after its
+        // session has been revoked. New executor admission is the host's duty.
+        let (guard, lease, lease_error) =
+            match self.track_active_call(&session, &CancellationToken::new()) {
+                Ok((guard, lease)) => (Some(guard), lease, None),
+                Err(error) => {
+                    // This constructor predates the bounded tracking contract
+                    // and cannot return Result. Retain the precise error but
+                    // fail closed rather than issuing an untracked executor.
+                    let cancelled = CancellationToken::new();
+                    cancelled.cancel();
+                    (None, cancelled, Some(error))
+                }
+            };
         BrokerSessionExecutor {
             broker: self.clone(),
-            session: session.into(),
+            session,
+            lease,
+            lease_error,
+            _lease_guard: guard,
         }
     }
 
@@ -1647,22 +1666,57 @@ fn event_time() -> u64 {
 pub struct BrokerSessionExecutor {
     broker: Arc<Broker>,
     session: String,
+    lease: CancellationToken,
+    lease_error: Option<Error>,
+    _lease_guard: Option<ActiveCall>,
+}
+impl BrokerSessionExecutor {
+    fn require_live_lease(&self) -> Result<()> {
+        if let Some(error) = &self.lease_error {
+            return Err(error.clone());
+        }
+        if self.lease.is_cancelled() {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Session executor was revoked; renew authorization through the host",
+            ));
+        }
+        Ok(())
+    }
 }
 #[async_trait]
 impl Executor for BrokerSessionExecutor {
     fn describe(&self, command: &str) -> Result<CommandDescriptor> {
-        self.broker.describe(command)
+        self.require_live_lease()?;
+        let descriptor = self.broker.describe(command)?;
+        self.require_live_lease()?;
+        Ok(descriptor)
     }
     async fn execute(
         &self,
         request: ExecuteRequest,
         cancellation: CancellationToken,
     ) -> Result<Value> {
-        let envelope = self
-            .broker
-            .clone()
-            .execute(self.session.clone(), unique_id(), request, cancellation)
-            .await;
+        self.require_live_lease()?;
+        // The caller keeps its original cancellation authority. Revocation
+        // also cancels this separate child, including the narrow interval
+        // between checking the executor lease and registering the new call.
+        let call_cancellation = cancellation.child_token();
+        let pending = self.broker.clone().execute(
+            self.session.clone(),
+            unique_id(),
+            request,
+            call_cancellation.clone(),
+        );
+        tokio::pin!(pending);
+        let envelope = tokio::select! {
+            biased;
+            _ = self.lease.cancelled() => {
+                call_cancellation.cancel();
+                pending.await
+            },
+            result = &mut pending => result,
+        };
         if let Some(error) = envelope.error {
             Err(error)
         } else {

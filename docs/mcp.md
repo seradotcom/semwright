@@ -67,8 +67,14 @@ Revoking a broker session cancels its in-flight direct Core operations as well
 as its managed jobs. Operations cancelled before provider dispatch return a
 known `Cancelled`; after dispatch the result remains uncertain and cannot be
 replayed automatically. Revocation does not cancel the transport's parent
-token or another session's operations. The transport or connected host still
-owns admission of new requests and must reject an expired session ticket.
+token or another session's operations. A previously issued
+`BrokerSessionExecutor` also retains a revocable session lease: once revoked,
+it rejects subsequent descriptions and executions without dispatching another
+provider call. Its per-session lease budget is bounded and fails closed with
+`ResourceExhausted` when full; dropped executors release their lease.
+The transport or connected host still owns admission of NEW executors and
+requests and must reject an expired session ticket. Constructing a new
+executor is not a substitute for authenticating a renewed session.
 
 The current implementation does not advertise arbitrary evaluation, approval, shell,
 roots-based grant escalation or a tool for turning policy off. MCP Tasks are an adapter over

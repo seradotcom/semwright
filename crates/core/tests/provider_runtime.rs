@@ -1602,6 +1602,140 @@ async fn revoking_unrelated_session_preserves_running_direct_call() {
 }
 
 #[tokio::test]
+async fn revoking_retained_session_executor_refuses_followup_execution_and_describe() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let session = unique_id();
+    let executor = fixture.broker.session_executor(session.clone());
+    assert!(executor.describe("driver.fixture.count").is_ok());
+    let first = executor
+        .execute(
+            ExecuteRequest {
+                command: "driver.fixture.count".into(),
+                args: json!({}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first["value"], 1);
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+
+    fixture.broker.revoke_session(&session);
+    let denied = executor
+        .execute(
+            ExecuteRequest {
+                command: "driver.fixture.count".into(),
+                args: json!({}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(denied.code, ErrorCode::StaleReference);
+    assert!(denied.outcome_known, "Rejected before provider dispatch");
+    assert_eq!(
+        executor.describe("driver.fixture.count").unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+    assert_eq!(
+        fixture.provider.calls.load(Ordering::SeqCst),
+        1,
+        "Old executor must not dispatch a new call after session revocation"
+    );
+}
+
+#[tokio::test]
+async fn revoking_unrelated_session_preserves_another_executor_lease() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let original = fixture.broker.session_executor(unique_id());
+    let foreign = unique_id();
+    fixture.broker.revoke_session(&foreign);
+    assert!(original.describe("driver.fixture.count").is_ok());
+    let output = original
+        .execute(
+            ExecuteRequest {
+                command: "driver.fixture.count".into(),
+                args: json!({}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(output["value"], 1);
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn revoking_dropped_executor_leases_does_not_exhaust_session_capacity() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let session = unique_id();
+    for _ in 0..270 {
+        let executor = fixture.broker.session_executor(session.clone());
+        assert!(
+            executor.describe("driver.fixture.count").is_ok(),
+            "Completed/dropped executors must free their session registration"
+        );
+    }
+    let executor = fixture.broker.session_executor(session.clone());
+    assert!(executor.describe("driver.fixture.count").is_ok());
+    fixture.broker.revoke_session(&session);
+    assert_eq!(
+        executor.describe("driver.fixture.count").unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn revoking_executor_lease_capacity_fails_closed_without_dispatch() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let session = unique_id();
+    let guards: Vec<_> = (0..256)
+        .map(|_| fixture.broker.session_executor(session.clone()))
+        .collect();
+    assert_eq!(guards.len(), 256);
+    assert!(
+        guards
+            .iter()
+            .all(|executor| { executor.describe("driver.fixture.count").is_ok() })
+    );
+    let denied = fixture.broker.session_executor(session.clone());
+    assert_eq!(
+        denied.describe("driver.fixture.count").unwrap_err().code,
+        ErrorCode::ResourceExhausted,
+        "An unregistered executor must preserve its capacity error and fail closed"
+    );
+    let failed = denied
+        .execute(
+            ExecuteRequest {
+                command: "driver.fixture.count".into(),
+                args: json!({}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(failed.code, ErrorCode::ResourceExhausted);
+    assert!(failed.outcome_known, "No request was sent to the provider");
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
+    drop(guards);
+    let recovered = fixture.broker.session_executor(session);
+    assert!(recovered.describe("driver.fixture.count").is_ok());
+}
+
+#[tokio::test]
 async fn revoking_a_session_cancels_and_removes_its_running_job() {
     let fixture = Fixture::new(true);
     fixture.mount().await;
