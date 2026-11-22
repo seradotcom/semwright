@@ -1463,10 +1463,10 @@ mod tests {
             "org.blender.Blender",
         ])
         .unwrap();
-        let request = request(&cli).unwrap().unwrap();
-        assert_eq!(request.command, "ui.snapshot");
-        assert_eq!(request.args["app"], "org.blender.Blender");
-        assert!(request.args.get("ref").is_none());
+        let app_request = request(&cli).unwrap().unwrap();
+        assert_eq!(app_request.command, "ui.snapshot");
+        assert_eq!(app_request.args["app"], "org.blender.Blender");
+        assert!(app_request.args.get("ref").is_none());
 
         let invalid =
             Cli::try_parse_from(["semwright", "ui", "snapshot", "--ref", "not-a-reference"])
