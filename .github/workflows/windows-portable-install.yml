@@ -66,6 +66,8 @@ jobs:
           $env:SEMWRIGHT_TEST_POWERSHELL = (Get-Command powershell -ErrorAction Stop).Source
           cargo test --locked -p semwright-cli --bin semwright setup_tests -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-cli --lib ui_snapshot_ref_ -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:SEMWRIGHT_TEST_POWERSHELL = (Get-Command pwsh -ErrorAction Stop).Source
           cargo test --locked -p semwright-cli --bin semwright setup_shell_quote_preserves_powershell_literals -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

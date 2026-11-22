@@ -278,6 +278,8 @@ pub enum Window {
 #[allow(clippy::large_enum_variant)]
 pub enum Ui {
     Snapshot {
+        #[arg(long = "ref", value_name = "WINDOW_OR_UI_REF", conflicts_with = "app")]
+        reference: Option<String>,
         #[arg(long)]
         app: Option<String>,
         #[arg(long, default_value_t = 200)]
@@ -944,6 +946,7 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
         },
         Command::Ui { command } => match command {
             Ui::Snapshot {
+                reference,
                 app,
                 max_nodes,
                 max_depth,
@@ -951,6 +954,7 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
             } => {
                 let mut a =
                     json!({"max_nodes":max_nodes,"max_depth":max_depth,"actionable":actionable});
+                put(&mut a, "ref", reference);
                 put(&mut a, "app", app);
                 ("ui.snapshot".into(), a)
             }
@@ -1391,6 +1395,91 @@ mod tests {
             .validate_input(&r.command, &r.args)
             .unwrap();
     }
+    #[test]
+    fn ui_snapshot_ref_maps_to_exact_registry_contract() {
+        for reference in [
+            "win:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "ui:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        ] {
+            let cli = Cli::try_parse_from([
+                "semwright",
+                "ui",
+                "snapshot",
+                "--ref",
+                reference,
+                "--max-nodes",
+                "120",
+                "--max-depth",
+                "6",
+                "--actionable",
+            ])
+            .unwrap();
+            let request = request(&cli).unwrap().unwrap();
+            assert_eq!(request.command, "ui.snapshot");
+            assert_eq!(request.args["ref"], reference);
+            assert_eq!(request.args["max_nodes"], 120);
+            assert_eq!(request.args["max_depth"], 6);
+            assert_eq!(request.args["actionable"], true);
+            assert!(request.args.get("app").is_none());
+            semwright_registry::Registry::builtin()
+                .unwrap()
+                .validate_input(&request.command, &request.args)
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn ui_snapshot_ref_conflicts_with_app_without_changing_existing_app_filter() {
+        let reference = "win:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        assert!(
+            Cli::try_parse_from([
+                "semwright",
+                "ui",
+                "snapshot",
+                "--ref",
+                reference,
+                "--app",
+                "pid:42",
+            ])
+            .is_err()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "semwright",
+                "ui",
+                "snapshot",
+                "--app",
+                "pid:42",
+                "--ref",
+                reference,
+            ])
+            .is_err()
+        );
+        let cli = Cli::try_parse_from([
+            "semwright",
+            "ui",
+            "snapshot",
+            "--app",
+            "org.blender.Blender",
+        ])
+        .unwrap();
+        let request = request(&cli).unwrap().unwrap();
+        assert_eq!(request.command, "ui.snapshot");
+        assert_eq!(request.args["app"], "org.blender.Blender");
+        assert!(request.args.get("ref").is_none());
+
+        let invalid =
+            Cli::try_parse_from(["semwright", "ui", "snapshot", "--ref", "not-a-reference"])
+                .unwrap();
+        let invalid = request(&invalid).unwrap().unwrap();
+        assert!(
+            semwright_registry::Registry::builtin()
+                .unwrap()
+                .validate_input(&invalid.command, &invalid.args)
+                .is_err()
+        );
+    }
+
     #[test]
     fn mcp_upstream_management_is_local_not_a_broker_request() {
         let c = Cli::try_parse_from([
