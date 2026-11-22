@@ -708,6 +708,12 @@ impl Broker {
                 "Active execution registry is unavailable",
             )
         })?;
+        // Check while holding the same lock that shutdown drains. A new
+        // request can then either be recorded and cancelled by shutdown, or
+        // be refused before reaching any provider.
+        if self.runtime_stop.is_cancelled() {
+            return Err(Error::unavailable("Broker is shutting down"));
+        }
         let calls = active.entry(session.to_owned()).or_default();
         if calls.len() >= 256 {
             return Err(Error::new(
@@ -1636,6 +1642,22 @@ impl Broker {
 
     pub async fn shutdown(&self) {
         self.runtime_stop.cancel();
+        // Direct calls and retained session executors are not managed jobs.
+        // Cancel their per-session children before closing providers, without
+        // cancelling the caller's parent token or holding the registry lock
+        // while providers observe cancellation.
+        let outstanding = {
+            let mut active = self
+                .active_calls
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            std::mem::take(&mut *active)
+        };
+        for calls in outstanding.into_values() {
+            for cancellation in calls.into_values() {
+                cancellation.cancel();
+            }
+        }
         self.job_tasks.close();
         let _ = tokio::time::timeout(Duration::from_secs(5), self.job_tasks.wait()).await;
         self.provider_tasks.close();

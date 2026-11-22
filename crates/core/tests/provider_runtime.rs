@@ -1440,6 +1440,140 @@ async fn provider_progress_and_artifacts_flow_into_session_scoped_job_snapshot()
 }
 
 #[tokio::test]
+async fn shutdown_cancels_unpolled_direct_call_without_dispatch() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let parent = CancellationToken::new();
+    let pending = fixture.broker.clone().execute(
+        unique_id(),
+        unique_id(),
+        ExecuteRequest {
+            command: "driver.fixture.count".into(),
+            args: json!({}),
+            dry_run: false,
+            backend: None,
+        },
+        parent.clone(),
+    );
+    fixture.broker.shutdown().await;
+    let result = tokio::time::timeout(Duration::from_secs(3), pending)
+        .await
+        .unwrap();
+    assert!(!result.ok, "{result:?}");
+    let error = result.error.unwrap();
+    assert!(
+        matches!(error.code, ErrorCode::Cancelled | ErrorCode::Unavailable),
+        "Shutdown must refuse an unpolled call: {error:?}"
+    );
+    assert!(error.outcome_known, "No provider call was dispatched");
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
+    assert!(
+        !parent.is_cancelled(),
+        "Shutdown must not cancel caller parent"
+    );
+}
+
+#[tokio::test]
+async fn shutdown_cancels_dispatched_direct_provider_as_uncertain() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    fixture.provider.blocked.store(true, Ordering::SeqCst);
+    let parent = CancellationToken::new();
+    let pending = fixture.broker.clone().execute(
+        unique_id(),
+        unique_id(),
+        ExecuteRequest {
+            command: "driver.fixture.count".into(),
+            args: json!({}),
+            dry_run: false,
+            backend: None,
+        },
+        parent.clone(),
+    );
+    let running = tokio::spawn(pending);
+    tokio::time::timeout(Duration::from_secs(2), fixture.provider.entered.notified())
+        .await
+        .unwrap();
+    let broker = fixture.broker.clone();
+    let stopping = tokio::spawn(async move { broker.shutdown().await });
+
+    let result = tokio::time::timeout(Duration::from_secs(5), running)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        !result.ok,
+        "Dispatched work must not report success after shutdown: {result:?}"
+    );
+    let error = result.error.unwrap();
+    assert!(
+        matches!(error.code, ErrorCode::Cancelled | ErrorCode::Unavailable),
+        "Shutdown must interrupt the original provider: {error:?}"
+    );
+    assert!(
+        !error.outcome_known,
+        "An already-dispatched provider effect must never be called known/retry-safe"
+    );
+    tokio::time::timeout(Duration::from_secs(10), stopping)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+    assert!(
+        fixture.provider.cancelled.load(Ordering::SeqCst),
+        "The suspended native provider must receive a cancellation signal"
+    );
+    assert!(
+        !parent.is_cancelled(),
+        "Caller parent token must remain independent"
+    );
+    assert_eq!(fixture.provider.shutdowns.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn shutdown_revokes_executor_leases_and_refuses_new_direct_requests() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let executor = fixture.broker.session_executor(unique_id());
+    assert!(executor.describe("driver.fixture.count").is_ok());
+
+    fixture.broker.shutdown().await;
+
+    assert_eq!(
+        executor.describe("driver.fixture.count").unwrap_err().code,
+        ErrorCode::StaleReference,
+        "A retained executor must not survive the original broker shutdown"
+    );
+    let denied = executor
+        .execute(
+            ExecuteRequest {
+                command: "driver.fixture.count".into(),
+                args: json!({}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(denied.code, ErrorCode::StaleReference);
+    assert!(denied.outcome_known);
+
+    let later = fixture
+        .call_in_session(&unique_id(), "count", json!({}))
+        .await;
+    assert!(!later.ok, "Broker admitted work after shutdown: {later:?}");
+    let error = later.error.unwrap();
+    assert_eq!(error.code, ErrorCode::Unavailable);
+    assert!(error.outcome_known);
+    let newly_issued = fixture.broker.session_executor(unique_id());
+    let unavailable = newly_issued.describe("driver.fixture.count").unwrap_err();
+    assert_eq!(unavailable.code, ErrorCode::Unavailable);
+    assert!(unavailable.outcome_known);
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
 async fn revoking_session_cancels_unpolled_direct_call_before_dispatch() {
     let fixture = Fixture::new(true);
     fixture.mount().await;

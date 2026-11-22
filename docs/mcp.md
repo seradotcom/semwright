@@ -76,6 +76,13 @@ The transport or connected host still owns admission of NEW executors and
 requests and must reject an expired session ticket. Constructing a new
 executor is not a substitute for authenticating a renewed session.
 
+Broker shutdown also cancels any outstanding direct execution and its retained
+session-executor leases before providers stop. A direct call submitted after
+shutdown begins is refused as a known `Unavailable` without dispatch. Calls
+already dispatched still carry an uncertain outcome, so shutdown does not
+authorize re-execution or rollback. Parent caller cancellation tokens remain
+independent from this broker-owned shutdown signal.
+
 The current implementation does not advertise arbitrary evaluation, approval, shell,
 roots-based grant escalation or a tool for turning policy off. MCP Tasks are an adapter over
 Semwright's bounded in-memory JobStore: task IDs remain broker-session scoped, are not durable

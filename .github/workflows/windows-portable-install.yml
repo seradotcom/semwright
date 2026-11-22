@@ -83,6 +83,11 @@ jobs:
         run: |
           cargo test --locked -p semwright-core --test provider_runtime revoking_ -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Core shutdown cancels direct calls and revokes executor leases
+        if: ${{ !inputs.helpers_only }}
+        run: |
+          cargo test --locked -p semwright-core --test provider_runtime shutdown_ -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Revocable executor workflow integration
         if: ${{ !inputs.helpers_only }}
         run: |
