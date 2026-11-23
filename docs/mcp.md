@@ -77,8 +77,8 @@ requests and must reject an expired session ticket. Constructing a new
 executor is not a substitute for authenticating a renewed session.
 
 Broker shutdown also cancels any outstanding direct execution and its retained
-session-executor leases before providers stop. A direct call submitted after
-shutdown begins is refused as a known `Unavailable` without dispatch. Calls
+session-executor leases before providers stop. A fresh direct call submitted
+after shutdown begins is refused as a known `Unavailable` without dispatch. Calls
 already dispatched still carry an uncertain outcome, so shutdown does not
 authorize re-execution or rollback. Parent caller cancellation tokens remain
 independent from this broker-owned shutdown signal.
@@ -87,8 +87,14 @@ Core now also reserves each direct request ID for its originating session before
 the execution future is polled. Resubmitting the same ID in that same broker
 session, whether concurrently, after completion or following session revocation,
 returns `Conflict` with `outcome_known=false` and does not dispatch another
-provider action. Distinct request IDs or separately authorized sessions remain
-independent. The bounded replay fence keeps 65,536 request IDs in memory for
+provider action. Both the local daemon transport and direct Core execution
+preserve this uncertainty even when the relevant admission budget is exhausted.
+A retained Core request ID also takes precedence over shutdown rejection.
+Fresh requests refused at a layer's admission gate before it reserves the ID
+remain known non-dispatches at that layer. An ID already admitted by the
+daemon is still consumed there even if Core later rejects the work.
+Distinct request IDs and separately authorized sessions remain independent.
+The bounded Core replay fence keeps 65,536 request IDs in memory for
 the lifetime of one Broker and fails closed with known `ResourceExhausted`
 rather than evicting an ID. This is **not** a durable idempotency journal:
 it does not survive a broker restart and cannot detect a duplicate submitted

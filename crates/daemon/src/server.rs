@@ -19,7 +19,7 @@ use std::{
 use tokio::net::UnixListener;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
-    sync::{Semaphore, mpsc},
+    sync::{OwnedSemaphorePermit, Semaphore, mpsc},
     task::JoinSet,
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
@@ -80,7 +80,8 @@ impl Sessions {
         id: &str,
         connection: &str,
         token: CancellationToken,
-    ) -> Result<()> {
+        permits: &Arc<Semaphore>,
+    ) -> Result<OwnedSemaphorePermit> {
         valid_id(id)?;
         let mut entries = self
             .entries
@@ -92,8 +93,9 @@ impl Sessions {
         if state.seen.contains(id) {
             return Err(Error::new(
                 ErrorCode::Conflict,
-                "Request id was already used in this session; replaying mutations is forbidden",
-            ));
+                "Request id was already used in this session; reconcile the original outcome before any new effect",
+            )
+            .uncertain());
         }
         if state.active.len() >= 16 || state.seen.len() >= 4096 {
             return Err(Error::new(
@@ -101,6 +103,14 @@ impl Sessions {
                 "Session request budget exhausted",
             ));
         }
+        // Admission and replay detection share the session lock. Exhaustion
+        // must not disguise a previously submitted ID as a known non-effect.
+        let permit = permits.clone().try_acquire_owned().map_err(|_| {
+            Error::new(
+                ErrorCode::ResourceExhausted,
+                "Eight in-flight requests per connection are allowed",
+            )
+        })?;
         state.touched = Instant::now();
         state.seen.insert(id.into());
         state.active.insert(
@@ -110,7 +120,7 @@ impl Sessions {
                 connection: connection.into(),
             },
         );
-        Ok(())
+        Ok(permit)
     }
     fn finish(&self, session: &str, id: &str) {
         if let Ok(mut entries) = self.entries.lock()
@@ -267,53 +277,31 @@ where
                 id: request_id,
                 request,
             } => {
-                let permit = match permits.clone().try_acquire_owned() {
-                    Ok(permit) => permit,
-                    Err(_) => {
-                        let envelope = Envelope::finish(
-                            request_id,
-                            request.command,
-                            "core".into(),
-                            Duration::ZERO,
-                            request.dry_run,
-                            Err(Error::new(
-                                ErrorCode::ResourceExhausted,
-                                "Eight in-flight requests per connection are allowed",
-                            )),
-                        );
-                        if tx
-                            .send(ServerMessage::Result {
-                                envelope: Box::new(envelope),
-                            })
-                            .await
-                            .is_err()
-                        {
-                            break;
-                        }
-                        continue;
-                    }
-                };
                 let token = local_stop.child_token();
-                if let Err(error) = sessions.start(&session, &request_id, &id, token.clone()) {
-                    let envelope = Envelope::finish(
-                        request_id,
-                        request.command,
-                        "core".into(),
-                        Duration::ZERO,
-                        request.dry_run,
-                        Err(error),
-                    );
-                    if tx
-                        .send(ServerMessage::Result {
-                            envelope: Box::new(envelope),
-                        })
-                        .await
-                        .is_err()
-                    {
-                        break;
-                    }
-                    continue;
-                }
+                let permit =
+                    match sessions.start(&session, &request_id, &id, token.clone(), &permits) {
+                        Ok(permit) => permit,
+                        Err(error) => {
+                            let envelope = Envelope::finish(
+                                request_id,
+                                request.command,
+                                "core".into(),
+                                Duration::ZERO,
+                                request.dry_run,
+                                Err(error),
+                            );
+                            if tx
+                                .send(ServerMessage::Result {
+                                    envelope: Box::new(envelope),
+                                })
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
+                            continue;
+                        }
+                    };
                 let running = Running {
                     sessions: sessions.clone(),
                     session: session.clone(),
@@ -555,17 +543,240 @@ mod tests {
             },
         );
         let id = unique_id();
-        sessions
-            .start(&s, &id, "c", CancellationToken::new())
+        let permits = Arc::new(Semaphore::new(8));
+        let original = CancellationToken::new();
+        let held = sessions
+            .start(&s, &id, "c", original.clone(), &permits)
             .unwrap();
-        sessions.finish(&s, &id);
-        assert_eq!(
-            sessions
-                .start(&s, &id, "c", CancellationToken::new())
-                .unwrap_err()
-                .code,
-            ErrorCode::Conflict
+        for connection in ["c", "reconnected"] {
+            let error = sessions
+                .start(&s, &id, connection, CancellationToken::new(), &permits)
+                .unwrap_err();
+            assert_eq!(error.code, ErrorCode::Conflict);
+            assert!(
+                !error.outcome_known,
+                "The original effect may have happened"
+            );
+        }
+        assert!(
+            !original.is_cancelled(),
+            "A duplicate must not cancel the original"
         );
+        assert_eq!(permits.available_permits(), 7);
+        sessions.finish(&s, &id);
+        drop(held);
+        let error = sessions
+            .start(&s, &id, "reconnected", CancellationToken::new(), &permits)
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert!(!error.outcome_known);
+        assert_eq!(permits.available_permits(), 8);
+    }
+
+    #[test]
+    fn replay_registration_precedes_connection_budget() {
+        let sessions = Sessions::default();
+        let s = unique_id();
+        sessions.entries.lock().unwrap().insert(
+            s.clone(),
+            Session {
+                touched: Instant::now(),
+                seen: BTreeSet::new(),
+                active: BTreeMap::new(),
+            },
+        );
+        let permits = Arc::new(Semaphore::new(8));
+        let mut held = Vec::new();
+        for _ in 0..8 {
+            let id = unique_id();
+            let permit = sessions
+                .start(&s, &id, "c", CancellationToken::new(), &permits)
+                .unwrap();
+            held.push((id, permit));
+        }
+        assert_eq!(permits.available_permits(), 0);
+        let duplicate = sessions
+            .start(&s, &held[0].0, "c", CancellationToken::new(), &permits)
+            .unwrap_err();
+        assert_eq!(duplicate.code, ErrorCode::Conflict);
+        assert!(!duplicate.outcome_known);
+
+        let fresh = unique_id();
+        let exhausted = sessions
+            .start(&s, &fresh, "c", CancellationToken::new(), &permits)
+            .unwrap_err();
+        assert_eq!(exhausted.code, ErrorCode::ResourceExhausted);
+        assert!(exhausted.outcome_known);
+        {
+            let entries = sessions.entries.lock().unwrap();
+            let state = &entries[&s];
+            assert_eq!(state.seen.len(), 8);
+            assert_eq!(state.active.len(), 8);
+            assert!(!state.seen.contains(&fresh));
+        }
+        let (completed, permit) = held.pop().unwrap();
+        sessions.finish(&s, &completed);
+        drop(permit);
+        let accepted = sessions
+            .start(&s, &fresh, "c", CancellationToken::new(), &permits)
+            .unwrap();
+        assert_eq!(permits.available_permits(), 0);
+        sessions.finish(&s, &fresh);
+        drop(accepted);
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[tokio::test]
+    async fn replay_registration_wire_reconnect_preserves_original_file() {
+        use semwright_core::{NoApprover, audit::Audit};
+        use semwright_platform_common::filesystem::Filesystem;
+        use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
+        use serde_json::json;
+        use tokio::io::DuplexStream;
+
+        async fn connect_test(
+            broker: Arc<Broker>,
+            sessions: Arc<Sessions>,
+            stop: CancellationToken,
+            jobs: TaskTracker,
+            ticket: Option<String>,
+        ) -> (DuplexStream, String, tokio::task::JoinHandle<Result<()>>) {
+            let (mut client, server) = tokio::io::duplex(65536);
+            // In-memory transport only: real Windows peer checks are covered
+            // by the separate native IPC certification.
+            let handler =
+                tokio::spawn(connection(server, |_| Ok(()), broker, sessions, stop, jobs));
+            write_frame(
+                &mut client,
+                &ClientMessage::Hello {
+                    version: PROTOCOL_VERSION,
+                    session: ticket,
+                },
+            )
+            .await
+            .unwrap();
+            let response = tokio::time::timeout(
+                Duration::from_secs(5),
+                read_frame::<_, ServerMessage>(&mut client),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            let ServerMessage::Welcome { session, .. } = response else {
+                panic!("Unexpected handshake response: {response:?}");
+            };
+            (client, session, handler)
+        }
+
+        async fn write_request(client: &mut DuplexStream, id: &str, content: &str) -> Envelope {
+            write_frame(
+                client,
+                &ClientMessage::Execute {
+                    id: id.into(),
+                    request: ExecuteRequest {
+                        command: "filesystem.write".into(),
+                        args: json!({"root":"workspace","path":"effect.txt","text":content}),
+                        dry_run: false,
+                        backend: None,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+            let response = tokio::time::timeout(
+                Duration::from_secs(5),
+                read_frame::<_, ServerMessage>(client),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            let ServerMessage::Result { envelope } = response else {
+                panic!("Unexpected execution response: {response:?}");
+            };
+            assert_eq!(envelope.request_id, id);
+            *envelope
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let workspace = dir.path().join("workspace");
+        std::fs::create_dir(&workspace).unwrap();
+        let grant = FilesystemGrant {
+            name: "workspace".into(),
+            path: workspace.clone(),
+            read: true,
+            write: true,
+        };
+        let backend = Arc::new(Filesystem::new(std::slice::from_ref(&grant)).unwrap());
+        let policy = Policy::new(PolicyConfig {
+            filesystem: vec![grant],
+            ..Default::default()
+        })
+        .unwrap();
+        let broker = Broker::new(
+            policy,
+            vec![backend],
+            Audit::open(&dir.path().join("audit"), 65536, 2).unwrap(),
+            Arc::new(NoApprover),
+            None,
+            json!({}),
+            false,
+        )
+        .unwrap();
+        let sessions = Arc::new(Sessions::default());
+        let stop = CancellationToken::new();
+        let jobs = TaskTracker::new();
+        let (mut client, session, handler) = connect_test(
+            broker.clone(),
+            sessions.clone(),
+            stop.clone(),
+            jobs.clone(),
+            None,
+        )
+        .await;
+        let request_id = unique_id();
+        let first = write_request(&mut client, &request_id, "original").await;
+        assert!(first.ok, "{first:?}");
+        let path = workspace.join("effect.txt");
+        assert_eq!(std::fs::read(&path).unwrap(), b"original");
+
+        drop(client);
+        tokio::time::timeout(Duration::from_secs(5), handler)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+
+        let (mut client, resumed, handler) = connect_test(
+            broker.clone(),
+            sessions,
+            stop.clone(),
+            jobs.clone(),
+            Some(session.clone()),
+        )
+        .await;
+        assert_eq!(resumed, session);
+        let replay = write_request(&mut client, &request_id, "duplicate effect").await;
+        assert!(!replay.ok, "{replay:?}");
+        let error = replay.error.unwrap();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert!(!error.outcome_known);
+        assert!(replay.execution.fallbacks_attempted.is_empty());
+        assert_eq!(std::fs::read(&path).unwrap(), b"original");
+
+        let fresh = write_request(&mut client, &unique_id(), "new authorized work").await;
+        assert!(fresh.ok, "{fresh:?}");
+        assert_eq!(std::fs::read(&path).unwrap(), b"new authorized work");
+        drop(client);
+        tokio::time::timeout(Duration::from_secs(5), handler)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        jobs.close();
+        tokio::time::timeout(Duration::from_secs(5), jobs.wait())
+            .await
+            .unwrap();
+        broker.shutdown().await;
     }
     #[test]
     fn disconnect_cancels_only_its_own_connection() {
@@ -581,8 +792,14 @@ mod tests {
         );
         let a = CancellationToken::new();
         let b = CancellationToken::new();
-        sessions.start(&s, &unique_id(), "a", a.clone()).unwrap();
-        sessions.start(&s, &unique_id(), "b", b.clone()).unwrap();
+        let permits_a = Arc::new(Semaphore::new(8));
+        let permits_b = Arc::new(Semaphore::new(8));
+        let _a = sessions
+            .start(&s, &unique_id(), "a", a.clone(), &permits_a)
+            .unwrap();
+        let _b = sessions
+            .start(&s, &unique_id(), "b", b.clone(), &permits_b)
+            .unwrap();
         sessions.disconnect(&s, "a");
         assert!(a.is_cancelled());
         assert!(!b.is_cancelled());

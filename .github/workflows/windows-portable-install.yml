@@ -18,6 +18,10 @@ on:
         description: Run helper contracts without rebuilding runtime binaries
         type: boolean
         default: false
+      runtime_contracts_only:
+        description: Run Core and daemon lifecycle contracts without installer or binary packaging
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,7 +46,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - name: Validate selected scope
+        if: ${{ inputs.helpers_only && inputs.runtime_contracts_only }}
+        run: throw 'helpers_only and runtime_contracts_only are mutually exclusive'
       - name: Native helper contracts on both PowerShell editions
+        if: ${{ !inputs.runtime_contracts_only }}
         run: |
           New-Item -ItemType Directory -Force verification/windows-portable | Out-Null
           # The OS temp folder has protected ancestry; the checkout drive may be shared.
@@ -61,7 +69,7 @@ jobs:
         with:
           toolchain: 1.98.1
       - name: Native CLI setup command contracts
-        if: ${{ !inputs.helpers_only }}
+        if: ${{ !inputs.helpers_only && !inputs.runtime_contracts_only }}
         run: |
           $env:SEMWRIGHT_TEST_POWERSHELL = (Get-Command powershell -ErrorAction Stop).Source
           cargo test --locked -p semwright-cli --bin semwright setup_tests -- --nocapture
@@ -72,7 +80,7 @@ jobs:
           cargo test --locked -p semwright-cli --bin semwright setup_shell_quote_preserves_powershell_literals -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Windows UI discovery ancestor boundary contracts
-        if: ${{ !inputs.helpers_only }}
+        if: ${{ !inputs.helpers_only && !inputs.runtime_contracts_only }}
         run: |
           cargo test --locked -p semwright-core --lib windows_ui_find_ -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -93,6 +101,11 @@ jobs:
         run: |
           cargo test --locked -p semwright-core --test provider_runtime replay_fence_ -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Daemon IPC session and replay outcome contracts
+        if: ${{ !inputs.helpers_only }}
+        run: |
+          cargo test --locked -p semwright-daemon --lib server::tests:: -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Revocable executor workflow integration
         if: ${{ !inputs.helpers_only }}
         run: |
@@ -101,10 +114,10 @@ jobs:
           cargo test --locked -p semwright-core --test broker_contract v3_proposal_is_sanitized_plannable_and_requires_acceptance_before_persistence -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build native delivery binaries
-        if: ${{ !inputs.helpers_only }}
+        if: ${{ !inputs.helpers_only && !inputs.runtime_contracts_only }}
         run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host --bins
       - name: Package and verify both installation modes
-        if: ${{ !inputs.helpers_only }}
+        if: ${{ !inputs.helpers_only && !inputs.runtime_contracts_only }}
         run: |
           python scripts/release/portable_package.py --bin-dir target/debug --platform windows --arch x86_64 --output dist/windows-portable --report verification/windows-portable/package.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -119,13 +132,13 @@ jobs:
             binaries = $binaries
           } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 verification/windows-portable/binaries.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
+        if: ${{ always() && !inputs.runtime_contracts_only }}
         with:
           name: windows-portable-install-evidence
           path: verification/windows-portable/
           retention-days: 14
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: ${{ success() && !inputs.helpers_only }}
+        if: ${{ success() && !inputs.helpers_only && !inputs.runtime_contracts_only }}
         with:
           name: windows-portable-install-package
           path: dist/windows-portable/

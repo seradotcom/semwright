@@ -732,6 +732,18 @@ impl Broker {
                 "Active execution registry is unavailable",
             )
         })?;
+        // A prior submission may already have had an effect. Classify a
+        // duplicate before any capacity or shutdown denial for fresh work.
+        if fingerprint
+            .as_ref()
+            .is_some_and(|id| active.request_ids.contains(id))
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Request ID was already submitted in this broker session; inspect the original result before any new effect",
+            )
+            .uncertain());
+        }
         // Shutdown and admission use the same registry lock. The caller can
         // either register and be cancelled by shutdown or fail before dispatch.
         if self.runtime_stop.is_cancelled() {
@@ -752,13 +764,6 @@ impl Broker {
             }
         }
         if let Some(fingerprint) = fingerprint {
-            if active.request_ids.contains(&fingerprint) {
-                return Err(Error::new(
-                    ErrorCode::Conflict,
-                    "Request ID was already submitted in this broker session; inspect the original result before any new effect",
-                )
-                .uncertain());
-            }
             if active.request_ids.len() >= MAX_RECORDED_REQUEST_IDS {
                 return Err(Error::new(
                     ErrorCode::ResourceExhausted,

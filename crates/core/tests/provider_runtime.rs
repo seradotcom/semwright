@@ -1493,6 +1493,128 @@ async fn replay_fence_refuses_completed_same_session_request_without_reexecuting
 }
 
 #[tokio::test]
+async fn replay_fence_keeps_uncertainty_when_session_capacity_is_exhausted() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let session = unique_id();
+    let prior_id = unique_id();
+    let first = fixture
+        .broker
+        .clone()
+        .execute(
+            session.clone(),
+            prior_id.clone(),
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(first.ok, "{first:?}");
+
+    let leases: Vec<_> = (0..256)
+        .map(|_| fixture.broker.session_executor(session.clone()))
+        .collect();
+    assert!(
+        leases
+            .iter()
+            .all(|lease| lease.describe("driver.fixture.count").is_ok())
+    );
+    let duplicate = fixture
+        .broker
+        .clone()
+        .execute(
+            session.clone(),
+            prior_id,
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await
+        .error
+        .unwrap();
+    assert_eq!(duplicate.code, ErrorCode::Conflict);
+    assert!(!duplicate.outcome_known);
+    let fresh_id = unique_id();
+    let exhausted = fixture
+        .broker
+        .clone()
+        .execute(
+            session.clone(),
+            fresh_id.clone(),
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await
+        .error
+        .unwrap();
+    assert_eq!(exhausted.code, ErrorCode::ResourceExhausted);
+    assert!(exhausted.outcome_known);
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+
+    drop(leases);
+    let fresh = fixture
+        .broker
+        .clone()
+        .execute(
+            session,
+            fresh_id,
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(fresh.ok, "{fresh:?}");
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn replay_fence_keeps_uncertainty_after_broker_shutdown() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let session = unique_id();
+    let prior_id = unique_id();
+    let first = fixture
+        .broker
+        .clone()
+        .execute(
+            session.clone(),
+            prior_id.clone(),
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(first.ok, "{first:?}");
+
+    fixture.broker.shutdown().await;
+    let duplicate = fixture
+        .broker
+        .clone()
+        .execute(
+            session.clone(),
+            prior_id,
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await
+        .error
+        .unwrap();
+    assert_eq!(duplicate.code, ErrorCode::Conflict);
+    assert!(!duplicate.outcome_known);
+    let fresh = fixture
+        .broker
+        .clone()
+        .execute(
+            session,
+            unique_id(),
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await
+        .error
+        .unwrap();
+    assert_eq!(fresh.code, ErrorCode::Unavailable);
+    assert!(fresh.outcome_known);
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
 async fn replay_fence_reserves_request_id_before_first_future_poll() {
     let fixture = Fixture::new(true);
     fixture.mount().await;
