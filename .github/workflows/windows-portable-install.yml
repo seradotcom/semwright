@@ -88,6 +88,11 @@ jobs:
         run: |
           cargo test --locked -p semwright-core --test provider_runtime shutdown_ -- --nocapture
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Core request-ID replay fence rejects duplicate effects
+        if: ${{ !inputs.helpers_only }}
+        run: |
+          cargo test --locked -p semwright-core --test provider_runtime replay_fence_ -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Revocable executor workflow integration
         if: ${{ !inputs.helpers_only }}
         run: |

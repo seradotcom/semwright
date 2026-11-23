@@ -1439,6 +1439,229 @@ async fn provider_progress_and_artifacts_flow_into_session_scoped_job_snapshot()
     assert_eq!(foreign.error.unwrap().code, ErrorCode::NotFound);
 }
 
+fn replay_fence_request() -> ExecuteRequest {
+    ExecuteRequest {
+        command: "driver.fixture.count".into(),
+        args: json!({}),
+        dry_run: false,
+        backend: None,
+    }
+}
+
+#[tokio::test]
+async fn replay_fence_refuses_completed_same_session_request_without_reexecuting() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let session = unique_id();
+    let request_id = unique_id();
+
+    let first = fixture
+        .broker
+        .clone()
+        .execute(
+            session.clone(),
+            request_id.clone(),
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(first.ok, "{first:?}");
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+
+    let replay = fixture
+        .broker
+        .clone()
+        .execute(
+            session,
+            request_id,
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(!replay.ok, "{replay:?}");
+    let error = replay.error.unwrap();
+    assert_eq!(error.code, ErrorCode::Conflict);
+    assert!(
+        !error.outcome_known,
+        "A lost original response cannot be treated as a known non-effect"
+    );
+    assert_eq!(
+        fixture.provider.calls.load(Ordering::SeqCst),
+        1,
+        "Same-session response replay must not dispatch another provider call"
+    );
+}
+
+#[tokio::test]
+async fn replay_fence_reserves_request_id_before_first_future_poll() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let session = unique_id();
+    let request_id = unique_id();
+    let pending = fixture.broker.clone().execute(
+        session.clone(),
+        request_id.clone(),
+        replay_fence_request(),
+        CancellationToken::new(),
+    );
+
+    let duplicate = fixture
+        .broker
+        .clone()
+        .execute(
+            session,
+            request_id,
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(!duplicate.ok);
+    assert_eq!(duplicate.error.as_ref().unwrap().code, ErrorCode::Conflict);
+    assert!(!duplicate.error.unwrap().outcome_known);
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
+
+    let first = pending.await;
+    assert!(first.ok, "{first:?}");
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn replay_fence_blocks_replay_while_original_provider_is_running() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    fixture.provider.blocked.store(true, Ordering::SeqCst);
+    let session = unique_id();
+    let request_id = unique_id();
+    let first = fixture.broker.clone().execute(
+        session.clone(),
+        request_id.clone(),
+        replay_fence_request(),
+        CancellationToken::new(),
+    );
+    let running = tokio::spawn(first);
+    tokio::time::timeout(Duration::from_secs(2), fixture.provider.entered.notified())
+        .await
+        .unwrap();
+
+    let duplicate = fixture
+        .broker
+        .clone()
+        .execute(
+            session,
+            request_id,
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(!duplicate.ok);
+    assert_eq!(duplicate.error.as_ref().unwrap().code, ErrorCode::Conflict);
+    assert!(!duplicate.error.unwrap().outcome_known);
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+
+    fixture.provider.release.notify_one();
+    let original = tokio::time::timeout(Duration::from_secs(3), running)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(original.ok, "{original:?}");
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn replay_fence_allows_distinct_session_or_request_ids() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let owner = unique_id();
+    let other = unique_id();
+    let shared_id = unique_id();
+    for (session, id) in [
+        (owner.clone(), shared_id.clone()),
+        (other, shared_id),
+        (owner, unique_id()),
+    ] {
+        let result = fixture
+            .broker
+            .clone()
+            .execute(
+                session,
+                id,
+                replay_fence_request(),
+                CancellationToken::new(),
+            )
+            .await;
+        assert!(
+            result.ok,
+            "Distinct authorized request must succeed: {result:?}"
+        );
+    }
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 3);
+}
+
+#[tokio::test]
+async fn replay_fence_keeps_consumed_id_after_cancelled_session() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let session = unique_id();
+    let request_id = unique_id();
+    let pending = fixture.broker.clone().execute(
+        session.clone(),
+        request_id.clone(),
+        replay_fence_request(),
+        CancellationToken::new(),
+    );
+    fixture.broker.revoke_session(&session);
+    let cancelled = pending.await;
+    assert!(!cancelled.ok);
+    assert_eq!(cancelled.error.unwrap().code, ErrorCode::Cancelled);
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
+
+    let replay = fixture
+        .broker
+        .clone()
+        .execute(
+            session,
+            request_id,
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(!replay.ok);
+    let error = replay.error.unwrap();
+    assert_eq!(error.code, ErrorCode::Conflict);
+    assert!(!error.outcome_known);
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn replay_fence_dropped_unpolled_future_is_never_replayed_blindly() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let session = unique_id();
+    let request_id = unique_id();
+    let pending = fixture.broker.clone().execute(
+        session.clone(),
+        request_id.clone(),
+        replay_fence_request(),
+        CancellationToken::new(),
+    );
+    drop(pending);
+    let replay = fixture
+        .broker
+        .clone()
+        .execute(
+            session,
+            request_id,
+            replay_fence_request(),
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(!replay.ok);
+    let error = replay.error.unwrap();
+    assert_eq!(error.code, ErrorCode::Conflict);
+    assert!(!error.outcome_known);
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
+}
+
 #[tokio::test]
 async fn shutdown_cancels_unpolled_direct_call_without_dispatch() {
     let fixture = Fixture::new(true);

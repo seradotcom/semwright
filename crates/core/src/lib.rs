@@ -17,8 +17,9 @@ use semwright_registry::Registry;
 use semwright_types::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     future::Future,
     pin::Pin,
     sync::{Arc, Mutex as StdMutex, RwLock as StdRwLock},
@@ -59,6 +60,25 @@ struct Events {
     history: VecDeque<Event>,
 }
 
+/// Request IDs are a broker-lifetime replay fence, not a durable idempotency
+/// journal. On capacity exhaustion refuse new calls rather than evicting a
+/// key that could permit a duplicate provider effect.
+const MAX_RECORDED_REQUEST_IDS: usize = 65_536;
+
+#[derive(Default)]
+struct ActiveCallRegistry {
+    calls: BTreeMap<String, BTreeMap<String, CancellationToken>>,
+    request_ids: BTreeSet<[u8; 32]>,
+}
+
+fn request_fingerprint(session: &str, request_id: &str) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update((session.len() as u64).to_le_bytes());
+    digest.update(session.as_bytes());
+    digest.update(request_id.as_bytes());
+    digest.finalize().into()
+}
+
 /// One direct Broker execution belongs to one session until its result has
 /// finished auditing. Dropping the caller future also unregisters it.
 struct ActiveCall {
@@ -69,11 +89,11 @@ struct ActiveCall {
 impl Drop for ActiveCall {
     fn drop(&mut self) {
         if let Ok(mut active) = self.broker.active_calls.lock()
-            && let Some(calls) = active.get_mut(&self.session)
+            && let Some(calls) = active.calls.get_mut(&self.session)
         {
             calls.remove(&self.key);
             if calls.is_empty() {
-                active.remove(&self.session);
+                active.calls.remove(&self.session);
             }
         }
     }
@@ -83,7 +103,7 @@ pub struct Broker {
     registry: StdRwLock<ProviderCatalog>,
     policy: Policy,
     references: StdMutex<RefStore>,
-    active_calls: StdMutex<BTreeMap<String, BTreeMap<String, CancellationToken>>>,
+    active_calls: StdMutex<ActiveCallRegistry>,
     audit: Arc<audit::Audit>,
     approver: Arc<dyn Approver>,
     plugins: Option<Arc<Host>>,
@@ -176,7 +196,7 @@ impl Broker {
             registry: StdRwLock::new(catalog),
             policy,
             references: StdMutex::new(RefStore::new(Duration::from_secs(60), 65536)),
-            active_calls: StdMutex::new(BTreeMap::new()),
+            active_calls: StdMutex::new(ActiveCallRegistry::default()),
             audit,
             approver,
             plugins,
@@ -216,6 +236,7 @@ impl Broker {
             .active_calls
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .calls
             .remove(session)
             .unwrap_or_default();
         for cancellation in pending.into_values() {
@@ -696,38 +717,61 @@ impl Broker {
     fn track_active_call(
         self: &Arc<Self>,
         session: &str,
+        request_id: Option<&str>,
         parent: &CancellationToken,
     ) -> Result<(ActiveCall, CancellationToken)> {
-        // The local child can be cancelled on session revocation without
-        // cancelling work owned by a different session or the transport itself.
+        // A request ID is reserved synchronously, even before the future is
+        // polled, so concurrent or delayed same-session retries cannot run
+        // another provider effect after a response is lost.
         let cancellation = parent.child_token();
         let key = unique_id();
+        let fingerprint = request_id.map(|id| request_fingerprint(session, id));
         let mut active = self.active_calls.lock().map_err(|_| {
             Error::new(
                 ErrorCode::Internal,
                 "Active execution registry is unavailable",
             )
         })?;
-        // Check while holding the same lock that shutdown drains. A new
-        // request can then either be recorded and cancelled by shutdown, or
-        // be refused before reaching any provider.
+        // Shutdown and admission use the same registry lock. The caller can
+        // either register and be cancelled by shutdown or fail before dispatch.
         if self.runtime_stop.is_cancelled() {
             return Err(Error::unavailable("Broker is shutting down"));
         }
-        let calls = active.entry(session.to_owned()).or_default();
-        if calls.len() >= 256 {
-            return Err(Error::new(
-                ErrorCode::ResourceExhausted,
-                "Session already has too many in-flight Core operations",
-            ));
+        if let Some(calls) = active.calls.get(session) {
+            if calls.len() >= 256 {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Session already has too many in-flight Core operations",
+                ));
+            }
+            if calls.contains_key(&key) {
+                return Err(Error::new(
+                    ErrorCode::Internal,
+                    "Duplicate active execution identity",
+                ));
+            }
         }
-        if calls.contains_key(&key) {
-            return Err(Error::new(
-                ErrorCode::Internal,
-                "Duplicate active execution identity",
-            ));
+        if let Some(fingerprint) = fingerprint {
+            if active.request_ids.contains(&fingerprint) {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Request ID was already submitted in this broker session; inspect the original result before any new effect",
+                )
+                .uncertain());
+            }
+            if active.request_ids.len() >= MAX_RECORDED_REQUEST_IDS {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Broker request-ID replay fence reached its capacity; reconcile work before restart",
+                ));
+            }
+            active.request_ids.insert(fingerprint);
         }
-        calls.insert(key.clone(), cancellation.clone());
+        active
+            .calls
+            .entry(session.to_owned())
+            .or_default()
+            .insert(key.clone(), cancellation.clone());
         Ok((
             ActiveCall {
                 broker: self.clone(),
@@ -746,7 +790,7 @@ impl Broker {
     ) -> Pin<Box<dyn Future<Output = Envelope> + Send>> {
         // Register synchronously, before the returned future is first polled,
         // so a revocation cannot miss an already-submitted pending operation.
-        let tracked = self.track_active_call(&session, &cancellation);
+        let tracked = self.track_active_call(&session, Some(&id), &cancellation);
         Box::pin(async move {
             let (_active_call, session_cancellation) = match tracked {
                 Ok(tracked) => tracked,
@@ -1620,7 +1664,7 @@ impl Broker {
         // holding an old executor must not be able to dispatch again after its
         // session has been revoked. New executor admission is the host's duty.
         let (guard, lease, lease_error) =
-            match self.track_active_call(&session, &CancellationToken::new()) {
+            match self.track_active_call(&session, None, &CancellationToken::new()) {
                 Ok((guard, lease)) => (Some(guard), lease, None),
                 Err(error) => {
                     // This constructor predates the bounded tracking contract
@@ -1651,7 +1695,7 @@ impl Broker {
                 .active_calls
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
-            std::mem::take(&mut *active)
+            std::mem::take(&mut active.calls)
         };
         for calls in outstanding.into_values() {
             for cancellation in calls.into_values() {

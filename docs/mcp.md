@@ -83,6 +83,19 @@ already dispatched still carry an uncertain outcome, so shutdown does not
 authorize re-execution or rollback. Parent caller cancellation tokens remain
 independent from this broker-owned shutdown signal.
 
+Core now also reserves each direct request ID for its originating session before
+the execution future is polled. Resubmitting the same ID in that same broker
+session, whether concurrently, after completion or following session revocation,
+returns `Conflict` with `outcome_known=false` and does not dispatch another
+provider action. Distinct request IDs or separately authorized sessions remain
+independent. The bounded replay fence keeps 65,536 request IDs in memory for
+the lifetime of one Broker and fails closed with known `ResourceExhausted`
+rather than evicting an ID. This is **not** a durable idempotency journal:
+it does not survive a broker restart and cannot detect a duplicate submitted
+with a new ID. After a lost response, preserve the original request ID and
+reconcile the actual target state, original audit/job and Platform journal
+before any new effect; never auto-replay a mutation.
+
 The current implementation does not advertise arbitrary evaluation, approval, shell,
 roots-based grant escalation or a tool for turning policy off. MCP Tasks are an adapter over
 Semwright's bounded in-memory JobStore: task IDs remain broker-session scoped, are not durable
