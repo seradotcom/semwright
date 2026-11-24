@@ -938,8 +938,11 @@ if _stdio is not None:
             data = dispatch(request["command"], request["args"])
             write_frame(_stdio, {"ok": True, "data": data})
         except (CommandError, SemanticError) as error:
+            if error.code == "BackendFailed":
+                commands.record_native_failure(error)
             write_frame(_stdio, {"ok": False, "error": {"code": error.code}})
-        except (ValueError, TypeError, OSError):
+        except Exception as error:
+            commands.record_native_failure(error)
             write_frame(_stdio, {"ok": False, "error": {"code": "NativeTransportFailed"}})
             raise SystemExit(3)
 else:

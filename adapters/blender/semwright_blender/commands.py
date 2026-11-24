@@ -391,6 +391,71 @@ class Commands:
             # reconciliation; only our private temporary is eligible for cleanup.
             raise CommandError("BackendFailed", "Render failed; reconcile target before retrying") from error
 
+
+    def record_native_failure(self, error):
+        """Keep bounded local exception details; never put them on the protocol."""
+        try:
+            root = self.workspace.root
+            if root.resolve(strict=True) != root:
+                return False
+            count = 0
+            with os.scandir(root) as entries:
+                for scanned, entry in enumerate(entries):
+                    if scanned >= 4096:
+                        return False
+                    if entry.name.startswith(".semwright-native-failure-"):
+                        count += 1
+                        if count >= 8:
+                            return False
+
+            def bounded(value, maximum):
+                return str(value).encode("utf-8", errors="replace")[:maximum].decode(
+                    "utf-8", errors="ignore")
+
+            exceptions = []
+            current = error
+            seen = set()
+            for _ in range(2):
+                if current is None or id(current) in seen:
+                    break
+                seen.add(id(current))
+                frames = []
+                trace = current.__traceback__
+                for _ in range(64):
+                    if trace is None:
+                        break
+                    frames.append({
+                        "file": bounded(trace.tb_frame.f_code.co_filename, 384),
+                        "line": trace.tb_lineno,
+                        "function": bounded(trace.tb_frame.f_code.co_name, 64),
+                    })
+                    trace = trace.tb_next
+                errno = getattr(current, "errno", None)
+                exceptions.append({
+                    "type": bounded(type(current).__name__, 64),
+                    "message": bounded(current, 1024),
+                    "errno": errno if type(errno) is int else None,
+                    "frames": frames[-4:],
+                })
+                current = current.__cause__ or (
+                    None if current.__suppress_context__ else current.__context__)
+            encoded = (json.dumps({"schema": 1, "exceptions": exceptions},
+                                  ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+            if len(encoded) > 8192:
+                return False
+            name = ".semwright-native-failure-" + os.urandom(16).hex() + ".json"
+            target = self.workspace.path(name, ".json")
+            fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
+                         getattr(os, "O_NOFOLLOW", 0), 0o600)
+            with os.fdopen(fd, "wb") as out:
+                out.write(encoded)
+                out.flush()
+                os.fsync(out.fileno())
+            return True
+        except Exception:
+            # Diagnostics must not replace the original uncertain native result.
+            return False
+
     def export_glb(self, args):
         """One fixed exporter, a closed collection and a new atomic artifact."""
         bpy = self.bpy

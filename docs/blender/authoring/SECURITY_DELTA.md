@@ -81,3 +81,27 @@ The existing fixed GLB exporter remains the only exporter. E inventories bounded
 F PASS requires the trusted native channel and F's evaluator. C authoring receipt admission requires host-owned logical identities plus the real request/descriptor/runtime binding and C's own adapter. Neither proves the later cross-app GLB import activity.
 
 No perfect sandbox, ACID cross-app rollback, exactly-once execution, global filesystem noninterference, aesthetic quality, all-time animation validity or mesh self-intersection certification is claimed. Godot cross-app verification/provenance remain external readiness blockers; exact-SHA E CI is evidence carried by the workflow artifact, not by this source prose.
+
+## Bounded Windows native failure records
+
+The closed Windows stdio bridge retains a native exception record in the already
+authorized workspace when an unexpected exception or a BackendFailed command
+prevents completion. Records use exclusive creation with a fixed generated
+filename prefix: `.semwright-native-failure-<random>.json`. They contain at
+most two exception types/messages and four stack locations per exception, never
+Python frame locals or serialized request arguments. Each record is at most
+8 KiB; retention refuses after eight records or a 4,096-entry directory scan.
+Storage failure never replaces the original uncertain error. A partial failed
+diagnostic write may remain for owner inspection and counts against that budget.
+
+These details remain local. Driver replies retain the existing closed error
+schema; unexpected stdio dispatch exceptions terminate the native session after
+an uncertain transport failure. Expected policy/conflict/stale errors retain
+their existing handling. There is no replay, fallback, new grant, network path,
+or expansion of the trusted workspace race guarantee.
+
+The opt-in `native_artifact_smoke` Windows Actions path downloads the SHA-256
+pinned official Blender 5.2.1 runtime and exercises the genuine closed Host,
+GLB export and new-only PNG publication with the job's own built binaries.
+Its evidence explicitly excludes session tickets and private runtime state.
+This hosted check is separate from interactive agent-host or release acceptance.

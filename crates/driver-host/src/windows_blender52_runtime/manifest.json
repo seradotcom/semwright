@@ -6,15 +6,15 @@
       "file": "bridge.py",
       "canonical": "../driver-blender/src/bridge.py",
       "private_target": "bridge.py",
-      "bytes": 54749,
-      "sha256": "644e2b725eb16c0714cd7c8a34e37eb7ed1a2b6f00d65fad3433eafe880b8a68"
+      "bytes": 54885,
+      "sha256": "18da3c1fe1c0ac4ee4587a4ffba6dba3e5ce08114af391a6e0fb85116aeef839"
     },
     {
       "file": "commands.py",
       "canonical": "../../adapters/blender/semwright_blender/commands.py",
       "private_target": "semwright_blender_runtime/commands.py",
-      "bytes": 46588,
-      "sha256": "9d1a719f40b0ee798195d2601309729b65520cf2507f14731140394534fbfc3b"
+      "bytes": 49431,
+      "sha256": "1b17c569ea3979c2065e44de6f92bd5b2758d6a9f17d8e3a95188a0230f84d8c"
     },
     {
       "file": "commands.json",

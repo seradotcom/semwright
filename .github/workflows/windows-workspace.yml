@@ -40,6 +40,12 @@ on:
       - 'Cargo.lock'
       - '.github/workflows/windows-workspace.yml'
   workflow_dispatch:
+    inputs:
+      native_artifact_smoke:
+        description: Run the closed Windows Host with pinned real Blender 5.2.1 artifact commands
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -105,6 +111,8 @@ jobs:
           python crates/driver-blender/tests/native_transform_revision.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python crates/driver-blender/tests/render_publication.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python crates/driver-blender/tests/native_failure_record.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/sync-contracts.py --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -221,6 +229,31 @@ jobs:
             release_admission = $false
             runner = 'windows-2025'
           } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 verification/windows-blender-native/manifest.json
+      - name: Native Blender artifact commands through the closed Windows Host
+        if: inputs.native_artifact_smoke == true
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'blender-5.2.1-windows-x64.zip'
+          Invoke-WebRequest -Uri 'https://download.blender.org/release/Blender5.2/blender-5.2.1-windows-x64.zip' -OutFile $archive
+          $expected = '0e631dad7d0cad6d5d18abdd2e2550f6c0213215334eda00ddbd3d22b96ecb2c'
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Blender archive digest mismatch' }
+          $destination = Join-Path $env:RUNNER_TEMP 'semwright-native-artifacts-blender'
+          if (Test-Path -LiteralPath $destination) { throw 'Native runtime destination already exists' }
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination
+          $runtime = Join-Path $destination 'blender-5.2.1-windows-x64'
+          python -B scripts/windows/blender-artifacts-smoke.py --bin-dir target/debug --blender-root $runtime --output verification/windows-native-artifacts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always() && inputs.native_artifact_smoke == true
+        with:
+          name: windows-native-artifacts-evidence
+          path: |
+            verification/windows-native-artifacts/result.json
+            verification/windows-native-artifacts/broker.log
+            verification/windows-native-artifacts/*.response.json
+            verification/windows-native-artifacts/diagnostics/
+            verification/windows-native-artifacts/artifacts/
+          if-no-files-found: error
+          retention-days: 14
       - name: Native project restart with offline owner edit
         run: python scripts/windows/project-restart-smoke.py --bin-dir target/debug --output verification/windows-project-restart
       - name: Delayed and anonymous Windows pipe handshakes
@@ -319,6 +352,7 @@ jobs:
         run: |
           python3 crates/driver-blender/tests/native_transform_revision.py
           python3 crates/driver-blender/tests/render_publication.py
+          python3 crates/driver-blender/tests/native_failure_record.py
           python3 scripts/sync-contracts.py --check
           python3 crates/driver-blender/tests/semantic_cross_version_parity.py
           python3 crates/driver-blender/tests/native_library_stage.py
