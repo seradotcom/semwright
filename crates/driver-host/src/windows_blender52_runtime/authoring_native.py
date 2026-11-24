@@ -386,6 +386,29 @@ class AuthoringRuntime:
             values["texture_bindings"] = sorted(bindings, key=lambda item: item["role"])
         return values
 
+    def _transform_state(self, obj):
+        state = {
+            "rotation_mode": obj.rotation_mode,
+            "rotation_quaternion": list(obj.rotation_quaternion),
+            "rotation_axis_angle": list(obj.rotation_axis_angle),
+            "delta_translation": list(obj.delta_location),
+            "delta_rotation": list(obj.delta_rotation_euler),
+            "delta_rotation_quaternion": list(obj.delta_rotation_quaternion),
+            "delta_scale": list(obj.delta_scale),
+        }
+        # Preserve existing v4 fingerprints only for the original XYZ/identity
+        # profile. Any omitted transform state outside that profile must become
+        # visible before a previously prepared plan can mutate the native object.
+        if (state["rotation_mode"] == "XYZ"
+                and state["rotation_quaternion"] == [1.0, 0.0, 0.0, 0.0]
+                and state["rotation_axis_angle"][0] == 0.0
+                and state["delta_translation"] == [0.0, 0.0, 0.0]
+                and state["delta_rotation"] == [0.0, 0.0, 0.0]
+                and state["delta_rotation_quaternion"] == [1.0, 0.0, 0.0, 0.0]
+                and state["delta_scale"] == [1.0, 1.0, 1.0]):
+            return None
+        return state
+
     def _row(self, obj):
         check(len(obj.modifiers) <= 16 and len(obj.constraints) <= 16, "modifier/constraint readback budget", "Unsupported")
         value = {"entity": obj.get(ENTITY), "name": obj.name, "type": obj.type,
@@ -399,6 +422,9 @@ class AuthoringRuntime:
                  "hidden_render": obj.hide_render, "hidden_viewport": obj.hide_viewport,
                  "modifiers": [], "constraints": [], "action": None, "actions": [],
                  "nla_tracks": [], "drivers": 0}
+        transform_state = self._transform_state(obj)
+        if transform_state is not None:
+            value["transform_state"] = transform_state
         for modifier in obj.modifiers:
             settings = {"name": modifier.name, "type": modifier.type,
                         "show_viewport": modifier.show_viewport, "show_render": modifier.show_render}

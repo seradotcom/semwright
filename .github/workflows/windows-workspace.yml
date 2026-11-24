@@ -102,6 +102,8 @@ jobs:
           cargo test --locked -p semwright-policy --lib scoped_policy_fingerprint_
       - name: Closed native Blender request must not bypass Host
         run: |
+          python crates/driver-blender/tests/native_transform_revision.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python crates/driver-blender/tests/semantic_cross_version_parity.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python crates/driver-blender/tests/native_library_stage.py
@@ -311,6 +313,7 @@ jobs:
           sudo apt-get install -y libpipewire-0.3-dev
       - name: Shared setup, configuration and transport checks
         run: |
+          python3 crates/driver-blender/tests/native_transform_revision.py
           python3 crates/driver-blender/tests/semantic_cross_version_parity.py
           python3 crates/driver-blender/tests/native_library_stage.py
           python3 crates/driver-blender/tests/semantic_references.py

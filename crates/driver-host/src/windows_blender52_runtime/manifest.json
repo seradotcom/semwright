@@ -41,8 +41,8 @@
       "file": "authoring_native.py",
       "canonical": "../driver-blender/src/authoring_native.py",
       "private_target": "semwright_blender_runtime/authoring_native.py",
-      "bytes": 74192,
-      "sha256": "71c682d1b8230453dbaed17bae1ed9609f521551ab43a6c1ebbeb9c2db32b9ae"
+      "bytes": 75567,
+      "sha256": "c9f990edaeff12216c083df5be1b0e400e73594264d92d0d17a876b224ee143b"
     },
     {
       "file": "export_scope.py",

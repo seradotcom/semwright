@@ -12,6 +12,23 @@ The native batch is `NonAtomicSequence`. A pre-cancelled request is rejected bef
 
 Ordinary incremental `Transform` and `MaterialSlots` plans are not repair: both require a fresh source fingerprint, and material-slot mutation requires an owned unshared mesh. Repair is not a second authority path. Only a completed parent **Transform** can create a child repair. The child uses a fresh exact fingerprint, inherits the root convergence budget and may only restore the already-declared transform. Create/remesh/material/rig/bake/delete repair is rejected.
 
+### Transform revision coverage
+
+Source snapshots include `transform_state` whenever an object differs from the
+original XYZ rotation and identity delta-transform profile. Rotation order,
+quaternion and axis-angle values, delta translation, delta Euler/quaternion
+rotation and delta scale then participate in both the source fingerprint and
+unmanaged-scene preservation. A change to these fields invalidates a previously
+prepared plan at the existing native `begin` check; it is never silently adopted
+as the plan's input.
+
+The default XYZ/identity profile keeps its existing v4 row and persisted
+fingerprint. A library authored by an older runtime with nondefault transform
+state now reports drift and requires explicit reconciliation. Observation does
+not update its stored marker, rewrite the file or retry a mutation. This is
+bounded source revalidation, not a filesystem compare-and-swap or an atomic
+transaction across the native sequence.
+
 ## Shared data and readback
 
 `mesh_instance` shares a mesh datablock and cannot mutate its material slots or modifiers. `mesh_copy` explicitly duplicates the mesh datablock before independent slots/modifiers. Native acceptance checks source/copy datablock identity and shared-instance user counts.
