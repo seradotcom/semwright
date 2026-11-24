@@ -70,6 +70,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - name: Check native workspace fixture before compiling
+        if: inputs.native_artifact_smoke == true
+        run: python -B scripts/windows/blender-artifacts-smoke.py --preflight-only --output verification/windows-native-preflight
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always() && inputs.native_artifact_smoke == true
+        with:
+          name: windows-native-preflight-evidence
+          path: verification/windows-native-preflight/*.json
+          if-no-files-found: error
+          retention-days: 14
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
         with:
           toolchain: 1.98.1
@@ -248,6 +258,7 @@ jobs:
           name: windows-native-artifacts-evidence
           path: |
             verification/windows-native-artifacts/result.json
+            verification/windows-native-artifacts/preflight.json
             verification/windows-native-artifacts/workspace-security.json
             verification/windows-native-artifacts/broker.log
             verification/windows-native-artifacts/*.response.json

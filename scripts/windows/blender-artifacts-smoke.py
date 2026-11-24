@@ -60,9 +60,9 @@ def workspace_security(path, sid):
         "@{owner_matches_user=($acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -eq $sid);"
         "protected=$acl.AreAccessRulesProtected;explicit_inheritable_full=($rules.Count -gt 0)}"
         " | ConvertTo-Json -Compress")
-    result = run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script])
+    result = run(["pwsh", "-NoProfile", "-NonInteractive", "-Command", script])
     if result.returncode:
-        raise RuntimeError("Cannot inspect new CI workspace ownership")
+        raise RuntimeError("Cannot inspect new CI workspace ownership: " + result.stderr[-1600:])
     return json.loads(result.stdout)
 
 
@@ -76,25 +76,29 @@ def cli_json(cli, common, args, env, timeout=30):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--bin-dir", type=Path, required=True)
-    parser.add_argument("--blender-root", type=Path, required=True)
+    parser.add_argument("--bin-dir", type=Path)
+    parser.add_argument("--blender-root", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--preflight-only", action="store_true")
     options = parser.parse_args()
     if os.name != "nt" or os.environ.get("GITHUB_ACTIONS") != "true":
         raise SystemExit("This bounded native case runs only on hosted Windows Actions")
+    if not options.preflight_only and (options.bin_dir is None or options.blender_root is None):
+        parser.error("native execution requires --bin-dir and --blender-root")
     source = run(["git", "rev-parse", "HEAD"]).stdout.strip()
     if source != os.environ["GITHUB_SHA"]:
         raise RuntimeError("Native case source differs from CI source")
-    bins, runtime, output = (p.resolve() for p in
-                             (options.bin_dir, options.blender_root, options.output))
+    output = options.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    sid = run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+    write_json(output / "preflight.json", {"source": source, "powershell": "pwsh",
+               "mode": "ownership-only" if options.preflight_only else "native-artifacts",
+               "native_started": False})
+    sid = run(["pwsh", "-NoProfile", "-NonInteractive", "-Command",
                "[Security.Principal.WindowsIdentity]::GetCurrent().User.Value"]).stdout.strip()
     if not sid.startswith("S-1-5-21-"):
         raise RuntimeError("Runner owner SID unavailable")
     case = Path(tempfile.mkdtemp(prefix="semwright-native-artifacts-")).resolve()
     protect(case, sid)
-    protect(runtime, sid)
     workspace = case / "workspace"
     workspace.mkdir()
     before_security = workspace_security(workspace, sid)
@@ -110,6 +114,15 @@ def main():
                {"before": before_security, "after": after_security})
     if not all(after_security.values()):
         raise RuntimeError("New fixture does not satisfy native workspace ownership")
+    if options.preflight_only:
+        shutil.rmtree(case)
+        write_json(output / "result.json",
+                   {"source": source, "status": "PASS_NATIVE_FIXTURE_OWNERSHIP",
+                    "native_started": False, "fixture_removed": True})
+        print("Native fixture ownership preflight passed; no broker or Blender started", flush=True)
+        return
+    bins, runtime = options.bin_dir.resolve(), options.blender_root.resolve()
+    protect(runtime, sid)
     (workspace / "reserved.png").write_bytes(b"existing-owner-artifact")
     driver = case / "semwright-blender-driver.exe"
     shutil.copyfile(bins / driver.name, driver)
@@ -265,7 +278,7 @@ def main():
                 continue
             if event.get("phase") == "initial_process_attested_before_resume":
                 pids.append(int(event["pid"]))
-        remaining = run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+        remaining = run(["pwsh", "-NoProfile", "-NonInteractive", "-Command",
                          "$ids=@(" + ",".join(map(str, pids)) +
                          "); foreach($idValue in $ids) { Get-Process -Id $idValue "
                          "-ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id }; exit 0"])
