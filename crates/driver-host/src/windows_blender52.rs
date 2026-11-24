@@ -183,13 +183,21 @@ async fn terminate_owned(process: &mut SandboxProcess, phase: &str, nonce: &str)
     let pid = process.id();
     let killed = tokio::time::timeout(Duration::from_secs(5), process.kill()).await;
     let waited = tokio::time::timeout(Duration::from_secs(5), process.wait_exit_code()).await;
+    // The exit code is observed after cleanup. It may reflect our own termination,
+    // not the child's spontaneous failure. Never infer a cause from it alone.
+    let exit_code = match waited {
+        Ok(Ok(code)) => code,
+        _ => None,
+    };
     eprintln!(
         "{}",
         serde_json::json!({"component":"driver-host","phase":phase,"pid":pid,"nonce":nonce,
         "kill_completed":matches!(killed,Ok(Ok(()))),
-        "exit_observed":matches!(waited,Ok(Ok(Some(_))))})
+        "exit_observed":exit_code.is_some(),
+        "exit_code_after_cleanup":exit_code,
+        "exit_code_hex_after_cleanup":exit_code.map(|code| format!("{code:#010x}"))})
     );
-    matches!(waited, Ok(Ok(Some(_))))
+    exit_code.is_some()
 }
 struct HeldNativeProcess {
     // Original platform process, Job and launcher guard are retained without replacement.
@@ -352,7 +360,16 @@ pub(super) async fn start(
             ErrorCode::Cancelled, "Native Blender parent cancelled during readiness")),
         value = tokio::time::timeout(Duration::from_secs(20), readiness) => match value {
             Ok(Ok(length)) => Ok(length),
-            Ok(Err(_)) => Err(Error::unavailable("Native Blender readiness stream failed")),
+            Ok(Err(error)) => {
+                // Record only bounded OS diagnostics, never untrusted stdout or paths.
+                eprintln!(
+                    "{}",
+                    serde_json::json!({"component":"driver-host",
+                    "phase":"native_readiness_stream_failure","pid":process.id(),"nonce":nonce,
+                    "io_kind":format!("{:?}",error.kind()),"raw_os_error":error.raw_os_error()})
+                );
+                Err(Error::unavailable("Native Blender readiness stream failed"))
+            },
             Err(_) => Err(Error::new(ErrorCode::Timeout, "Native Blender readiness timed out")),
         },
     };

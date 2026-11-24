@@ -97,7 +97,9 @@ def main():
                "[Security.Principal.WindowsIdentity]::GetCurrent().User.Value"]).stdout.strip()
     if not sid.startswith("S-1-5-21-"):
         raise RuntimeError("Runner owner SID unavailable")
-    case = Path(tempfile.mkdtemp(prefix="semwright-native-artifacts-")).resolve()
+    # Preserve the runner's private temp ancestry while leaving headroom for
+    # Blender's deepest Python modules and the Host's unique staging directory.
+    case = Path(tempfile.mkdtemp(prefix="swb-")).resolve()
     protect(case, sid)
     workspace = case / "workspace"
     workspace.mkdir()
@@ -111,7 +113,8 @@ def main():
     protect(workspace, sid)
     after_security = workspace_security(workspace, sid)
     write_json(output / "workspace-security.json",
-               {"before": before_security, "after": after_security})
+               {"before": before_security, "after": after_security,
+                "private_data_root_utf16_units": len(str(case / "data").encode("utf-16-le")) // 2})
     if not all(after_security.values()):
         raise RuntimeError("New fixture does not satisfy native workspace ownership")
     if options.preflight_only:

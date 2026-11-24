@@ -28,6 +28,8 @@ on:
       - 'schemas/commands.json'
       - 'schemas/builtin-provenance.json'
       - 'scripts/windows/workspace-smoke.py'
+      - 'scripts/windows/blender-artifacts-smoke.py'
+      - 'scripts/windows/run-blender-artifacts-smoke.ps1'
       - 'scripts/windows/project-restart-smoke.py'
       - 'scripts/windows/delayed-hello-smoke.ps1'
       - 'scripts/windows/run-interactive-certification.ps1'
@@ -43,6 +45,11 @@ on:
     inputs:
       native_artifact_smoke:
         description: Run the closed Windows Host with pinned real Blender 5.2.1 artifact commands
+        required: false
+        default: false
+        type: boolean
+      native_artifact_only:
+        description: Run only the pinned closed Windows Blender artifact case
         required: false
         default: false
         type: boolean
@@ -74,8 +81,8 @@ jobs:
         shell: pwsh
     steps:
       - name: Reject incompatible dispatch modes
-        if: inputs.native_artifact_smoke == true
-        run: throw 'native_stage_recovery_only and native_artifact_smoke are mutually exclusive'
+        if: inputs.native_artifact_smoke == true || inputs.native_artifact_only == true
+        run: throw 'Native-only dispatch modes are mutually exclusive'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
@@ -89,8 +96,56 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked -p semwright-driver-host --lib stage_recovery::tests
 
+  native-artifacts:
+    if: inputs.native_artifact_only == true
+    runs-on: windows-2025
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Reject incompatible dispatch modes
+        if: inputs.native_stage_recovery_only == true || inputs.native_artifact_smoke == true
+        run: throw 'Native-only dispatch modes are mutually exclusive'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Check native workspace fixture before compiling
+        run: python -B scripts/windows/blender-artifacts-smoke.py --preflight-only --output verification/windows-native-preflight
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: windows-native-preflight-evidence
+          path: verification/windows-native-preflight/*.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.98.1
+          components: rustfmt
+      - name: Format native Host
+        run: rustfmt --edition 2024 --check crates/driver-host/src/windows_blender52.rs
+      - name: Build exact-source native Host and driver
+        run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-plugin-host -p semwright-driver-blender --bins
+      - name: Native Blender artifact commands through the closed Windows Host
+        run: ./scripts/windows/run-blender-artifacts-smoke.ps1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: windows-native-artifacts-evidence
+          path: |
+            verification/windows-native-artifacts/result.json
+            verification/windows-native-artifacts/preflight.json
+            verification/windows-native-artifacts/workspace-security.json
+            verification/windows-native-artifacts/broker.log
+            verification/windows-native-artifacts/*.response.json
+            verification/windows-native-artifacts/diagnostics/
+            verification/windows-native-artifacts/artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
   workspace:
-    if: inputs.native_stage_recovery_only != true
+    if: inputs.native_stage_recovery_only != true && inputs.native_artifact_only != true
     runs-on: windows-2025
     timeout-minutes: 35
     defaults:
@@ -271,17 +326,7 @@ jobs:
           } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 verification/windows-blender-native/manifest.json
       - name: Native Blender artifact commands through the closed Windows Host
         if: inputs.native_artifact_smoke == true
-        run: |
-          $archive = Join-Path $env:RUNNER_TEMP 'blender-5.2.1-windows-x64.zip'
-          Invoke-WebRequest -Uri 'https://download.blender.org/release/Blender5.2/blender-5.2.1-windows-x64.zip' -OutFile $archive
-          $expected = '0e631dad7d0cad6d5d18abdd2e2550f6c0213215334eda00ddbd3d22b96ecb2c'
-          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Blender archive digest mismatch' }
-          $destination = Join-Path $env:RUNNER_TEMP 'semwright-native-artifacts-blender'
-          if (Test-Path -LiteralPath $destination) { throw 'Native runtime destination already exists' }
-          Expand-Archive -LiteralPath $archive -DestinationPath $destination
-          $runtime = Join-Path $destination 'blender-5.2.1-windows-x64'
-          python -B scripts/windows/blender-artifacts-smoke.py --bin-dir target/debug --blender-root $runtime --output verification/windows-native-artifacts
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        run: ./scripts/windows/run-blender-artifacts-smoke.ps1
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always() && inputs.native_artifact_smoke == true
         with:
@@ -377,7 +422,7 @@ jobs:
           retention-days: 7
 
   unix-setup:
-    if: inputs.native_stage_recovery_only != true
+    if: inputs.native_stage_recovery_only != true && inputs.native_artifact_only != true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
