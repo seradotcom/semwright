@@ -33,6 +33,11 @@ on:
         required: false
         default: false
         type: boolean
+      render_publication_only:
+        description: Run only render-publication source and native Blender regressions
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
 
@@ -43,25 +48,31 @@ concurrency:
   cancel-in-progress: "${{ github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring') }}"
 
 jobs:
-  transform-revision:
-    if: github.event_name == 'workflow_dispatch' && inputs.transform_revision_only
+  native-regression:
+    if: github.event_name == 'workflow_dispatch' && (inputs.transform_revision_only || inputs.render_publication_only)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       PYTHONDONTWRITEBYTECODE: '1'
       CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      TRANSFORM_ONLY: ${{ inputs.transform_revision_only }}
+      RENDER_ONLY: ${{ inputs.render_publication_only }}
+      NATIVE_REGRESSION: ${{ inputs.render_publication_only && 'render-publication' || 'transform-revision' }}
+      TEST_SCRIPT: ${{ inputs.render_publication_only && 'render_publication.py' || 'native_transform_revision.py' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - name: Verify source and pure transform revision regression
+      - name: Verify source and selected pure native regression
         run: |
           set -euo pipefail
           test "$GITHUB_SHA" = "$CANDIDATE_SHA"
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          mkdir -p evidence/blender-transform-revision
-          python3 -B crates/driver-blender/tests/native_transform_revision.py 2>&1 | tee evidence/blender-transform-revision/pure.log
+          test "$TRANSFORM_ONLY" != "$RENDER_ONLY"
+          mkdir -p "evidence/blender-$NATIVE_REGRESSION"
+          python3 -B "crates/driver-blender/tests/$TEST_SCRIPT" 2>&1 | tee "evidence/blender-$NATIVE_REGRESSION/pure.log"
           python3 -B crates/driver-blender/tests/semantic_cross_version_parity.py
+          python3 -B scripts/sync-contracts.py --check
       - name: Provision the pinned native Blender runtime
         run: |
           set -euo pipefail
@@ -69,21 +80,21 @@ jobs:
           echo "9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3  $RUNNER_TEMP/blender.tar.xz" | sha256sum --check --strict
           tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP"
           test "$("$RUNNER_TEMP/blender-4.5.14-linux-x64/blender" --version | head -1)" = "Blender 4.5.14 LTS"
-      - name: Verify real native transform state and stale plan refusal
+      - name: Verify the selected regression with real native Blender
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/blender-4.5.14-linux-x64/blender" --background --factory-startup --disable-autoexec --python-exit-code 1 --python crates/driver-blender/tests/native_transform_revision.py -- --native 2>&1 | tee evidence/blender-transform-revision/native.log
-          python3 -c 'import json,os,pathlib; pathlib.Path("evidence/blender-transform-revision/source.json").write_text(json.dumps({"source":os.environ["GITHUB_SHA"],"profile":"Blender 4.5.14 Linux native RNA","windows_source_parity":True,"broker_host_admission":False,"release":False},indent=2)+"\n")'
+          "$RUNNER_TEMP/blender-4.5.14-linux-x64/blender" --background --factory-startup --disable-autoexec --python-exit-code 1 --python "crates/driver-blender/tests/$TEST_SCRIPT" -- --native 2>&1 | tee "evidence/blender-$NATIVE_REGRESSION/native.log"
+          python3 -c 'import json,os,pathlib; (pathlib.Path("evidence") / ("blender-" + os.environ["NATIVE_REGRESSION"]) / "source.json").write_text(json.dumps({"source":os.environ["GITHUB_SHA"],"regression":os.environ["NATIVE_REGRESSION"],"profile":"Blender 4.5.14 Linux native","windows_source_parity":True,"broker_host_admission":False,"release":False},indent=2)+"\n")'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: blender-transform-revision-native-evidence
-          path: evidence/blender-transform-revision/
+          name: blender-${{ env.NATIVE_REGRESSION }}-native-evidence
+          path: evidence/blender-${{ env.NATIVE_REGRESSION }}/
           retention-days: 14
 
   authoring:
     if: >-
-      inputs.transform_revision_only != true && (github.event_name == 'workflow_dispatch' || github.ref_name != 'integration/semantic-creation-i-20261001' || contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring'))
+      inputs.transform_revision_only != true && inputs.render_publication_only != true && (github.event_name == 'workflow_dispatch' || github.ref_name != 'integration/semantic-creation-i-20261001' || contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring'))
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:

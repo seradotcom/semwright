@@ -8652,14 +8652,19 @@
   },
   {
     "name": "blender.render",
-    "version": "1.0",
-    "description": "Render to a path below the owner-configured Blender workspace.",
+    "version": "1.1",
+    "description": "Render a PNG below the owner-configured Blender workspace. Set overwrite=false to publish a new file without replacing an existing or concurrently created target. This mode requires a single view with compositor output disabled. Omitted overwrite and explicit true retain legacy replacement behavior. An error after publication requires target reconciliation, not automatic retry.",
     "input_schema": {
       "type": "object",
       "properties": {
         "path": {
           "type": "string",
           "maxLength": 4096
+        },
+        "overwrite": {
+          "type": "boolean",
+          "default": true,
+          "description": "False publishes only to a new target; omission or true preserves legacy overwrite behavior."
         }
       },
       "required": [

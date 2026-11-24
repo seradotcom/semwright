@@ -266,6 +266,11 @@
       "path": {
         "type": "string",
         "maxLength": 4096
+      },
+      "overwrite": {
+        "type": "boolean",
+        "default": true,
+        "description": "False publishes only to a new target; omission or true preserves legacy overwrite behavior."
       }
     },
     "required": [

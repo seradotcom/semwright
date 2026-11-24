@@ -2138,7 +2138,7 @@ Idempotency: `idempotent`. Dry run: `true`.
 
 ## `blender.render`
 
-Render to a path below the owner-configured Blender workspace.
+Render a PNG below the owner-configured Blender workspace. Set overwrite=false to publish a new file without replacing an existing or concurrently created target. This mode requires a single view with compositor output disabled. Omitted overwrite and explicit true retain legacy replacement behavior. An error after publication requires target reconciliation, not automatic retry.
 
 Idempotency: `non_idempotent`. Dry run: `true`.
 
@@ -2149,6 +2149,11 @@ Idempotency: `non_idempotent`. Dry run: `true`.
     "path": {
       "type": "string",
       "maxLength": 4096
+    },
+    "overwrite": {
+      "type": "boolean",
+      "default": true,
+      "description": "False publishes only to a new target; omission or true preserves legacy overwrite behavior."
     }
   },
   "required": [

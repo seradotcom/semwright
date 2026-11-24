@@ -37,6 +37,39 @@ Paged readback cursors are opaque provider-owned state keyed by authenticated Ow
 
 Sampled animation/deformation measurement is explicitly bounded to one requested frame and A's exact `media-time::Rate`; rate mismatch fails closed and the prior Blender frame/subframe is restored before returning so observation does not create source drift. Pairwise geometry measurement separates broad and narrow phases. Non-overlapping AABBs can prove pair separation; overlapping AABBs require the bounded world-triangle narrow phase. Object/triangle budget overflow or degenerate narrow-phase inputs produce UNKNOWN. Self-intersection is explicitly not inferred from pairwise object evidence.
 
+## Preview publication
+
+`blender.render` and its curated `driver.blender.render` projection accept an
+optional boolean `overwrite`. Explicit `false` renders one PNG to a private
+temporary file in the target directory, validates and flushes it, and publishes
+with a hard link that fails if the destination exists. A destination created
+after preflight is preserved. The final file is independently read back after
+the temporary link is removed. Errors after publication preserve the final path
+for reconciliation; they do not authorize an automatic retry or deletion.
+
+This new-only mode requires one view and compositor output disabled because
+those paths can produce additional native filenames. It retains the existing
+workspace checks, Host grants and trusted-directory limitation of Blender's
+path-based APIs. It is a no-replace publication fence, not an atomic render
+transaction, a crash-durability promise, or protection against later owner
+edits. Filesystems that cannot create the hard link fail closed.
+
+Compatibility is explicit: omitted `overwrite` and explicit `true` retain the
+legacy direct-write behavior, including replacement. Only `false` requests the
+new-only contract; `null`, strings and numbers are invalid. The output schema
+is unchanged. Callers requiring a fresh artifact must retain `overwrite=false`.
+
+For a Windows native input, prepare a new byte-identical file inside the
+private authorized workspace and retain its inherited ACL. Protect the owning
+directory rather than disabling inheritance on the input leaf. Host-owned
+mount grants do not remove a protected leaf DACL or copy old AppContainer SIDs.
+An unknown open result remains unknown; correcting input preparation does not
+authorize replay of the original request.
+
+Platform references: [Windows ACE inheritance](https://learn.microsoft.com/en-us/windows/win32/secauthz/ace-inheritance),
+[AppContainer access](https://learn.microsoft.com/en-us/windows/win32/secauthz/implementing-an-appcontainer),
+and [hard-link publication](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createhardlinkw).
+
 ## Export and persistence
 
 The existing fixed GLB exporter remains the only exporter. E inventories bounded object/data/material/action/image dependencies before selection. Linked/override dependencies, unsafe instancing, external targets, unbounded shader graphs and unsupported action expansion fail closed. Caller cannot select another operator or arbitrary exporter arguments.

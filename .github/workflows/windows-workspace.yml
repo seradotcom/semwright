@@ -104,6 +104,10 @@ jobs:
         run: |
           python crates/driver-blender/tests/native_transform_revision.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python crates/driver-blender/tests/render_publication.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/sync-contracts.py --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python crates/driver-blender/tests/semantic_cross_version_parity.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python crates/driver-blender/tests/native_library_stage.py
@@ -314,6 +318,8 @@ jobs:
       - name: Shared setup, configuration and transport checks
         run: |
           python3 crates/driver-blender/tests/native_transform_revision.py
+          python3 crates/driver-blender/tests/render_publication.py
+          python3 scripts/sync-contracts.py --check
           python3 crates/driver-blender/tests/semantic_cross_version_parity.py
           python3 crates/driver-blender/tests/native_library_stage.py
           python3 crates/driver-blender/tests/semantic_references.py

@@ -13,15 +13,15 @@
       "file": "commands.py",
       "canonical": "../../adapters/blender/semwright_blender/commands.py",
       "private_target": "semwright_blender_runtime/commands.py",
-      "bytes": 41467,
-      "sha256": "f0a4efe5f43e094fd6a10d0eb7573100c5460013be795d82ce8e245c9716582d"
+      "bytes": 46588,
+      "sha256": "9d1a719f40b0ee798195d2601309729b65520cf2507f14731140394534fbfc3b"
     },
     {
       "file": "commands.json",
       "canonical": "../../adapters/blender/semwright_blender/commands.json",
       "private_target": "semwright_blender_runtime/commands.json",
-      "bytes": 6998,
-      "sha256": "4b50f436722b1c24318b1c88a7b629b7f43698781b8418cde0da1e7f811cf1c0"
+      "bytes": 7197,
+      "sha256": "0fd88ce98159839960e3f57610f506637f55906417c9cc5863fba2675f783381"
     },
     {
       "file": "validation.py",

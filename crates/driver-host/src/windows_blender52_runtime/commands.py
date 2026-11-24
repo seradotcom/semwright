@@ -466,6 +466,8 @@ class Commands:
                 selection = configure_cycles(bpy, scene, args.get("device", "GPU"), args.get("backend", "AUTO"))
             return {"changed": True, "engine": scene.render.engine, **selection}
         if command == "blender.render":
+            if args.get("overwrite", True) is False:
+                return self.render_new(args)
             target = self.workspace.path(args["path"], ".png")
             previous_path = scene.render.filepath
             previous_format = scene.render.image_settings.file_format
@@ -623,6 +625,95 @@ class Commands:
                     os.unlink(temporary)
                 except OSError:
                     pass
+
+    def render_new(self, args):
+        """Render one PNG privately, then publish without replacing a target."""
+        scene = self.bpy.context.scene
+        render = scene.render
+        temporary = None
+        try:
+            target = self.workspace.path(args["path"], ".png")
+            if os.path.lexists(target):
+                raise CommandError("Conflict", "Render target already exists")
+            if getattr(render, "use_multiview", False):
+                raise CommandError("Unsupported", "New-only render requires a single output view")
+            if (getattr(render, "use_compositing", True)
+                    and (getattr(scene, "use_nodes", False)
+                         or getattr(scene, "compositing_node_group", None) is not None)):
+                raise CommandError("Unsupported", "New-only render requires compositor output disabled")
+            previous_path = render.filepath
+            previous_format = render.image_settings.file_format
+
+            def fingerprint(path, sync=False):
+                digest = hashlib.sha256()
+                size = 0
+                with open(path, "r+b" if sync else "rb") as stream:
+                    meta = os.fstat(stream.fileno())
+                    if (not stat.S_ISREG(meta.st_mode) or meta.st_nlink != 1
+                            or getattr(meta, "st_file_attributes", 0) & 0x400
+                            or not 45 <= meta.st_size <= 268435456):
+                        raise CommandError("BackendFailed", "Render is not a bounded regular PNG")
+                    header = stream.read(33)
+                    if (len(header) != 33 or header[:8] != b"\x89PNG\r\n\x1a\n"
+                            or header[8:16] != b"\x00\x00\x00\rIHDR"
+                            or not all(struct.unpack(">II", header[16:24]))):
+                        raise CommandError("BackendFailed", "Renderer did not produce a PNG")
+                    digest.update(header)
+                    size = len(header)
+                    tail = header[-12:]
+                    for block in iter(lambda: stream.read(1048576), b""):
+                        size += len(block)
+                        if size > 268435456:
+                            raise CommandError("ResourceExhausted", "Render exceeds its artifact budget")
+                        digest.update(block)
+                        tail = (tail + block)[-12:]
+                    if size != meta.st_size or tail != b"\x00\x00\x00\x00IEND\xaeB\x60\x82":
+                        raise CommandError("BackendFailed", "PNG is incomplete or changed while reading")
+                    if sync:
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                return size, digest.hexdigest()
+
+            try:
+                fd, temporary = tempfile.mkstemp(
+                    prefix=".semwright-render-", suffix=".png", dir=os.path.dirname(target))
+                os.close(fd)
+                render.filepath = temporary
+                render.image_settings.file_format = "PNG"
+                result = self.bpy.ops.render.render(write_still=True)
+                if "FINISHED" not in result:
+                    raise CommandError("BackendFailed", "Render did not finish")
+                before = fingerprint(temporary, sync=True)
+                # Revalidate scope, then let the filesystem reject a target created
+                # even after this check. Never substitute replace/rename/copy here.
+                self.workspace.path(args["path"], ".png")
+                os.chmod(temporary, 0o600)
+                try:
+                    os.link(temporary, target)
+                except FileExistsError as error:
+                    raise CommandError("Conflict", "Render target appeared; existing file preserved") from error
+                os.unlink(temporary)
+                temporary = None
+                self.workspace.path(args["path"], ".png", existing=True)
+                if fingerprint(target) != before:
+                    raise CommandError("BackendFailed", "Published render verification failed; reconcile target")
+                return {"changed": True, "path": args["path"], "format": "png"}
+            finally:
+                try:
+                    render.filepath = previous_path
+                finally:
+                    try:
+                        render.image_settings.file_format = previous_format
+                    finally:
+                        if temporary is not None:
+                            try:
+                                os.unlink(temporary)
+                            except FileNotFoundError:
+                                pass
+        except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as error:
+            # The final path may already have been published. Keep it for owner
+            # reconciliation; only our private temporary is eligible for cleanup.
+            raise CommandError("BackendFailed", "Render failed; reconcile target before retrying") from error
 
     def export_glb(self, args):
         """One fixed exporter, a closed collection and a new atomic artifact."""
