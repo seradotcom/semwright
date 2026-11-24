@@ -99,8 +99,9 @@ def main():
         raise RuntimeError("Runner owner SID unavailable")
     # Preserve the runner's private temp ancestry while leaving headroom for
     # Blender's deepest Python modules and the Host's unique staging directory.
-    case = Path(tempfile.mkdtemp(prefix="swb-")).resolve()
+    case = Path(tempfile.mkdtemp(prefix="b")).resolve()
     protect(case, sid)
+    data_root = case / "d"
     workspace = case / "workspace"
     workspace.mkdir()
     before_security = workspace_security(workspace, sid)
@@ -114,7 +115,7 @@ def main():
     after_security = workspace_security(workspace, sid)
     write_json(output / "workspace-security.json",
                {"before": before_security, "after": after_security,
-                "private_data_root_utf16_units": len(str(case / "data").encode("utf-16-le")) // 2})
+                "private_data_root_utf16_units": len(str(data_root).encode("utf-16-le")) // 2})
     if not all(after_security.values()):
         raise RuntimeError("New fixture does not satisfy native workspace ownership")
     if options.preflight_only:
@@ -166,7 +167,7 @@ def main():
     manifest_path = case / "blender.driver.json"
     write_json(manifest_path, manifest)
     env = dict(os.environ)
-    env["SEMWRIGHT_DATA_DIR"] = str(case / "data")
+    env["SEMWRIGHT_DATA_DIR"] = str(data_root)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env.pop("SEMWRIGHT_MCP_UPSTREAMS", None)
     pipe = r"\\.\pipe\semwright-native-artifacts-" + secrets.token_hex(12)
