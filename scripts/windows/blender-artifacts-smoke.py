@@ -125,6 +125,17 @@ def main():
         print("Native fixture ownership preflight passed; no broker or Blender started", flush=True)
         return
     bins, runtime = options.bin_dir.resolve(), options.blender_root.resolve()
+    # setup intentionally refuses an incomplete adjacent executable bundle.
+    required = ("semwright.exe", "semwrightd.exe", "semwright-mcp.exe",
+                "semwright-inspect.exe", "semwright-sandbox.exe",
+                "semwright-blender-driver.exe")
+    missing = [name for name in required if not (bins / name).is_file()]
+    if missing:
+        write_json(output / "result.json", {
+            "source": source, "status": "FAILED_PRE_BROKER",
+            "phase": "setup_companions", "missing_binaries": missing,
+            "native_started": False, "external_host_accepted": False, "release": False})
+        raise RuntimeError("Native case missing setup companions: " + ", ".join(missing))
     protect(runtime, sid)
     (workspace / "reserved.png").write_bytes(b"existing-owner-artifact")
     driver = case / "semwright-blender-driver.exe"
@@ -163,6 +174,17 @@ def main():
     common = ["--socket", pipe, "--session-file", str(case / "client.session"), "--json"]
     code, setup = cli_json(cli, common, ["setup", "--config-dir", str(case / "config")], env)
     if code or setup.get("authority_changed") is not False or setup.get("service_started") is not False:
+        # Preserve bounded first-party status, not the setup document, ticket or paths.
+        error = setup.get("error")
+        error_code = error.get("code") if isinstance(error, dict) else None
+        if not isinstance(error_code, str) or len(error_code) > 80 or not error_code.isascii() or not error_code.isalnum():
+            error_code = None
+        write_json(output / "result.json", {
+            "source": source, "status": "FAILED_PRE_BROKER", "phase": "owner_setup",
+            "exit_code": code, "error_code": error_code,
+            "authority_unchanged": setup.get("authority_changed") is False,
+            "service_not_started": setup.get("service_started") is False,
+            "native_started": False, "external_host_accepted": False, "release": False})
         raise RuntimeError("Native case owner setup failed")
     config = case / "config/native.toml"
     paths = (manifest_path, workspace, runtime, blender)

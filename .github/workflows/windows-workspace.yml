@@ -125,8 +125,8 @@ jobs:
           components: rustfmt
       - name: Format native Host
         run: rustfmt --edition 2024 --check crates/driver-host/src/windows_blender52.rs
-      - name: Build exact-source native Host and driver
-        run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-plugin-host -p semwright-driver-blender --bins
+      - name: Build exact-source setup companions and native driver
+        run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host -p semwright-driver-blender --bins
       - name: Native Blender artifact commands through the closed Windows Host
         run: ./scripts/windows/run-blender-artifacts-smoke.ps1
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
