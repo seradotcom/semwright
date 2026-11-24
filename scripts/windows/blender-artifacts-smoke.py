@@ -44,6 +44,28 @@ def protect(path, sid):
         raise RuntimeError("Cannot restrict disposable native test directory")
 
 
+
+def workspace_security(path, sid):
+    quoted = str(path).replace("'", "''")
+    script = (
+        "$acl=Get-Acl -LiteralPath '" + quoted + "';"
+        "$sid='" + sid + "';"
+        "$full=[System.Security.AccessControl.FileSystemRights]::FullControl;"
+        "$rules=@($acl.Access | Where-Object {"
+        "$_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -eq $sid "
+        "-and $_.AccessControlType -eq 'Allow' -and -not $_.IsInherited "
+        "-and ($_.FileSystemRights -band $full) -eq $full "
+        "-and ([int]$_.InheritanceFlags -band 3) -eq 3 "
+        "-and [int]$_.PropagationFlags -eq 0 });"
+        "@{owner_matches_user=($acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -eq $sid);"
+        "protected=$acl.AreAccessRulesProtected;explicit_inheritable_full=($rules.Count -gt 0)}"
+        " | ConvertTo-Json -Compress")
+    result = run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script])
+    if result.returncode:
+        raise RuntimeError("Cannot inspect new CI workspace ownership")
+    return json.loads(result.stdout)
+
+
 def cli_json(cli, common, args, env, timeout=30):
     proc = run([cli, *common, *args], env=env, timeout=timeout)
     try:
@@ -75,6 +97,19 @@ def main():
     protect(runtime, sid)
     workspace = case / "workspace"
     workspace.mkdir()
+    before_security = workspace_security(workspace, sid)
+    # An elevated hosted runner can create Administrator-owned children. Only
+    # this newly created fixture is assigned to the active runner; Core's
+    # current-user ownership requirement remains unchanged.
+    owner = run(["icacls", workspace, "/setowner", "*" + sid])
+    if owner.returncode:
+        raise RuntimeError("Cannot assign the new fixture to the active runner")
+    protect(workspace, sid)
+    after_security = workspace_security(workspace, sid)
+    write_json(output / "workspace-security.json",
+               {"before": before_security, "after": after_security})
+    if not all(after_security.values()):
+        raise RuntimeError("New fixture does not satisfy native workspace ownership")
     (workspace / "reserved.png").write_bytes(b"existing-owner-artifact")
     driver = case / "semwright-blender-driver.exe"
     shutil.copyfile(bins / driver.name, driver)

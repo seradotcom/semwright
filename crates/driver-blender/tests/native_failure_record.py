@@ -51,6 +51,14 @@ class NativeFailureRecordTests(unittest.TestCase):
                 message = json.loads(raw)["exceptions"][0]["message"]
                 self.assertLessEqual(len(message.encode("utf-8")), 1024)
 
+    def test_native_operator_traceback_retains_its_final_cause(self):
+        for module, root, commands in self.each_source():
+            cause = "PermissionError: final native cause"
+            failure = RuntimeError("Error: Python: traceback " + "frame\n" * 900 + cause)
+            self.assertTrue(commands.record_native_failure(failure))
+            record = json.loads(next(root.glob(".semwright-native-failure-*.json")).read_text())
+            self.assertTrue(record["exceptions"][0]["message"].endswith(cause))
+
     def test_existing_path_is_never_replaced(self):
         for module, root, commands in self.each_source():
             target = root / (".semwright-native-failure-" + "00" * 16 + ".json")

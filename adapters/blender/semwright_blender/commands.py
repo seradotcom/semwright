@@ -408,9 +408,10 @@ class Commands:
                         if count >= 8:
                             return False
 
-            def bounded(value, maximum):
-                return str(value).encode("utf-8", errors="replace")[:maximum].decode(
-                    "utf-8", errors="ignore")
+            def bounded(value, maximum, tail=False):
+                encoded = str(value).encode("utf-8", errors="replace")
+                part = encoded[-maximum:] if tail else encoded[:maximum]
+                return part.decode("utf-8", errors="ignore")
 
             exceptions = []
             current = error
@@ -433,7 +434,7 @@ class Commands:
                 errno = getattr(current, "errno", None)
                 exceptions.append({
                     "type": bounded(type(current).__name__, 64),
-                    "message": bounded(current, 1024),
+                    "message": bounded(current, 1024, tail=True),
                     "errno": errno if type(errno) is int else None,
                     "frames": frames[-4:],
                 })

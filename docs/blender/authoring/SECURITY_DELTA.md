@@ -89,7 +89,8 @@ authorized workspace when an unexpected exception or a BackendFailed command
 prevents completion. Records use exclusive creation with a fixed generated
 filename prefix: `.semwright-native-failure-<random>.json`. They contain at
 most two exception types/messages and four stack locations per exception, never
-Python frame locals or serialized request arguments. Each record is at most
+Python frame locals or serialized request arguments. Byte-bounded message tails
+retain the final cause when Blender wraps a long traceback. Each record is at most
 8 KiB; retention refuses after eight records or a 4,096-entry directory scan.
 Storage failure never replaces the original uncertain error. A partial failed
 diagnostic write may remain for owner inspection and counts against that budget.

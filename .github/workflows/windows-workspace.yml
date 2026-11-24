@@ -248,6 +248,7 @@ jobs:
           name: windows-native-artifacts-evidence
           path: |
             verification/windows-native-artifacts/result.json
+            verification/windows-native-artifacts/workspace-security.json
             verification/windows-native-artifacts/broker.log
             verification/windows-native-artifacts/*.response.json
             verification/windows-native-artifacts/diagnostics/
@@ -345,6 +346,7 @@ jobs:
         with:
           toolchain: 1.98.1
       - name: Install Linux platform dependency
+        timeout-minutes: 5
         run: |
           sudo apt-get update
           sudo apt-get install -y libpipewire-0.3-dev
