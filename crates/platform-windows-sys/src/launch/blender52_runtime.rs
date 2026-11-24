@@ -357,6 +357,7 @@ pub fn stage(
 #[cfg(test)]
 mod native_runtime_tests {
     use super::*;
+    use std::path::PathBuf;
     #[test]
     fn native_runtime_path_budget_counts_utf16_and_nul_boundary() {
         let accepted = PathBuf::from(format!(r"E:\a\{}", "a".repeat(254)));
