@@ -46,6 +46,11 @@ on:
         required: false
         default: false
         type: boolean
+      native_stage_recovery_only:
+        description: Run only the Windows native stage recovery regressions
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -60,7 +65,32 @@ env:
   CARGO_PROFILE_TEST_DEBUG: 0
 
 jobs:
+  native-stage-recovery:
+    if: inputs.native_stage_recovery_only == true
+    runs-on: windows-2025
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Reject incompatible dispatch modes
+        if: inputs.native_artifact_smoke == true
+        run: throw 'native_stage_recovery_only and native_artifact_smoke are mutually exclusive'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.98.1
+          components: rustfmt
+      - name: Exact owner-private abandoned stage recovery regressions
+        run: |
+          rustfmt --edition 2024 --check crates/driver-host/src/windows_blender52_stage_recovery.rs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked -p semwright-driver-host --lib stage_recovery::tests
+
   workspace:
+    if: inputs.native_stage_recovery_only != true
     runs-on: windows-2025
     timeout-minutes: 35
     defaults:
@@ -347,6 +377,7 @@ jobs:
           retention-days: 7
 
   unix-setup:
+    if: inputs.native_stage_recovery_only != true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

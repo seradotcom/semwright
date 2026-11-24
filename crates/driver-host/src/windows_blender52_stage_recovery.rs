@@ -7,12 +7,12 @@
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     fs::{self, File, OpenOptions},
-    io::Write,
-    os::windows::fs::MetadataExt,
+    io::{Read, Write},
+    os::windows::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 // Compact names leave room for Blender's deep Python module paths. The nonce,
@@ -29,6 +29,9 @@ const MAX_STAGE_FILES: usize = 12_000;
 const MAX_STAGE_DIRECTORIES: usize = 2_000;
 const MAX_STAGE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 const REPARSE_ATTRIBUTE: u32 = 0x400;
+const MAX_RECLAIM_INSPECTION: Duration = Duration::from_secs(20);
+const FILE_SHARE_READ: u32 = 1;
+const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
 
 pub(super) struct Lease {
     path: PathBuf,
@@ -96,18 +99,150 @@ fn plain_metadata(path: &Path) -> Option<fs::Metadata> {
     }
 }
 
-fn source_manifests_match(stage: &Path) -> bool {
-    let Some(marker_metadata) = plain_metadata(&stage.join(READY)) else {
-        return false;
-    };
-    if !marker_metadata.is_file() || marker_metadata.len() > 4096 {
-        return false;
+#[derive(Default)]
+struct ReclaimPlan {
+    files: Vec<PathBuf>,
+    directories: Vec<PathBuf>,
+    bytes: u64,
+}
+
+fn expected_directories(files: &BTreeMap<String, String>) -> Option<BTreeSet<String>> {
+    if files.is_empty() || files.len() > MAX_STAGE_FILES {
+        return None;
     }
-    let Some(lock_metadata) = plain_metadata(&stage.join(LOCK)) else {
-        return false;
-    };
-    if !lock_metadata.is_file() || lock_metadata.len() != LOCK_CONTENT.len() as u64 {
-        return false;
+    let mut directories = BTreeSet::new();
+    for (name, digest) in files {
+        if name.contains(['\\', ':'])
+            || name
+                .split('/')
+                .any(|part| part.is_empty() || part == "." || part == "..")
+            || digest.len() != 64
+            || !digest
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return None;
+        }
+        let mut child = name.as_str();
+        while let Some((parent, _)) = child.rsplit_once('/') {
+            directories.insert(parent.to_owned());
+            if directories.len() > MAX_STAGE_DIRECTORIES {
+                return None;
+            }
+            child = parent;
+        }
+    }
+    Some(directories)
+}
+
+fn verify_payload_file(
+    path: &Path,
+    digest: &str,
+    size: u64,
+    deadline: Instant,
+    buffer: &mut [u8],
+) -> Option<()> {
+    let mut file = OpenOptions::new()
+        .read(true)
+        .share_mode(FILE_SHARE_READ)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+        .open(path)
+        .ok()?;
+    let before = file.metadata().ok()?;
+    if !before.is_file()
+        || before.file_attributes() & REPARSE_ATTRIBUTE != 0
+        || before.len() != size
+    {
+        return None;
+    }
+    let mut hash = Sha256::new();
+    let mut bytes = 0u64;
+    loop {
+        if Instant::now() >= deadline {
+            return None;
+        }
+        let count = file.read(buffer).ok()?;
+        if count == 0 {
+            break;
+        }
+        bytes = bytes.checked_add(count as u64)?;
+        if bytes > size {
+            return None;
+        }
+        hash.update(&buffer[..count]);
+    }
+    let after = file.metadata().ok()?;
+    (bytes == size
+        && after.len() == before.len()
+        && after.last_write_time() == before.last_write_time()
+        && hex::encode(hash.finalize()) == digest)
+        .then_some(())
+}
+
+fn verify_tree(
+    root: &Path,
+    files: &BTreeMap<String, String>,
+    directories: &BTreeSet<String>,
+    deadline: Instant,
+    plan: &mut ReclaimPlan,
+) -> Option<()> {
+    let mut pending = vec![root.to_path_buf()];
+    let mut found_files = 0usize;
+    let mut found_directories = 0usize;
+    let mut buffer = vec![0u8; 64 * 1024];
+    while let Some(directory) = pending.pop() {
+        if Instant::now() >= deadline || !plain_metadata(&directory)?.is_dir() {
+            return None;
+        }
+        plan.directories.push(directory.clone());
+        if plan.directories.len() > MAX_STAGE_DIRECTORIES {
+            return None;
+        }
+        for item in fs::read_dir(&directory).ok()? {
+            if Instant::now() >= deadline {
+                return None;
+            }
+            let path = item.ok()?.path();
+            let name = path.strip_prefix(root).ok()?.to_str()?.replace('\\', "/");
+            let metadata = plain_metadata(&path)?;
+            if metadata.is_dir() {
+                if !directories.contains(&name) {
+                    return None;
+                }
+                found_directories += 1;
+                if found_directories > directories.len() {
+                    return None;
+                }
+                pending.push(path);
+            } else if metadata.is_file() {
+                let digest = files.get(&name)?;
+                plan.bytes = plan.bytes.checked_add(metadata.len())?;
+                if plan.files.len() >= MAX_STAGE_FILES || plan.bytes > MAX_STAGE_BYTES {
+                    return None;
+                }
+                verify_payload_file(&path, digest, metadata.len(), deadline, &mut buffer)?;
+                plan.files.push(path);
+                found_files += 1;
+                if found_files > files.len() {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+        }
+    }
+    (found_files == files.len() && found_directories == directories.len()).then_some(())
+}
+
+fn verified_stage(stage: &Path, deadline: Instant) -> Option<ReclaimPlan> {
+    let marker_metadata = plain_metadata(&stage.join(READY))?;
+    let lock_metadata = plain_metadata(&stage.join(LOCK))?;
+    if !marker_metadata.is_file()
+        || marker_metadata.len() > 4096
+        || !lock_metadata.is_file()
+        || lock_metadata.len() != LOCK_CONTENT.len() as u64
+    {
+        return None;
     }
 
     let expected = BTreeSet::from(
@@ -121,110 +256,97 @@ fn source_manifests_match(stage: &Path) -> bool {
         ]
         .map(str::to_owned),
     );
-    let Ok(entries) = fs::read_dir(stage) else {
-        return false;
-    };
     let mut actual = BTreeSet::new();
-    for entry in entries {
-        let Ok(entry) = entry else {
-            return false;
-        };
-        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
-            return false;
-        };
+    for entry in fs::read_dir(stage).ok()? {
+        let name = entry.ok()?.file_name().to_str()?.to_owned();
         actual.insert(name);
         if actual.len() > expected.len() {
-            return false;
+            return None;
         }
     }
     if actual != expected {
-        return false;
+        return None;
     }
 
     let read_private = |name: &str, bound: u64| -> Option<Vec<u8>> {
         let path = stage.join(name);
         let metadata = plain_metadata(&path)?;
-        if !metadata.is_file() || metadata.len() > bound {
+        if !metadata.is_file() || metadata.len() > bound || Instant::now() >= deadline {
             return None;
         }
         semwright_platform_services::verify_private_data_file(&path, bound).ok()?;
         fs::read(&path).ok()
     };
 
-    // The caller already verified the nonempty lease file before acquiring
-    // its exclusive byte-range lock. Re-reading it here would conflict with
-    // that very lock on Windows.
-    let Some(marker_bytes) = read_private(READY, 4096) else {
-        return false;
-    };
-    let Some(runtime_bytes) = read_private("runtime-inventory.json", 2 * 1024 * 1024) else {
-        return false;
-    };
-    let Some(bootstrap_bytes) = read_private("bootstrap-inventory.json", 8192) else {
-        return false;
-    };
-    let Ok(marker) = serde_json::from_slice::<serde_json::Value>(&marker_bytes) else {
-        return false;
-    };
-    let Ok(inventory) = serde_json::from_slice::<serde_json::Value>(&runtime_bytes) else {
-        return false;
-    };
+    // The caller holds the original stage lease. Re-reading its byte range
+    // here would conflict with the lock on Windows.
+    let marker_bytes = read_private(READY, 4096)?;
+    let runtime_bytes = read_private("runtime-inventory.json", 2 * 1024 * 1024)?;
+    let bootstrap_bytes = read_private("bootstrap-inventory.json", 8192)?;
+    let marker: serde_json::Value = serde_json::from_slice(&marker_bytes).ok()?;
+    let inventory: serde_json::Value = serde_json::from_slice(&runtime_bytes).ok()?;
     let runtime_digest = hex::encode(Sha256::digest(&runtime_bytes));
     let bootstrap_digest = hex::encode(Sha256::digest(&bootstrap_bytes));
+    let runtime_files: BTreeMap<String, String> =
+        serde_json::from_value(inventory.get("files")?.clone()).ok()?;
+    let bootstrap_files: BTreeMap<String, String> =
+        serde_json::from_slice(&bootstrap_bytes).ok()?;
+    let executable_digest = runtime_files.get("blender.exe")?;
+    let files_digest = hex::encode(Sha256::digest(serde_json::to_vec(&runtime_files).ok()?));
     if marker["format"].as_str() != Some(FORMAT)
         || marker["runtime_receipt_sha256"].as_str() != Some(runtime_digest.as_str())
         || marker["bootstrap_receipt_sha256"].as_str() != Some(bootstrap_digest.as_str())
-        || marker["executable_sha256"].as_str() != inventory["executable_sha256"].as_str()
-        || inventory["inventory_sha256"].as_str().is_none()
+        || inventory["schema"].as_str() != Some("semwright-private-blender-runtime/v1")
+        || marker["executable_sha256"].as_str() != Some(executable_digest.as_str())
+        || inventory["executable_sha256"].as_str() != Some(executable_digest.as_str())
+        || inventory["inventory_sha256"].as_str() != Some(files_digest.as_str())
     {
-        return false;
+        return None;
     }
-    // A snapshot may contain many vendor files. Check every directory and file
-    // before unlinking any. Never traverse junctions, symlinks, or other reparse
-    // points and never interpret an unknown root entry as disposable.
-    let mut pending = vec![stage.join("runtime"), stage.join("code")];
-    let mut dirs = 0usize;
-    let mut files = 0usize;
-    let mut total = 0u64;
-    while let Some(directory) = pending.pop() {
-        let Some(metadata) = plain_metadata(&directory) else {
-            return false;
-        };
-        if !metadata.is_dir() {
-            return false;
-        }
-        dirs += 1;
-        if dirs > MAX_STAGE_DIRECTORIES {
-            return false;
-        }
-        let Ok(children) = fs::read_dir(&directory) else {
-            return false;
-        };
-        for item in children {
-            let Ok(item) = item else {
-                return false;
-            };
-            let path = item.path();
-            let Some(metadata) = plain_metadata(&path) else {
-                return false;
-            };
-            if metadata.is_dir() {
-                pending.push(path);
-            } else if metadata.is_file() {
-                files += 1;
-                let Some(next) = total.checked_add(metadata.len()) else {
-                    return false;
-                };
-                total = next;
-                if files > MAX_STAGE_FILES || total > MAX_STAGE_BYTES {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-        }
+    let runtime_dirs = expected_directories(&runtime_files)?;
+    let bootstrap_dirs = expected_directories(&bootstrap_files)?;
+    // The v1 receipt binds file paths, not names of empty directories.
+    // Refuse such an ambiguous tree rather than guessing ownership.
+    if inventory["entries"].as_u64()? != (runtime_files.len() + runtime_dirs.len()) as u64 {
+        return None;
     }
-    true
+    let mut plan = ReclaimPlan::default();
+    verify_tree(
+        &stage.join("runtime"),
+        &runtime_files,
+        &runtime_dirs,
+        deadline,
+        &mut plan,
+    )?;
+    if plan.bytes != inventory["bytes"].as_u64()? {
+        return None;
+    }
+    verify_tree(
+        &stage.join("code"),
+        &bootstrap_files,
+        &bootstrap_dirs,
+        deadline,
+        &mut plan,
+    )?;
+    Some(plan)
+}
+
+fn remove_verified_stage(stage: &Path, lock: File, plan: ReclaimPlan) -> std::io::Result<()> {
+    // Withdraw readiness before any deletion and keep the lease throughout
+    // payload removal. Never recursively delete an abandoned tree: a new
+    // unlisted file causes remove_dir to fail instead of consuming it.
+    fs::remove_file(stage.join(READY))?;
+    for path in plan.files {
+        fs::remove_file(path)?;
+    }
+    for path in plan.directories.into_iter().rev() {
+        fs::remove_dir(path)?;
+    }
+    fs::remove_file(stage.join("runtime-inventory.json"))?;
+    fs::remove_file(stage.join("bootstrap-inventory.json"))?;
+    drop(lock);
+    fs::remove_file(stage.join(LOCK))?;
+    fs::remove_dir(stage)
 }
 
 fn native_stage_name(name: &str) -> bool {
@@ -237,8 +359,12 @@ fn native_stage_name(name: &str) -> bool {
 fn collect_abandoned(namespace: &Path, min_age: Duration) -> Result<usize> {
     let mut reclaimed = 0usize;
     let entries = fs::read_dir(namespace)?;
-    // Bound startup work even when the owner has many unrelated directories.
+    let deadline = Instant::now() + MAX_RECLAIM_INSPECTION;
+    // Bound inspection across all candidates, not just each individual tree.
     for entry in entries.take(256) {
+        if Instant::now() >= deadline {
+            break;
+        }
         let entry = entry?;
         let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
             continue;
@@ -281,19 +407,18 @@ fn collect_abandoned(namespace: &Path, min_age: Duration) -> Result<usize> {
         ) {
             continue;
         }
-        if !source_manifests_match(&stage) {
+        let Some(plan) = verified_stage(&stage, deadline) else {
             continue;
-        }
-        // The original Host cannot retake this unique lock: its process has
-        // exited. Close our handle before removing the private stage directory.
-        drop(lock);
-        if fs::remove_dir_all(&stage).is_ok() {
-            reclaimed += 1;
-            // A single source-bound runtime can approach a gigabyte. Do not
-            // consume the entire 180-second native bootstrap budget sweeping
-            // a backlog: the next authorized start can recover the next one.
+        };
+        if Instant::now() >= deadline {
             break;
         }
+        if remove_verified_stage(&stage, lock, plan).is_ok() {
+            reclaimed += 1;
+        }
+        // Attempt deletion at most once, even if the operation was only
+        // partially completed. A later start can inspect the next candidate.
+        break;
     }
     Ok(reclaimed)
 }
@@ -353,17 +478,47 @@ mod tests {
         semwright_platform_services::private_data_directory(&stage).unwrap();
         fs::create_dir(stage.join("runtime")).unwrap();
         fs::create_dir(stage.join("code")).unwrap();
-        fs::write(stage.join("runtime/example"), b"native").unwrap();
-        fs::write(stage.join("code/first_party.py"), b"print('ok')").unwrap();
-        let runtime_receipt = br#"{"executable_sha256":"abc","inventory_sha256":"digest"}"#;
-        let bootstrap_receipt = br#"{"first_party.py":"digest"}"#;
-        fs::write(stage.join("runtime-inventory.json"), runtime_receipt).unwrap();
-        fs::write(stage.join("bootstrap-inventory.json"), bootstrap_receipt).unwrap();
+        fs::create_dir(stage.join("runtime/deep")).unwrap();
+        fs::create_dir(stage.join("code/sub")).unwrap();
+        let runtime_files = BTreeMap::from([
+            ("blender.exe".to_owned(), b"native".as_slice()),
+            ("deep/asset.bin".to_owned(), b"asset".as_slice()),
+        ]);
+        let bootstrap_files = BTreeMap::from([
+            ("first_party.py".to_owned(), b"print('ok')".as_slice()),
+            ("sub/__init__.py".to_owned(), b"".as_slice()),
+        ]);
+        let mut pins = BTreeMap::new();
+        let mut runtime_size = 0u64;
+        for (name, bytes) in &runtime_files {
+            fs::write(stage.join("runtime").join(name), bytes).unwrap();
+            runtime_size += bytes.len() as u64;
+            pins.insert(name.clone(), hex::encode(Sha256::digest(bytes)));
+        }
+        let executable_digest = pins["blender.exe"].clone();
+        let files_digest = hex::encode(Sha256::digest(serde_json::to_vec(&pins).unwrap()));
+        let runtime_receipt = serde_json::to_vec(&serde_json::json!({
+            "schema": "semwright-private-blender-runtime/v1",
+            "executable_sha256": executable_digest,
+            "files": pins,
+            "bytes": runtime_size,
+            "entries": 3,
+            "inventory_sha256": files_digest,
+        }))
+        .unwrap();
+        let mut bootstrap_pins = BTreeMap::new();
+        for (name, bytes) in &bootstrap_files {
+            fs::write(stage.join("code").join(name), bytes).unwrap();
+            bootstrap_pins.insert(name.clone(), hex::encode(Sha256::digest(bytes)));
+        }
+        let bootstrap_receipt = serde_json::to_vec(&bootstrap_pins).unwrap();
+        fs::write(stage.join("runtime-inventory.json"), &runtime_receipt).unwrap();
+        fs::write(stage.join("bootstrap-inventory.json"), &bootstrap_receipt).unwrap();
         let mark = serde_json::json!({
             "format": FORMAT,
-            "runtime_receipt_sha256": hex::encode(Sha256::digest(runtime_receipt)),
-            "bootstrap_receipt_sha256": hex::encode(Sha256::digest(bootstrap_receipt)),
-            "executable_sha256": "abc",
+            "runtime_receipt_sha256": hex::encode(Sha256::digest(&runtime_receipt)),
+            "bootstrap_receipt_sha256": hex::encode(Sha256::digest(&bootstrap_receipt)),
+            "executable_sha256": executable_digest,
         });
         fs::write(stage.join(READY), serde_json::to_vec(&mark).unwrap()).unwrap();
         let lock_path = stage.join(LOCK);
@@ -441,6 +596,103 @@ mod tests {
                 b"outside unchanged"
             );
         }
+    }
+
+    #[test]
+    fn nested_unlisted_files_and_directories_preserve_abandoned_stage() {
+        let temp = tempfile::tempdir().unwrap();
+        let namespace = temp.path().join(NAMESPACE);
+        for (suffix, relative) in [
+            ("e", "runtime/deep/owner-note.txt"),
+            ("f", "code/sub/owner-note.txt"),
+        ] {
+            let (stage, lock) = test_stage(&namespace, &suffix.repeat(32));
+            drop(lock);
+            let path = stage.join(relative);
+            fs::write(&path, b"owner data").unwrap();
+            assert_eq!(collect_abandoned(&namespace, Duration::ZERO).unwrap(), 0);
+            assert_eq!(fs::read(&path).unwrap().as_slice(), b"owner data");
+            assert!(stage.join(READY).is_file());
+            assert!(stage.join("runtime/blender.exe").is_file());
+        }
+        let (stage, lock) = test_stage(&namespace, &"1".repeat(32));
+        drop(lock);
+        fs::create_dir(stage.join("runtime/deep/unknown")).unwrap();
+        assert_eq!(collect_abandoned(&namespace, Duration::ZERO).unwrap(), 0);
+        assert!(stage.join("runtime/deep/unknown").is_dir());
+        assert!(stage.join(READY).is_file());
+    }
+
+    #[test]
+    fn missing_or_modified_inventory_files_preserve_abandoned_stage() {
+        let temp = tempfile::tempdir().unwrap();
+        let namespace = temp.path().join(NAMESPACE);
+        let (runtime_changed, lock) = test_stage(&namespace, &"2".repeat(32));
+        drop(lock);
+        // Same size and path are not enough to prove content ownership.
+        fs::write(runtime_changed.join("runtime/deep/asset.bin"), b"owner").unwrap();
+        assert_eq!(collect_abandoned(&namespace, Duration::ZERO).unwrap(), 0);
+        assert_eq!(
+            fs::read(runtime_changed.join("runtime/deep/asset.bin"))
+                .unwrap()
+                .as_slice(),
+            b"owner"
+        );
+        assert!(runtime_changed.join(READY).is_file());
+
+        let (code_changed, lock) = test_stage(&namespace, &"3".repeat(32));
+        drop(lock);
+        fs::write(code_changed.join("code/first_party.py"), b"print('no')").unwrap();
+        assert_eq!(collect_abandoned(&namespace, Duration::ZERO).unwrap(), 0);
+        assert_eq!(
+            fs::read(code_changed.join("code/first_party.py"))
+                .unwrap()
+                .as_slice(),
+            b"print('no')"
+        );
+        assert!(code_changed.join(READY).is_file());
+
+        let (missing, lock) = test_stage(&namespace, &"4".repeat(32));
+        drop(lock);
+        fs::remove_file(missing.join("runtime/deep/asset.bin")).unwrap();
+        assert_eq!(collect_abandoned(&namespace, Duration::ZERO).unwrap(), 0);
+        assert!(missing.join("runtime/blender.exe").is_file());
+        assert!(missing.join(READY).is_file());
+    }
+
+    #[test]
+    fn late_unlisted_file_is_not_removed_by_verified_plan() {
+        let temp = tempfile::tempdir().unwrap();
+        let namespace = temp.path().join(NAMESPACE);
+        let (stage, lock) = test_stage(&namespace, &"5".repeat(32));
+        assert!(semwright_platform_services::try_lock_session_file(&lock).unwrap());
+        let plan = verified_stage(&stage, Instant::now() + Duration::from_secs(5)).unwrap();
+        let foreign = stage.join("runtime/deep/late-owner.txt");
+        fs::write(&foreign, b"keep even after verification").unwrap();
+        assert!(remove_verified_stage(&stage, lock, plan).is_err());
+        assert_eq!(
+            fs::read(&foreign).unwrap().as_slice(),
+            b"keep even after verification"
+        );
+        assert!(!stage.join(READY).exists());
+        assert!(stage.join("runtime-inventory.json").is_file());
+        assert_eq!(collect_abandoned(&namespace, Duration::ZERO).unwrap(), 0);
+    }
+
+    #[test]
+    fn expired_verification_budget_cannot_authorize_removal() {
+        let temp = tempfile::tempdir().unwrap();
+        let namespace = temp.path().join(NAMESPACE);
+        let (stage, lock) = test_stage(&namespace, &"6".repeat(32));
+        assert!(semwright_platform_services::try_lock_session_file(&lock).unwrap());
+        assert!(verified_stage(&stage, Instant::now()).is_none());
+        assert!(stage.join(READY).is_file());
+        assert_eq!(
+            fs::read(stage.join("runtime/blender.exe"))
+                .unwrap()
+                .as_slice(),
+            b"native"
+        );
     }
 
     #[test]

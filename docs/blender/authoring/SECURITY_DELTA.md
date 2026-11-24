@@ -156,3 +156,25 @@ instead of bypassing this check by disabling compositing.
 Primary references (checked 2026-11-24):
 - https://docs.blender.org/api/5.2/bpy.types.Scene.html
 - https://developer.blender.org/docs/release_notes/5.0/python_api/#nodes
+
+## Abandoned private native stage recovery
+
+Recovery of a completed abandoned Windows native stage requires the existing
+owner-private receipts and an exclusive stage lease. It now matches every
+runtime and bootstrap file to its recorded relative path and SHA-256, verifies
+runtime size and entry count, and rejects missing, changed, unexpected or
+reparse entries before deleting anything. The v1 runtime receipt does not
+identify empty directories; a tree with an unexplained directory count or an
+unlisted empty directory is retained. This is conservative, not a general
+cleanup permission.
+
+Inspection is bounded across candidates (20 seconds checked between reads,
+plus the existing entry and byte budgets). A candidate that cannot be verified
+within the budget is retained. The collector withdraws its ready marker before
+removing the verified payload while still holding the lease; it deletes only
+verified paths and removes directories non-recursively. If an unexpected file
+appears before directory removal or cleanup otherwise fails, the remainder is
+retained without automatic replay. This does not protect against arbitrary
+concurrent same-owner mutation of private state, or change fresh-stage normal
+exit cleanup. It does not touch user workspaces, original runtime files,
+installed packages, old staging namespaces, or unconfirmed native exits.
