@@ -637,10 +637,15 @@ class Commands:
                 raise CommandError("Conflict", "Render target already exists")
             if getattr(render, "use_multiview", False):
                 raise CommandError("Unsupported", "New-only render requires a single output view")
-            if (getattr(render, "use_compositing", True)
-                    and (getattr(scene, "use_nodes", False)
-                         or getattr(scene, "compositing_node_group", None) is not None)):
-                raise CommandError("Unsupported", "New-only render requires compositor output disabled")
+            if getattr(render, "use_compositing", True):
+                # Blender 5.x use_nodes is deprecated and always True. Prefer
+                # its actual compositor group; older RNA keeps the legacy flag.
+                missing = object()
+                group = getattr(scene, "compositing_node_group", missing)
+                active = (getattr(scene, "use_nodes", False)
+                          if group is missing else group is not None)
+                if active:
+                    raise CommandError("Unsupported", "New-only render requires compositor output disabled")
             previous_path = render.filepath
             previous_format = render.image_settings.file_format
 

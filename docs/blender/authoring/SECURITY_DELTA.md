@@ -134,3 +134,25 @@ private runtime layout, not a blanket guarantee for all application file paths.
 
 References: [Microsoft path limits and application opt-in](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation)
 and [Blender's embedded Python long-path issue](https://projects.blender.org/blender/blender/issues/130223).
+
+## Compositor API selection for new-only PNG
+
+Blender 5.0 deprecated `Scene.use_nodes`: it always reads true and no longer
+controls compositor activation. Treating it as an active graph rejects the
+ordinary Blender 5.2 scene even when no compositor group is assigned.
+
+New-only render now checks `Scene.compositing_node_group` when that RNA property
+exists, and uses the legacy `use_nodes` flag only on the older API. With
+`render.use_compositing` enabled, an assigned group is still unsupported,
+including an empty group; multiview remains unsupported. No nodes, compositor
+settings or output permissions are changed to make a request succeed. The
+existing single-file publication, no-replace behavior and uncertain-error
+contract are unchanged. Omitted or true `overwrite` keeps the legacy path.
+
+Regression fixtures distinguish the legacy flag from the modern optional group.
+The real Blender regression uses enabled compositing with no active graph,
+instead of bypassing this check by disabling compositing.
+
+Primary references (checked 2026-11-24):
+- https://docs.blender.org/api/5.2/bpy.types.Scene.html
+- https://developer.blender.org/docs/release_notes/5.0/python_api/#nodes

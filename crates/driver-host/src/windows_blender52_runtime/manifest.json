@@ -13,8 +13,8 @@
       "file": "commands.py",
       "canonical": "../../adapters/blender/semwright_blender/commands.py",
       "private_target": "semwright_blender_runtime/commands.py",
-      "bytes": 49527,
-      "sha256": "7eaccf2108c04a3f262b669af6aeeb85a61377efc241bf1efb2508f89a9e2955"
+      "bytes": 49806,
+      "sha256": "5c695e16a9970ca18f0715d14553e48910f5415718e2b4ee863f7eb8b9816960"
     },
     {
       "file": "commands.json",

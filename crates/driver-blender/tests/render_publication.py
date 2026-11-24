@@ -33,7 +33,7 @@ def fixture(module, root):
     if NATIVE_BPY is None:
         render = N(filepath="previous-path", image_settings=N(file_format="JPEG"),
                    use_multiview=False, use_compositing=True)
-        scene = N(render=render, use_nodes=False, compositing_node_group=None)
+        scene = N(render=render, use_nodes=False)
         data = N()
 
         def writer(**kwargs):
@@ -53,7 +53,11 @@ def fixture(module, root):
         render.threads_mode = "FIXED"
         render.threads = 1
         render.use_multiview = False
-        render.use_compositing = False
+        render.use_compositing = True
+        if hasattr(scene, "compositing_node_group"):
+            scene.compositing_node_group = None
+        else:
+            scene.use_nodes = False
         render.filepath = "previous-path"
         render.image_settings.file_format = "JPEG"
         data = bpy.data
@@ -86,6 +90,21 @@ class RenderPublicationTests(unittest.TestCase):
             self.assertEqual(Path(calls[0]).parent, root)
             self.assertTrue((root / "preview.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
             self.assertEqual({item.name for item in root.iterdir()}, {"preview.png"})
+            self.assert_restored(bpy)
+
+    def test_modern_empty_compositor_ignores_deprecated_use_nodes(self):
+        for module, root, commands, bpy, calls in self.each_source():
+            scene = bpy.context.scene
+            scene.compositing_node_group = None
+            # Blender 5.x always returns True for this deprecated property.
+            scene.use_nodes = True
+            result = commands("blender.render", {"path": "modern.png", "overwrite": False})
+            self.assertTrue(result["changed"])
+            self.assertEqual(len(calls), 1)
+            self.assertEqual((root / "modern.png").read_bytes(), PNG)
+            self.assertIsNone(scene.compositing_node_group)
+            self.assertIs(scene.render.use_compositing, True)
+            self.assertIs(scene.use_nodes, True)
             self.assert_restored(bpy)
 
     def test_existing_and_racing_targets_are_preserved(self):
@@ -179,12 +198,16 @@ class RenderPublicationTests(unittest.TestCase):
             for field, value in (("use_multiview", True), ("use_nodes", True),
                                  ("compositing_node_group", N(nodes=[]))):
                 owner = scene.render if field == "use_multiview" else scene
-                previous = getattr(owner, field)
+                existed = hasattr(owner, field)
+                previous = getattr(owner, field, None)
                 setattr(owner, field, value)
                 with self.subTest(field=field), self.assertRaises(module.CommandError) as caught:
                     commands("blender.render", {"path": "multi.png", "overwrite": False})
                 self.assertEqual(caught.exception.code, "Unsupported")
-                setattr(owner, field, previous)
+                if existed:
+                    setattr(owner, field, previous)
+                else:
+                    delattr(owner, field)
             self.assertEqual(calls, [])
             self.assertEqual(list(root.iterdir()), [])
 
