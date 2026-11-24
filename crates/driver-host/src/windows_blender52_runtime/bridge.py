@@ -20,17 +20,29 @@ try:
 except (ValueError, IndexError):
     raise SystemExit(2)
 
+# Startup-only fixed labels use the same private pre-readiness stream.
+# Once readiness is published the stream is exclusively framed protocol.
+def _startup_checkpoint(phase, fd):
+    try:
+        os.write(fd, b"\0SEMWRIGHT-BLENDER-STARTUP-v1:"
+                 + nonce.encode("ascii") + b":" + phase.encode("ascii") + b"\0")
+    except (OSError, ValueError, AttributeError):
+        pass
+
+
 _stdio = None
 if socket_path.startswith("stdio:"):
     import msvcrt
     nonce = socket_path[6:]
     if os.name != "nt" or len(nonce) != 32 or any(c not in "0123456789abcdef" for c in nonce):
         raise SystemExit(2)
+    _startup_checkpoint("stdio_setup", sys.stdout.fileno())
     input_fd = os.dup(sys.stdin.fileno())
     output_fd = os.dup(sys.stdout.fileno())
     msvcrt.setmode(input_fd, os.O_BINARY)
     msvcrt.setmode(output_fd, os.O_BINARY)
     # Separate C/Python diagnostic output from the private binary protocol.
+    _startup_checkpoint("stdio_redirect", output_fd)
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
     import ctypes
     _kernel32 = ctypes.WinDLL("kernel32.dll", use_last_error=True, winmode=0x00000800)
@@ -56,25 +68,39 @@ if socket_path.startswith("stdio:"):
 elif os.name == "nt":
     raise SystemExit(2)
 
+if _stdio is not None:
+    _startup_checkpoint("bridge_imports", output_fd)
 import addon_utils
 import bpy
 
 _exact_versions = {(4, 5, 14), (5, 2, 1)} if sys.platform == "linux" else ({(5, 2, 1)} if sys.platform == "win32" else set())
 _version = tuple(bpy.app.version)
+if _stdio is not None:
+    _startup_checkpoint("bridge_version_check", output_fd)
 if _version not in _exact_versions or bpy.app.version_string != ".".join(map(str, _version)) + " LTS":
     raise SystemExit(4)
+if _stdio is not None:
+    _startup_checkpoint("bridge_resources_check", output_fd)
 _resource_directory = os.path.basename(os.path.normpath(os.environ.get("BLENDER_SYSTEM_RESOURCES", "")))
 if _resource_directory != f"{_version[0]}.{_version[1]}":
     raise SystemExit(4)
 
+if _stdio is not None:
+    _startup_checkpoint("bridge_module_imports", output_fd)
 sys.path.insert(0, runtime)
 from semwright_blender_runtime.commands import Commands  # noqa: E402
 from semwright_blender_runtime.validation import CommandError  # noqa: E402
 from semwright_blender_runtime.semantic import SemanticError, SemanticStore  # noqa: E402
 from semwright_blender_runtime.authoring_native import AuthoringRuntime  # noqa: E402
 
+if _stdio is not None:
+    _startup_checkpoint("bridge_commands", output_fd)
 commands = Commands(bpy, workspace)
+if _stdio is not None:
+    _startup_checkpoint("bridge_semantic", output_fd)
 semantic = SemanticStore(bpy, commands.workspace.root)
+if _stdio is not None:
+    _startup_checkpoint("bridge_authoring", output_fd)
 authoring = AuthoringRuntime(bpy, commands, semantic)
 
 

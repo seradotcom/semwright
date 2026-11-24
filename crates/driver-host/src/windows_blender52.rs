@@ -179,6 +179,50 @@ fn mount_arg(name: &str) -> Result<String> {
         relative: String::new(),
     })
 }
+// These labels are observations from the untrusted child, not startup authority.
+// Never log the captured prefix or accept arbitrary phase names from it.
+const STARTUP_CHECKPOINTS: &[&str] = &[
+    "bootstrap_imports",
+    "workspace_resolve",
+    "code_resolve",
+    "runtime_resolve",
+    "resource_env_check",
+    "bpy_import",
+    "version_background_check",
+    "binary_path_check",
+    "local_resources_check",
+    "module_commands",
+    "module_validation",
+    "module_semantic",
+    "module_authoring_native",
+    "module_export_scope",
+    "bridge_load",
+    "stdio_setup",
+    "stdio_redirect",
+    "bridge_imports",
+    "bridge_version_check",
+    "bridge_resources_check",
+    "bridge_module_imports",
+    "bridge_commands",
+    "bridge_semantic",
+    "bridge_authoring",
+];
+
+fn last_startup_checkpoint(prefix: &[u8], nonce: &str) -> Option<&'static str> {
+    STARTUP_CHECKPOINTS
+        .iter()
+        .copied()
+        .filter_map(|phase| {
+            let marker = format!("\0SEMWRIGHT-BLENDER-STARTUP-v1:{nonce}:{phase}\0");
+            prefix
+                .windows(marker.len())
+                .rposition(|window| window == marker.as_bytes())
+                .map(|offset| (offset, phase))
+        })
+        .max_by_key(|(offset, _)| *offset)
+        .map(|(_, phase)| phase)
+}
+
 async fn terminate_owned(process: &mut SandboxProcess, phase: &str, nonce: &str) -> bool {
     let pid = process.id();
     let killed = tokio::time::timeout(Duration::from_secs(5), process.kill()).await;
@@ -341,8 +385,8 @@ pub(super) async fn start(
         "phase":"native_readiness_wait_started","pid":process.id(),"nonce":nonce,
         "cancelled_at_entry":cancellation.is_cancelled()})
     );
+    let mut prefix = Vec::new();
     let readiness = async {
-        let mut prefix = Vec::new();
         for _ in 0..65_536 + marker.len() {
             prefix.push(output.read_u8().await?);
             if prefix.ends_with(&marker) {
@@ -391,6 +435,8 @@ pub(super) async fn start(
                 serde_json::json!({"component":"driver-host",
                 "phase":"native_readiness_terminal","pid":process.id(),"nonce":nonce,
                 "reason":error.code,"wait_ms":readiness_started.elapsed().as_millis(),
+                "last_startup_checkpoint":last_startup_checkpoint(&prefix, &nonce),
+                "prefix_bytes":prefix.len(),
                 "parent_cancelled":cancellation.is_cancelled()})
             );
             if !terminate_owned(&mut process, "native_readiness_failed", &nonce).await {
@@ -403,6 +449,7 @@ pub(super) async fn start(
         "{}",
         serde_json::json!({"component":"driver-host","phase":"native_blender_ready",
         "profile":"blender_5_2_1_initial","nonce":nonce,"prefix_bytes":prefix_bytes,
+        "last_startup_checkpoint":last_startup_checkpoint(&prefix, &nonce),
         "pid":process.id(),"bootstrap_inventory_sha256":prepared.bootstrap_sha256,
         "runtime_inventory_sha256":prepared.runtime_inventory_sha256})
     );
@@ -423,6 +470,29 @@ pub(super) async fn start(
 #[cfg(test)]
 mod pinned_blender_assets_tests {
     use super::*;
+
+    #[test]
+    fn startup_checkpoint_observation_requires_complete_known_label_and_exact_nonce() {
+        let nonce = "a".repeat(32);
+        let foreign = "b".repeat(32);
+        let observed =
+            |label: &str, id: &str| format!("\0SEMWRIGHT-BLENDER-STARTUP-v1:{id}:{label}\0");
+        let first = observed("bootstrap_imports", &nonce);
+        let last = observed("binary_path_check", &nonce);
+        let invalid = observed("private_payload", &nonce);
+        let wrong_nonce = observed("bridge_authoring", &foreign);
+        let incomplete = observed("bridge_load", &nonce);
+        let mut prefix = b"untrusted output".to_vec();
+        assert_eq!(last_startup_checkpoint(&prefix, &nonce), None);
+        for value in [&first, &last, &invalid, &wrong_nonce] {
+            prefix.extend_from_slice(value.as_bytes());
+        }
+        prefix.extend_from_slice(&incomplete.as_bytes()[..incomplete.len() - 1]);
+        assert_eq!(
+            last_startup_checkpoint(&prefix, &nonce),
+            Some("binary_path_check")
+        );
+    }
 
     #[test]
     fn canonical_first_party_native_bootstrap_matches_pinned_manifest() {

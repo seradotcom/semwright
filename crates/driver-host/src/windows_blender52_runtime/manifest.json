@@ -6,8 +6,8 @@
       "file": "bridge.py",
       "canonical": "../driver-blender/src/bridge.py",
       "private_target": "bridge.py",
-      "bytes": 54885,
-      "sha256": "18da3c1fe1c0ac4ee4587a4ffba6dba3e5ce08114af391a6e0fb85116aeef839"
+      "bytes": 55946,
+      "sha256": "c4387e733ac9f1ea4aa8d632f37ca2bd93139f061a445aedfc3b434e89d9cf1e"
     },
     {
       "file": "commands.py",
@@ -55,8 +55,8 @@
   "host_local_bootstrap": {
     "file": "src/windows_blender52_bootstrap.py",
     "private_target": "bootstrap.py",
-    "bytes": 1481,
-    "sha256": "43e34607b5fc63a92f1442148c74566a07864163bca2805f06189ad2f91555ad"
+    "bytes": 2272,
+    "sha256": "ca5ab8885b68b644eafd38e49c11e5d4130d07c9c55c57af5d854b0d12369d98"
   },
   "empty_package": {
     "private_target": "semwright_blender_runtime/__init__.py",

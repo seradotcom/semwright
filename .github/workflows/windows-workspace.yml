@@ -125,6 +125,8 @@ jobs:
           components: rustfmt
       - name: Format native Host
         run: rustfmt --edition 2024 --check crates/driver-host/src/windows_blender52.rs
+      - name: Verify exact native bootstrap pins and checkpoint parsing
+        run: cargo test --locked -p semwright-driver-host --lib pinned_blender_assets_tests
       - name: Build exact-source setup companions and native driver
         run: cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp -p semwright-tui -p semwright-plugin-host -p semwright-driver-blender --bins
       - name: Native Blender artifact commands through the closed Windows Host
