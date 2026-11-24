@@ -4,6 +4,7 @@ use super::*;
 use std::{
     collections::BTreeMap,
     io::Write,
+    os::windows::ffi::OsStrExt,
     sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
@@ -79,6 +80,85 @@ fn locked(path: &Path) -> Result<(File, BY_HANDLE_FILE_INFORMATION)> {
     Ok((file, metadata))
 }
 
+// The approved Blender executable does not opt into long Win32 paths.
+// Enabling the registry flag alone cannot make its Python importer compatible.
+const MAX_NATIVE_PATH_UNITS: usize = 259;
+
+fn check_native_path(path: &Path) -> Result<()> {
+    let units = path.as_os_str().encode_wide().count();
+    if units > MAX_NATIVE_PATH_UNITS {
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "component":"platform-windows",
+                "phase":"native_runtime_path_too_long",
+                "utf16_units":units,
+                "maximum_utf16_units":MAX_NATIVE_PATH_UNITS,
+                "remedy":"Choose a shorter owner-private SEMWRIGHT_DATA_DIR",
+            })
+        );
+        return Err(Error::invalid(
+            "Native Blender runtime path exceeds 259 UTF-16 units; choose a shorter SEMWRIGHT_DATA_DIR",
+        ));
+    }
+    Ok(())
+}
+
+fn preflight_runtime_paths(
+    source: &Path,
+    destination: &Path,
+    depth: usize,
+    entries: &mut usize,
+    budget: &Budget<'_>,
+) -> Result<()> {
+    budget.check()?;
+    check_native_path(destination)?;
+    if depth > WINDOWS_MOUNT_MAX_DEPTH {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Native runtime depth exceeded",
+        ));
+    }
+    // Retain each ancestor against replacement while enumerating beneath it.
+    let (_directory, metadata) = locked(source)?;
+    if metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 == 0 {
+        return Err(Error::invalid("Native runtime directory required"));
+    }
+    for entry in std::fs::read_dir(source)? {
+        budget.check()?;
+        let entry = entry?;
+        *entries += 1;
+        if *entries > WINDOWS_MOUNT_MAX_ENTRIES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Native runtime entry budget exceeded",
+            ));
+        }
+        let child_source = source.join(entry.file_name());
+        let child_destination = destination.join(entry.file_name());
+        check_native_path(&child_destination)?;
+        let metadata = path_info_no_reparse(&child_source)?;
+        if metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Native runtime cannot contain reparse points",
+            ));
+        }
+        if metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 != 0 {
+            preflight_runtime_paths(
+                &child_source,
+                &child_destination,
+                depth + 1,
+                entries,
+                budget,
+            )?;
+        } else {
+            require_single_link_regular(&metadata)?;
+        }
+    }
+    Ok(())
+}
+
 fn copy_tree(
     source: &Path,
     destination: &Path,
@@ -96,6 +176,7 @@ fn copy_tree(
             "Native runtime depth exceeded",
         ));
     }
+    check_native_path(destination)?;
     let (directory, before) = locked(source)?;
     if before.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 == 0 {
         return Err(Error::invalid("Native runtime directory required"));
@@ -113,6 +194,7 @@ fn copy_tree(
         let name = entry.file_name();
         let child_source = source.join(&name);
         let child_destination = destination.join(&name);
+        check_native_path(&child_destination)?;
         let child_relative = relative.join(&name);
         let (mut input, metadata) = locked(&child_source)?;
         if metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 != 0 {
@@ -231,6 +313,10 @@ pub fn stage(
     if !is_directory {
         return Err(Error::invalid("Native runtime root must be a directory"));
     }
+    // Refuse the layout before copying any runtime bytes. The copy checks again
+    // so a later source-tree change cannot evade the prospective path budget.
+    let mut path_entries = 0;
+    preflight_runtime_paths(source, destination, 0, &mut path_entries, &budget)?;
     // Blender is an owner-pinned application binary, not a generic <=64 MiB
     // sealed driver tool. Preserve its native-PE, digest, ACL and signature
     // checks using the already bounded 512 MiB application verifier.
@@ -271,6 +357,76 @@ pub fn stage(
 #[cfg(test)]
 mod native_runtime_tests {
     use super::*;
+    #[test]
+    fn native_runtime_path_budget_counts_utf16_and_nul_boundary() {
+        let accepted = PathBuf::from(format!(r"E:\a\{}", "a".repeat(254)));
+        assert_eq!(accepted.as_os_str().encode_wide().count(), 259);
+        check_native_path(&accepted).unwrap();
+        let rejected = PathBuf::from(format!(r"E:\a\{}", "a".repeat(255)));
+        assert_eq!(
+            check_native_path(&rejected).unwrap_err().code,
+            ErrorCode::InvalidArgument
+        );
+        let surrogate_pair = PathBuf::from(format!(r"E:\a\{}{}", "a".repeat(253), '\u{1f600}'));
+        assert_eq!(surrogate_pair.to_string_lossy().chars().count(), 259);
+        assert_eq!(surrogate_pair.as_os_str().encode_wide().count(), 260);
+        assert_eq!(
+            check_native_path(&surrogate_pair).unwrap_err().code,
+            ErrorCode::InvalidArgument
+        );
+    }
+
+    #[test]
+    fn native_runtime_long_import_path_is_refused_before_snapshot_creation() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source");
+        std::fs::create_dir(&source).unwrap();
+        let user = std::env::var("USERNAME").unwrap();
+        let principal = match std::env::var("USERDOMAIN") {
+            Ok(domain) if !domain.is_empty() => format!(r"{domain}\{user}"),
+            _ => user,
+        };
+        assert!(
+            std::process::Command::new("icacls")
+                .arg(&source)
+                .args(["/inheritance:r", "/grant:r"])
+                .arg(format!("{principal}:(OI)(CI)F"))
+                .status()
+                .unwrap()
+                .success()
+        );
+        let relative = Path::new(
+            "5.2/scripts/addons_core/io_scene_gltf2/blender/exp/material/pbr_metallic_roughness.py",
+        );
+        let original = source.join(relative);
+        std::fs::create_dir_all(original.parent().unwrap()).unwrap();
+        std::fs::write(&original, b"owner runtime module").unwrap();
+        let base = dir.path().as_os_str().encode_wide().count();
+        assert!(
+            base < 200,
+            "CI temporary directory exceeds this bounded fixture"
+        );
+        let parent = dir.path().join("d".repeat(210 - base - 1));
+        std::fs::create_dir(&parent).unwrap();
+        let destination = parent.join("runtime");
+        check_native_path(&destination).unwrap();
+        assert!(destination.join(relative).as_os_str().encode_wide().count() > 259);
+        let error = stage(
+            &source,
+            &destination,
+            &"0".repeat(64),
+            &AtomicBool::new(false),
+        )
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidArgument);
+        assert!(error.message.contains("shorter SEMWRIGHT_DATA_DIR"));
+        assert!(
+            !destination.exists(),
+            "Preflight must not create a partial snapshot"
+        );
+        assert_eq!(std::fs::read(original).unwrap(), b"owner runtime module");
+    }
+
     #[test]
     fn windows_native_runtime_cancel_precedes_io() {
         let source = std::env::temp_dir().join(format!("absent-source-{}", unique_id()));

@@ -15,8 +15,10 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-const NAMESPACE: &str = "blender-stage-v1";
-const PREFIX: &str = "blender-native-";
+// Compact names leave room for Blender's deep Python module paths. The nonce,
+// lease and receipt format are unchanged; the old namespace is not swept.
+const NAMESPACE: &str = "bn1";
+const PREFIX: &str = "b-";
 const LOCK: &str = ".stage-lock";
 const LOCK_CONTENT: &[u8] = b"semwright-native-stage-lease-v1\n";
 const READY: &str = ".stage-ready.json";
@@ -439,6 +441,37 @@ mod tests {
                 b"outside unchanged"
             );
         }
+    }
+
+    #[test]
+    fn compact_stage_leaves_import_headroom_and_preserves_legacy_namespace() {
+        use std::os::windows::ffi::OsStrExt;
+
+        let temp = tempfile::tempdir().unwrap();
+        let base = temp.path().as_os_str().encode_wide().count();
+        assert!(
+            base < 103,
+            "CI temporary directory exceeds this bounded fixture"
+        );
+        let state = temp.path().join("d".repeat(104 - base - 1));
+        semwright_platform_services::private_data_directory(&state).unwrap();
+        let legacy = state.join("blender-stage-v1");
+        fs::create_dir(&legacy).unwrap();
+        fs::write(legacy.join("owner-sentinel"), b"preserve old state").unwrap();
+        let lease = new_stage(&state).unwrap();
+        let module = lease.path().join(
+            "runtime/5.2/scripts/addons_core/io_scene_gltf2/blender/exp/animation/sampled/shapekeys/channel_target.py",
+        );
+        assert!(module.as_os_str().encode_wide().count() < 260);
+        assert!(lease.path().starts_with(&state));
+        assert!(native_stage_name(
+            lease.path().file_name().unwrap().to_str().unwrap()
+        ));
+        drop(lease);
+        assert_eq!(
+            fs::read(legacy.join("owner-sentinel")).unwrap(),
+            b"preserve old state"
+        );
     }
 
     #[test]

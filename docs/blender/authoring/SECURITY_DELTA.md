@@ -106,3 +106,31 @@ pinned official Blender 5.2.1 runtime and exercises the genuine closed Host,
 GLB export and new-only PNG publication with the job's own built binaries.
 Its evidence explicitly excludes session tickets and private runtime state.
 This hosted check is separate from interactive agent-host or release acceptance.
+
+
+## Windows native runtime path budget
+
+The closed Windows profile uses compact owner-private staging names under
+`state/drivers/bn1/b-<random>/`. Its full nonce, lease, ownership checks and
+source receipts are unchanged. Old staging namespaces are not migrated or
+swept by the new layout.
+
+The approved Blender executable lacks the application manifest opt-in for
+long Win32 paths. A staged glTF module can therefore exist with the correct
+bytes while Blender's Python importer reports it missing at 260 characters.
+Before copying runtime bytes, Host checks the complete prospective runtime
+tree against a conservative maximum of 259 UTF-16 code units per path,
+leaving room for the terminating NUL. The copy checks each destination again.
+This covers the whole copied distribution, including unused packaged files;
+it does not infer an import dependency graph.
+
+An overlong layout fails before native launch with an owner-local
+`native_runtime_path_too_long` event and a remedy to choose a shorter
+owner-private `SEMWRIGHT_DATA_DIR`. The authorized workspace and data root
+remain separate. Owner configuration chooses that root; Host does not relocate
+state outside it, modify the Blender executable, change Windows registry
+settings, relax ACLs, or replay a failed command. This budget concerns the
+private runtime layout, not a blanket guarantee for all application file paths.
+
+References: [Microsoft path limits and application opt-in](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation)
+and [Blender's embedded Python long-path issue](https://projects.blender.org/blender/blender/issues/130223).
