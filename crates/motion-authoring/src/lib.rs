@@ -13,7 +13,10 @@ use semwright_semantic_composition::{Result, canonical_digest, ensure};
 use serde::{Deserialize, Serialize};
 pub use temporal::*;
 
+/// Original Film wire version, retained for existing callers.
 pub const AUTHORING_VERSION: u32 = 1;
+/// Film v2 adds bounded subject compositing and stable sibling layer ties.
+pub const AUTHORING_BLEND_VERSION: u32 = 2;
 pub fn shot_root(id: &str) -> String {
     format!("sw-shot-{id}")
 }

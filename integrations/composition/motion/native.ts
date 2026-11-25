@@ -32,12 +32,13 @@ export type Instruction = {id:string;invocation:string;sequence:string;shot:stri
 type Run={text:string;weight:number;color:string|null;emphasis:boolean};
 type Content = {kind:'group'}|{kind:'text';runs:Run[];style:string;line_height?:number|null;direction:'auto'|'ltr'|'rtl';language:string;wrap:boolean;truncate:boolean}|{kind:'rectangle';fill:string;stroke:string|null;radius:number}|{kind:'circle';fill:string;stroke:string|null}|{kind:'path';points:Point[];closed:boolean;stroke:string;stroke_width:number}|{kind:'image';asset_id:string;fit:string;ratio:number}|{kind:'video';asset_id:string;fit:string;ratio:number;source_offset:Rat}|{kind:'code';source:string;language:string;font_style:string}|{kind:'camera';zoom:number};
 type Spatial = {kind:'flow';grow:number;align:string}|{kind:'fixed';position:Point;size:Size}|{kind:'stack';axis:string;gap:number;padding:Insets;align:string}|{kind:'split';ratio:number;gap:number;portrait_axis:string}|{kind:'grid';columns:number;gap:number;portrait_columns:number}|{kind:'overlay';anchor:string;offset:Point;intentional:boolean};
-type Subject={id:string;role:string;parent:string|null;layer:string;content:Content;layout:Spatial;initially_visible:boolean;clip_intentional:boolean};
+type SubjectBlendMode='normal'|'multiply'|'screen'|'add';
+type Subject={id:string;role:string;parent:string|null;layer:string;content:Content;layout:Spatial;initially_visible:boolean;clip_intentional:boolean;blend_mode?:SubjectBlendMode};
 type NativeShot={id:string;archetype:string;start:Rat;end:Rat;subjects:Subject[];layers:{id:string;order:number;intentional_overlay:boolean}[];annotations:{id:string;subject:string;anchor_subject:string;offset:Point}[];captions:{id:string;subject:string;cue_id:string;language:string;text:string}[]};
 type FontSpec={family:string;asset_digest:string|null;fallback:string;permitted_fallbacks:string[]};
 type Editorial={font:FontSpec;mono_font:FontSpec;type_scale:Record<string,number>;colors:Record<string,string>;spacing:Record<string,number>;stroke:number;corner_radius:number};
 type ResolvedCue={status:'resolved';start:Rat;end:Rat}|{status:'unknown';reason:string};
-export type NativeSceneData={version:1;id:string;start:Rat;end:Rat;width:number;height:number;aspect:string;safe_area:Insets;editorial:Editorial;shots:NativeShot[];instructions:Instruction[];cues:Record<string,ResolvedCue>};
+export type NativeSceneData={version:1|2;id:string;start:Rat;end:Rat;width:number;height:number;aspect:string;safe_area:Insets;editorial:Editorial;shots:NativeShot[];instructions:Instruction[];cues:Record<string,ResolvedCue>};
 export type AssetUrls=Readonly<Record<string,string>>;
 export type FontEvidence={family:string;sha256:string;weights:number[];codepoints:number[][];face_loaded:boolean};
 export type FrameBinding={render_input_digest:string;native_stage_version:'3.17.2';font_evidence:FontEvidence[];
@@ -73,6 +74,12 @@ const archetypes:Record<string,{direction:'row'|'column';justify:'start'|'center
  product_proof:{direction:'row',justify:'start',align:'stretch',columns:2,titleGrow:0},
  endcard:{direction:'column',justify:'center',align:'center',columns:1,titleGrow:0},
 };
+function blendOperation(s:Subject,d:NativeSceneData):GlobalCompositeOperation {
+ const mode=s.blend_mode===undefined?'normal':s.blend_mode;
+ if(mode==='normal')return 'source-over';
+ requireValue(d.version===2&&s.content.kind!=='camera','unsupported subject compositing profile');
+ switch(mode){case 'multiply':return 'multiply';case 'screen':return 'screen';case 'add':return 'lighter';default:throw new Error('unsupported subject blend mode');}
+}
 function newSubject(s:Subject,d:NativeSceneData,urls:AssetUrls):Node {
  const c=s.content;const e=d.editorial;let n:Node;
  const textColor=e.colors.text??Object.values(e.colors)[0]??'#202020';
@@ -106,6 +113,10 @@ function newSubject(s:Subject,d:NativeSceneData,urls:AssetUrls):Node {
   default:throw new Error('unsupported subject kind');
  }
  n.opacity(s.initially_visible?1:0);
+ const operation=blendOperation(s,d);
+ // Non-normal native operations cache the subject subtree and blend it into
+ // the parent's active draw target; the existing alpha and clip stack apply.
+ if(operation!=='source-over')n.compositeOperation(operation);
  if(n instanceof Layout){n.clip(n.clip()||s.clip_intentional);layoutSubject(n,s,d);}
  return n;
 }
@@ -149,7 +160,10 @@ function createShot(shot:NativeShot,d:NativeSceneData,urls:AssetUrls,nodes:Map<s
  const byId=new Map(shot.subjects.map(s=>[s.id,s]));
  const pending=new Map(byId);let count=0;
  while(pending.size){let progress=false;
-  for(const [id,s] of pending){if(s.parent&&!nodes.has(s.parent))continue;
+  // Film v2 uses a stable parent-depth pass so equal layer-order siblings
+  // retain source order even when a parent appears later in the input.
+  const readyParents=d.version===2?new Set(nodes.keys()):null;
+  for(const [id,s] of pending){if(s.parent&&!(readyParents?readyParents.has(s.parent):nodes.has(s.parent)))continue;
    requireValue(!nodes.has(id),'duplicate logical id');const n=newSubject(s,d,urls);nodes.set(id,n);
    // Instrument before attaching the node. Motion Canvas may populate a render
    // cache as soon as a subtree is attached; wrapping after view.add can miss
@@ -778,7 +792,8 @@ function* captionAtNativeFrame(absoluteTime:number):ThreadGenerator{
  while(thread.fixed+1e-9<at)yield;
 }
 export function createAuthoringScene(data:NativeSceneData,urls:AssetUrls){
- requireValue(data.version===1&&data.shots.length<=128&&data.instructions.length<=8192,'native scene bounds');
+ requireValue((data.version===1||data.version===2)&&data.shots.length<=128&&data.instructions.length<=8192,'native scene bounds');
+ for(const shot of data.shots)for(const subject of shot.subjects)blendOperation(subject,data);
  return makeScene2D(function*(view){
   const nodes=new Map<string,Node>();const reg=registration(data,nodes);sceneRegistrations.set(data.id,reg);
   // Capture the stage canvas before any authored subtree is attached, then

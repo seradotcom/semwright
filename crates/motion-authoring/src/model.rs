@@ -199,6 +199,22 @@ pub enum SpatialIntent {
         intentional: bool,
     },
 }
+/// Subject-level compositing on the parent's render target. A non-normal
+/// operation composites the native subject subtree as one source.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SubjectBlendMode {
+    #[default]
+    Normal,
+    Multiply,
+    Screen,
+    Add,
+}
+impl SubjectBlendMode {
+    pub fn is_normal(&self) -> bool {
+        *self == Self::Normal
+    }
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Subject {
@@ -210,6 +226,9 @@ pub struct Subject {
     pub layout: SpatialIntent,
     pub initially_visible: bool,
     pub clip_intentional: bool,
+    /// Omitted normal preserves legacy serialized intent and digest.
+    #[serde(default, skip_serializing_if = "SubjectBlendMode::is_normal")]
+    pub blend_mode: SubjectBlendMode,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]

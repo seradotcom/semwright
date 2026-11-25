@@ -1005,3 +1005,265 @@ async fn assert_source_bound_native_caption_frames(
         "another original native verification rule failed"
     );
 }
+
+// Independent straight-alpha oracle for the authored sRGB colors. This does
+// not call the driver's compositor or inspect its generated drawing commands.
+fn subject_blend_expected(mode: &str, backdrop: [u8; 4], source: [u8; 4]) -> [u8; 4] {
+    let ab = f64::from(backdrop[3]) / 255.0;
+    let asrc = f64::from(source[3]) / 255.0;
+    let alpha = if mode == "add" {
+        (ab + asrc).min(1.0)
+    } else {
+        asrc + ab * (1.0 - asrc)
+    };
+    let quantize = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+    let mut result = [0; 4];
+    if alpha > 0.0 {
+        for i in 0..3 {
+            let cb = f64::from(backdrop[i]) / 255.0;
+            let cs = f64::from(source[i]) / 255.0;
+            let premultiplied = match mode {
+                "add" => (ab * cb + asrc * cs).min(1.0),
+                _ => {
+                    let blended = match mode {
+                        "normal" => cs,
+                        "multiply" => cb * cs,
+                        "screen" => cb + cs - cb * cs,
+                        _ => panic!("unsupported oracle mode"),
+                    };
+                    (1.0 - asrc) * ab * cb + (1.0 - ab) * asrc * cs + ab * asrc * blended
+                }
+            };
+            result[i] = quantize(premultiplied / alpha);
+        }
+    }
+    result[3] = quantize(alpha);
+    result
+}
+
+#[tokio::test]
+#[ignore = "requires pinned Motion Canvas runtime plus production Broker and Driver Host"]
+async fn subject_blend_native_pixels() {
+    assert!(
+        std::env::var_os("SEMWRIGHT_TEST_MOTION_CANVAS_RENDER").is_some(),
+        "native pixel oracle must not pass without renderer opt-in"
+    );
+    let h = Harness::new();
+    std::fs::remove_file(h.project.path().join("semwright-motion.json")).unwrap();
+    let node =
+        PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_MOTION_NODE").expect("Node tool env"));
+    let runtime =
+        PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_MOTION_RUNTIME").expect("runtime root env"));
+    let grants = vec![
+        grant("motion-node-tool", &node, false),
+        grant("project", h.project.path(), true),
+        grant("output", h.output.path(), true),
+        grant("runtime", &runtime, false),
+        grant("fontconfig", Path::new("/etc/fonts"), false),
+    ];
+    let provider = DriverProvider::connect(
+        manifest(h.executable.clone(), digest(&node)),
+        h.state.path(),
+        &h.helper,
+        &grants,
+        false,
+    )
+    .await
+    .unwrap();
+    let caps = Provider::capabilities(provider.as_ref()).await.unwrap();
+    let plan_cap = find(&caps, "driver.motion-canvas.composition.plan");
+    assert_eq!(plan_cap.descriptor.version, "1.1");
+    let audit = Audit::open(&h.state.path().join("broker-audit"), 65_536, 2).unwrap();
+    let policy = Policy::new(PolicyConfig {
+        allow: [provider.identity().id.clone()].into(),
+        ..Default::default()
+    })
+    .unwrap();
+    let broker = Broker::new(
+        policy,
+        vec![],
+        audit,
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    broker.mount_provider(provider.clone()).await.unwrap();
+
+    let film: Value = serde_json::from_slice(include_bytes!(
+        "../../../fixtures/composition/motion/subject-blend.json"
+    ))
+    .unwrap();
+    let budget = json!({
+        "max_iterations": 4, "max_operations": 64, "max_findings": 64,
+        "max_observations": 8, "max_elapsed_ms": 120000
+    });
+    let mut unsupported = film.clone();
+    unsupported["version"] = json!(1);
+    let refusal = broker
+        .clone()
+        .execute(
+            BROKER_SESSION.into(),
+            semwright_types::unique_id(),
+            semwright_types::ExecuteRequest {
+                command: "driver.motion-canvas.composition.plan".into(),
+                args: json!({"film": unsupported, "budget": budget.clone()}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(
+        !refusal.ok,
+        "v1 must not silently flatten non-normal blending"
+    );
+    assert_eq!(
+        refusal.error.expect("unsupported profile error").code,
+        semwright_types::ErrorCode::Unsupported
+    );
+    let empty = broker_call(
+        &broker,
+        "driver.motion-canvas.composition.inspect",
+        json!({}),
+    )
+    .await;
+    assert_eq!(empty["fingerprint"], Value::Null);
+    assert_eq!(empty["film"], Value::Null);
+    assert_eq!(empty["authoring_version"], 2);
+    assert!(!h.project.path().join("semwright-motion.json").exists());
+
+    let planned = broker_call(
+        &broker,
+        "driver.motion-canvas.composition.plan",
+        json!({"film": film.clone(), "budget": budget}),
+    )
+    .await;
+    let plan_ref = planned["plan_ref"].as_str().unwrap();
+    let applied = broker_call(
+        &broker,
+        "driver.motion-canvas.composition.apply",
+        json!({"plan_ref": plan_ref, "dry_run": false}),
+    )
+    .await;
+    assert_eq!(applied["applied"], true);
+    let fingerprint = applied["fingerprint"].as_str().unwrap();
+    let inspected = broker_call(
+        &broker,
+        "driver.motion-canvas.composition.inspect",
+        json!({}),
+    )
+    .await;
+    assert_eq!(inspected["fingerprint"], fingerprint);
+    assert_eq!(inspected["film"]["version"], 2);
+    let subjects = inspected["film"]["sequences"][0]["beats"][0]["shots"][0]["subjects"]
+        .as_array()
+        .unwrap();
+    for mode in ["normal", "multiply", "screen", "add"] {
+        let id = format!("{mode}_source");
+        let subject = subjects
+            .iter()
+            .find(|s| s["id"] == id)
+            .expect("persisted subject");
+        assert_eq!(subject["blend_mode"].as_str().unwrap_or("normal"), mode);
+    }
+    let started = broker_call(
+        &broker,
+        "driver.motion-canvas.render.start",
+        json!({
+            "expected_fingerprint": fingerprint,
+            "profile": {"first_frame":0, "end_frame_exclusive":1, "scale":"full",
+                "transparent":true, "timeout_ms":120000}
+        }),
+    )
+    .await;
+    let job_ref = started["job_ref"].as_str().unwrap();
+    let terminal = tokio::time::timeout(Duration::from_secs(150), async {
+        loop {
+            let status = broker_call(
+                &broker,
+                "driver.motion-canvas.render.status",
+                json!({"job_ref":job_ref}),
+            )
+            .await;
+            match status["state"].as_str().unwrap() {
+                "succeeded" | "failed" | "cancelled" => break status,
+                _ => tokio::time::sleep(Duration::from_millis(100)).await,
+            }
+        }
+    })
+    .await
+    .expect("bounded native render");
+    assert_eq!(terminal["state"], "succeeded", "{terminal:#}");
+    assert_eq!(terminal["artifact"]["frame_count"], 1);
+    let rendered = broker_call(
+        &broker,
+        "driver.motion-canvas.render.result",
+        json!({"job_ref":job_ref}),
+    )
+    .await;
+    assert_eq!(rendered["state"], "succeeded");
+    let file = h
+        .output
+        .path()
+        .join(rendered["artifact"]["directory"].as_str().unwrap())
+        .join("frames/000000.png");
+    let bytes = std::fs::read(&file).expect("native PNG artifact");
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(&bytes));
+    decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    decoder.set_limits(png::Limits { bytes: 1024 * 1024 });
+    let mut reader = decoder.read_info().unwrap();
+    let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+    let info = reader.next_frame(&mut pixels).unwrap();
+    assert_eq!((info.width, info.height), (192, 128));
+    assert_eq!(info.color_type, png::ColorType::Rgba);
+    assert_eq!(info.bit_depth, png::BitDepth::Eight);
+
+    let backdrop = [64, 128, 192, 128];
+    let source = [208, 96, 48, 128];
+    let mut samples = vec![];
+    let mut all_match = true;
+    for (mode, cx, cy) in [
+        ("normal", 48, 32),
+        ("multiply", 144, 32),
+        ("screen", 48, 96),
+        ("add", 144, 96),
+    ] {
+        for (region, x, y, expected) in [
+            (
+                "overlap",
+                cx + 4,
+                cy,
+                subject_blend_expected(mode, backdrop, source),
+            ),
+            ("inner_clip_left", cx - 24, cy, backdrop),
+            ("inner_clip_bottom", cx, cy + 18, backdrop),
+            ("outer_clip_right", cx + 36, cy, [0; 4]),
+        ] {
+            let i = (y * 192 + x) * 4;
+            let actual: [u8; 4] = pixels[i..i + 4].try_into().unwrap();
+            let passed = actual.iter().zip(expected).all(|(a, b)| a.abs_diff(b) <= 3);
+            all_match &= passed;
+            samples.push(json!({"mode":mode,"region":region,"x":x,"y":y,
+                "expected":expected,"actual":actual,"passed":passed}));
+        }
+    }
+    let evidence = json!({"native_artifact_sha256":digest(&file),
+        "fingerprint":fingerprint,"job_ref":job_ref,"width":info.width,"height":info.height,
+        "tolerance_per_channel":3,"samples":samples,"passed":all_match});
+    if let Some(dir) = std::env::var_os("SEMWRIGHT_TEST_MOTION_EVIDENCE").map(PathBuf::from) {
+        let dir = dir.join("subject-blend");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("native.png"), &bytes).unwrap();
+        std::fs::write(
+            dir.join("pixel-oracle.json"),
+            serde_json::to_vec_pretty(&evidence).unwrap(),
+        )
+        .unwrap();
+    }
+    assert!(
+        all_match,
+        "native blend pixel oracle mismatch: {evidence:#}"
+    );
+}

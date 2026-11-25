@@ -287,6 +287,7 @@ impl Builder {
             "duplicate fixture alias"
         );
         self.shot().subjects.push(Subject {
+            blend_mode: semwright_motion_authoring::SubjectBlendMode::Normal,
             id: id.clone(),
             role: role.into(),
             parent: parent.map(str::to_owned),
