@@ -24,7 +24,23 @@ from pathlib import Path
 import runpy
 
 checkpoint("workspace_resolve")
-workspace = Path(workspace).resolve(strict=True)
+try:
+    workspace = Path(workspace).resolve(strict=True)
+except OSError as error:
+    # Only fixed classifications leave the native process, never a path or
+    # exception message. Do not continue after an unresolved workspace.
+    winerror = getattr(error, "winerror", None)
+    if winerror == 5:
+        checkpoint("workspace_access_denied")
+    elif winerror in (2, 3):
+        checkpoint("workspace_path_missing")
+    elif winerror in (32, 33):
+        checkpoint("workspace_sharing_denied")
+    elif winerror == 123:
+        checkpoint("workspace_invalid_name")
+    else:
+        checkpoint("workspace_resolve_os_error")
+    raise
 checkpoint("code_resolve")
 code = Path(code).resolve(strict=True)
 checkpoint("runtime_resolve")

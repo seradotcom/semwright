@@ -102,8 +102,11 @@ def main():
     case = Path(tempfile.mkdtemp(prefix="b")).resolve()
     protect(case, sid)
     data_root = case / "d"
-    workspace = case / "workspace"
-    workspace.mkdir()
+    # Keep the private broker state under the already qualified OS temp root.
+    # The owner-authorized workspace is a distinct disposable directory on
+    # the hosted runner volume, not nested below the private state case.
+    runner_temp = Path(os.environ["RUNNER_TEMP"]).resolve(strict=True)
+    workspace = Path(tempfile.mkdtemp(prefix="w", dir=runner_temp)).resolve(strict=True)
     before_security = workspace_security(workspace, sid)
     # An elevated hosted runner can create Administrator-owned children. Only
     # this newly created fixture is assigned to the active runner; Core's
@@ -115,10 +118,13 @@ def main():
     after_security = workspace_security(workspace, sid)
     write_json(output / "workspace-security.json",
                {"before": before_security, "after": after_security,
-                "private_data_root_utf16_units": len(str(data_root).encode("utf-16-le")) // 2})
+                "private_data_root_utf16_units": len(str(data_root).encode("utf-16-le")) // 2,
+                "workspace_root_kind": "separate_runner_temp",
+                "workspace_drive_differs_from_data": workspace.drive != data_root.drive})
     if not all(after_security.values()):
         raise RuntimeError("New fixture does not satisfy native workspace ownership")
     if options.preflight_only:
+        shutil.rmtree(workspace)
         shutil.rmtree(case)
         write_json(output / "result.json",
                    {"source": source, "status": "PASS_NATIVE_FIXTURE_OWNERSHIP",

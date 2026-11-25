@@ -55,8 +55,8 @@
   "host_local_bootstrap": {
     "file": "src/windows_blender52_bootstrap.py",
     "private_target": "bootstrap.py",
-    "bytes": 2272,
-    "sha256": "ca5ab8885b68b644eafd38e49c11e5d4130d07c9c55c57af5d854b0d12369d98"
+    "bytes": 2861,
+    "sha256": "a44d78c8cfd355b639b5cb90b83e3cb1f28335573c63ae0eaa3bb2f58218042c"
   },
   "empty_package": {
     "private_target": "semwright_blender_runtime/__init__.py",
