@@ -294,10 +294,11 @@ class SemanticError(Exception):
 
 
 class SemanticStore:
-    def __init__(self, bpy, workspace):
+    def __init__(self, bpy, workspace, path_resolver=None):
         self.bpy = bpy
         self.workspace = Path(workspace)
-        if not self.workspace.is_absolute() or self.workspace == Path("/") or self.workspace.resolve(strict=True) != self.workspace:
+        self._path_resolver = path_resolver or (lambda path: path.resolve(strict=True))
+        if not self.workspace.is_absolute() or self.workspace == Path("/") or self._path_resolver(self.workspace) != self.workspace:
             raise ValueError("Blender semantic workspace must be canonical and absolute")
         self.generation = 1
         # Reference identity is local to this loaded state, not an authority token.
@@ -738,7 +739,7 @@ class SemanticStore:
         if metadata.st_size > 512 * 1024 * 1024:
             raise SemanticError("PolicyDenied", "Asset exceeds the 512 MiB semantic import ceiling")
         try:
-            resolved = path.resolve(strict=True)
+            resolved = self._path_resolver(path)
             resolved.relative_to(self.workspace)
         except Exception as error:
             raise SemanticError("PolicyDenied", "Asset escaped the workspace root") from error

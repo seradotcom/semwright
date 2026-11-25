@@ -125,6 +125,8 @@ jobs:
           components: rustfmt
       - name: Format native Host
         run: rustfmt --edition 2024 --check crates/driver-host/src/windows_blender52.rs
+      - name: Check native physical path identity regressions
+        run: python -B crates/driver-blender/tests/windows_native_path_pins.py
       - name: Verify exact native bootstrap pins and checkpoint parsing
         run: cargo test --locked -p semwright-driver-host --lib pinned_blender_assets_tests
       - name: Build exact-source setup companions and native driver

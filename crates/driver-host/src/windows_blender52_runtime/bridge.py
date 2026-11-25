@@ -95,10 +95,13 @@ from semwright_blender_runtime.authoring_native import AuthoringRuntime  # noqa:
 
 if _stdio is not None:
     _startup_checkpoint("bridge_commands", output_fd)
-commands = Commands(bpy, workspace)
+if _stdio is not None and not callable(globals().get("_native_workspace_resolve")):
+    raise SystemExit(4)
+_workspace_resolver = _native_workspace_resolve if _stdio is not None else None
+commands = Commands(bpy, workspace, path_resolver=_workspace_resolver)
 if _stdio is not None:
     _startup_checkpoint("bridge_semantic", output_fd)
-semantic = SemanticStore(bpy, commands.workspace.root)
+semantic = SemanticStore(bpy, commands.workspace.root, path_resolver=_workspace_resolver)
 if _stdio is not None:
     _startup_checkpoint("bridge_authoring", output_fd)
 authoring = AuthoringRuntime(bpy, commands, semantic)
@@ -935,7 +938,7 @@ def dispatch(command, args):
         data = commands("blender." + command[len("driver.blender."):], args)
         if command in {"driver.blender.file.open", "driver.blender.file.open_initial"}:
             # Loading replaces datablocks. Old native references and authoring session refs expire.
-            semantic = SemanticStore(bpy, commands.workspace.root)
+            semantic = SemanticStore(bpy, commands.workspace.root, path_resolver=_workspace_resolver)
             authoring = AuthoringRuntime(bpy, commands, semantic)
         if command in {
             "driver.blender.object.create", "driver.blender.object.delete",

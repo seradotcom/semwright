@@ -6,15 +6,15 @@
       "file": "bridge.py",
       "canonical": "../driver-blender/src/bridge.py",
       "private_target": "bridge.py",
-      "bytes": 55946,
-      "sha256": "c4387e733ac9f1ea4aa8d632f37ca2bd93139f061a445aedfc3b434e89d9cf1e"
+      "bytes": 56239,
+      "sha256": "b1755fcf4a2a6cca6268d42cb4b71cacd1345f3f2dce16348b8cd102967b2063"
     },
     {
       "file": "commands.py",
       "canonical": "../../adapters/blender/semwright_blender/commands.py",
       "private_target": "semwright_blender_runtime/commands.py",
-      "bytes": 49806,
-      "sha256": "5c695e16a9970ca18f0715d14553e48910f5415718e2b4ee863f7eb8b9816960"
+      "bytes": 49924,
+      "sha256": "0cdfde6384fec2f0dcbf8fa81cf571fde84deca4743cc5652333ab24af8dd010"
     },
     {
       "file": "commands.json",
@@ -34,8 +34,8 @@
       "file": "semantic.py",
       "canonical": "../driver-blender/src/semantic.py",
       "private_target": "semwright_blender_runtime/semantic.py",
-      "bytes": 167713,
-      "sha256": "e3b4c9d253cf7b23cbcdb64d42dbdbafdc34cab722875f853d5005cb14453ee6"
+      "bytes": 167821,
+      "sha256": "35088c6c9b24eadbe8bbd58b16386daab804111a36d42f0ed2bd6585040ea205"
     },
     {
       "file": "authoring_native.py",
@@ -55,8 +55,8 @@
   "host_local_bootstrap": {
     "file": "src/windows_blender52_bootstrap.py",
     "private_target": "bootstrap.py",
-    "bytes": 2861,
-    "sha256": "a44d78c8cfd355b639b5cb90b83e3cb1f28335573c63ae0eaa3bb2f58218042c"
+    "bytes": 9807,
+    "sha256": "cc0d6a5b178a198282b3801f0c2195408302de4a8e72a5d022059b152f26b86e"
   },
   "empty_package": {
     "private_target": "semwright_blender_runtime/__init__.py",

@@ -178,3 +178,32 @@ retained without automatic replay. This does not protect against arbitrary
 concurrent same-owner mutation of private state, or change fresh-stage normal
 exit cleanup. It does not touch user workspaces, original runtime files,
 installed packages, old staging namespaces, or unconfirmed native exits.
+
+## Closed Windows native physical path resolution
+
+The closed Windows Blender profile must not rely on the restricted process
+being able to translate a physical volume name into a DOS drive letter.
+The trusted Host records the canonical local DOS spelling, normalized NT
+name and volume/file identity of each of its three validated mount roots
+using the same existing-object handle. The private child environment
+carries only those pins; callers cannot supply the table as a tool argument.
+
+Within this profile, strict existing-path checks open the requested DOS
+path with read-attributes access and no reparse following at the leaf.
+The resolver checks the physical root identity, then each descendant's
+normalized NT name, parent relationship and volume identity. It refuses
+reparse points, non-directory intermediates, multiple-link files, unsafe
+components and paths outside the selected root. Canonical aliases are
+reopened and compared when their spelling changes. NT names are used for
+comparison only, never as filesystem operation paths. No extra mount,
+ACL grant, capability, fallback to lexical resolution or device namespace
+is introduced. Other Blender transports retain the strict default resolver.
+
+The check is not a transaction against concurrent same-owner path mutation.
+Existing OS isolation, mount verification and effect uncertainty rules remain
+in force. This correction addresses the canonicalization failure mode;
+real restricted-process acceptance is still required.
+
+References (checked 2026-11-25):
+- https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfinalpathnamebyhandlew
+- https://github.com/microsoft/STL/issues/6286

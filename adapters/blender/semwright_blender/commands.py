@@ -26,9 +26,10 @@ def require_new(items, name):
 
 
 class Workspace:
-    def __init__(self, root):
+    def __init__(self, root, path_resolver=None):
         self.root = Path(root)
-        if not self.root.is_absolute() or self.root == Path("/") or self.root.resolve(strict=True) != self.root:
+        self.resolve = path_resolver or (lambda path: path.resolve(strict=True))
+        if not self.root.is_absolute() or self.root == Path("/") or self.resolve(self.root) != self.root:
             raise ValueError("Blender workspace must be a canonical absolute non-root directory")
         if not self.root.is_dir():
             raise ValueError("Blender workspace must exist")
@@ -53,7 +54,7 @@ class Workspace:
         except FileNotFoundError:
             if existing:
                 raise CommandError("NotFound", "Input file does not exist")
-        if current.resolve(strict=True) != current:
+        if self.resolve(current) != current:
             raise CommandError("PolicyDenied", "Workspace path has changed")
         return str(path)
 
@@ -137,9 +138,9 @@ def configure_cycles(bpy, scene, device, backend):
 
 
 class Commands:
-    def __init__(self, bpy, workspace):
+    def __init__(self, bpy, workspace, path_resolver=None):
         self.bpy = bpy
-        self.workspace = Workspace(workspace)
+        self.workspace = Workspace(workspace, path_resolver)
 
     def __call__(self, command, args):
         schema = SCHEMAS.get(command)
@@ -401,7 +402,7 @@ class Commands:
         """Keep bounded local exception details; never put them on the protocol."""
         try:
             root = self.workspace.root
-            if root.resolve(strict=True) != root:
+            if self.workspace.resolve(root) != root:
                 return False
             count = 0
             with os.scandir(root) as entries:

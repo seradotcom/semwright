@@ -79,10 +79,10 @@ use windows::Win32::{
         BY_HANDLE_FILE_INFORMATION, CreateFileW, DELETE, FILE_APPEND_DATA,
         FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
         FILE_DELETE_CHILD, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
-        FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES,
-        FILE_READ_DATA, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_NAME_NORMALIZED,
+        FILE_READ_ATTRIBUTES, FILE_READ_DATA, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
         FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle,
-        OPEN_EXISTING, WRITE_DAC, WRITE_OWNER,
+        GetFinalPathNameByHandleW, OPEN_EXISTING, VOLUME_NAME_NT, WRITE_DAC, WRITE_OWNER,
     },
     System::{
         Com::CoTaskMemFree,
@@ -2505,6 +2505,80 @@ fn command_line(spec: &SandboxSpec, args: &[String]) -> Result<Vec<u16>> {
     Ok(out)
 }
 
+// AppContainer may be unable to translate an accessible volume into a DOS
+// drive letter. Pin both normalized names and the physical identity in the
+// trusted Host, and compare NT names inside the closed native child. No extra
+// mount, filesystem permission or device namespace is exposed.
+fn native_path_pins(spec: &SandboxSpec) -> Result<String> {
+    let final_name = |file: &File, flags| -> Result<String> {
+        let mut buffer = vec![0u16; 32_768];
+        // SAFETY: file owns a live HANDLE and buffer is valid for this call.
+        let length =
+            unsafe { GetFinalPathNameByHandleW(HANDLE(file.as_raw_handle()), &mut buffer, flags) };
+        if length == 0 || length as usize >= buffer.len() {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Native mount physical name unavailable",
+            ));
+        }
+        String::from_utf16(&buffer[..length as usize])
+            .map_err(|_| Error::invalid("Native mount physical name is not Unicode"))
+    };
+    let mut pins = Vec::with_capacity(3);
+    for mount in &spec.mounts {
+        let (validated, directory) = validate_mount_tree(&mount.source)?;
+        if !directory {
+            return Err(Error::invalid("Native mount must be a directory"));
+        }
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .access_mode(FILE_READ_ATTRIBUTES.0)
+            .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0 | FILE_SHARE_DELETE.0)
+            .custom_flags((FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS).0)
+            .open(&mount.source)?;
+        let metadata = info(&file)?;
+        if metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+            || metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 == 0
+            || file_identity(&metadata) != validated
+        {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Native mount identity changed",
+            ));
+        }
+        let dos = final_name(&file, FILE_NAME_NORMALIZED)?;
+        let dos = dos
+            .strip_prefix(r"\\?\")
+            .filter(|value| {
+                let bytes = value.as_bytes();
+                bytes.len() > 3
+                    && bytes[0].is_ascii_alphabetic()
+                    && bytes[1] == b':'
+                    && bytes[2] == b'\\'
+            })
+            .ok_or_else(|| Error::invalid("Native mount requires a canonical local drive path"))?;
+        let nt = final_name(&file, VOLUME_NAME_NT)?;
+        if !nt.starts_with(r"\Device\") {
+            return Err(Error::invalid(
+                "Native mount requires a normalized local NT name",
+            ));
+        }
+        pins.push(serde_json::json!({
+            "role": mount.logical_name,
+            "path": mount.source,
+            "canonical": dos,
+            "nt": nt,
+            "identity": file_identity(&metadata),
+        }));
+    }
+    if pins.len() != 3 {
+        return Err(Error::invalid(
+            "Native mount pins require exactly three roots",
+        ));
+    }
+    Ok(serde_json::to_string(&pins)?)
+}
+
 fn environment_block(
     spec: &SandboxSpec,
     profile: &AppContainerProfile,
@@ -2553,6 +2627,13 @@ fn environment_block(
     entries.push(("TEMP".into(), temp.to_string_lossy().into_owned()));
     entries.push(("TMP".into(), temp.to_string_lossy().into_owned()));
     if let WindowsLaunchMode::Blender521Initial { runtime } = mode {
+        if entries
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case("SEMWRIGHT_NATIVE_PATH_PINS"))
+        {
+            return Err(Error::invalid("Native path pins are reserved to the Host"));
+        }
+        entries.push(("SEMWRIGHT_NATIVE_PATH_PINS".into(), native_path_pins(spec)?));
         let resources = runtime.join("5.2");
         let user = Path::new(&profile.local_app_data).join("BlenderUser");
         std::fs::create_dir(&user)?;

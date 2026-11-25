@@ -184,6 +184,7 @@ fn mount_arg(name: &str) -> Result<String> {
 const STARTUP_CHECKPOINTS: &[&str] = &[
     "bootstrap_imports",
     "workspace_resolve",
+    "workspace_nt_verified",
     "workspace_access_denied",
     "workspace_path_missing",
     "workspace_sharing_denied",

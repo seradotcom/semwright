@@ -43,8 +43,9 @@ class Workspace:
         return bool(getattr(meta, "st_file_attributes", 0)
                     & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
 
-    def __init__(self, root):
+    def __init__(self, root, path_resolver=None):
         self.root = Path(root)
+        self.resolve = path_resolver or (lambda path: path.resolve(strict=True))
         # Reject remote/device namespaces before performing any filesystem lookup.
         if os.name == "nt":
             drive = self.root.drive
@@ -55,7 +56,7 @@ class Workspace:
                     or any(self._windows_component_unsafe(p) for p in self.root.parts[1:])):
                 raise ValueError("Blender workspace must use an unambiguous local drive path")
         if (not self.root.is_absolute() or self.root.parent == self.root
-                or self.root.resolve(strict=True) != self.root):
+                or self.resolve(self.root) != self.root):
             raise ValueError("Blender workspace must be a canonical absolute non-root directory")
         if os.name == "nt":
             meta = self.root.lstat()
@@ -75,7 +76,7 @@ class Workspace:
                 raise CommandError("PolicyDenied", "Windows paths must use portable relative components")
             root_meta = self.root.lstat()
             if (self._reparse(root_meta) or not stat.S_ISDIR(root_meta.st_mode)
-                    or self.root.resolve(strict=True) != self.root):
+                    or self.resolve(self.root) != self.root):
                 raise CommandError("PolicyDenied", "Workspace root has changed")
         path = self.root.joinpath(*segments)
         if path.suffix.lower() != suffix:
@@ -95,7 +96,7 @@ class Workspace:
         except FileNotFoundError:
             if existing:
                 raise CommandError("NotFound", "Input file does not exist")
-        if current.resolve(strict=True) != current:
+        if self.resolve(current) != current:
             raise CommandError("PolicyDenied", "Workspace path has changed")
         return str(path)
 
@@ -328,9 +329,9 @@ def checkpoint_inspection(bpy):
 
 
 class Commands:
-    def __init__(self, bpy, workspace):
+    def __init__(self, bpy, workspace, path_resolver=None):
         self.bpy = bpy
-        self.workspace = Workspace(workspace)
+        self.workspace = Workspace(workspace, path_resolver)
         self.initial_open_available = True
 
     def __call__(self, command, args):
@@ -725,7 +726,7 @@ class Commands:
         """Keep bounded local exception details; never put them on the protocol."""
         try:
             root = self.workspace.root
-            if root.resolve(strict=True) != root:
+            if self.workspace.resolve(root) != root:
                 return False
             count = 0
             with os.scandir(root) as entries:
