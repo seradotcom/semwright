@@ -1935,7 +1935,7 @@ mod tests {
         let composed_digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
         assert_eq!(
             composed_digest,
-            "f6de5045c2e5b54d1df99ae928d2533f71364f2c062a0367aa45f99bde217206"
+            "ae8554dc3a98c30ac1309314f7d0103788d75041b8ce4375392b5d1915fc6508"
         );
         let observed_doctor = catalog
             .iter()
@@ -1956,6 +1956,33 @@ mod tests {
         // Host diagnostics and their two definitions. No other schema or
         // permission change can inherit the previous catalog's golden.
         let mut observer_catalog = catalog.clone();
+        // The only admitted capability catalog delta for Film v2 is the
+        // composition.plan descriptor version and its explicit discovery tag.
+        // Recover the exact reviewed predecessor before applying any of the
+        // historical schema reversions below. All earlier goldens stay fixed.
+        let plan_count = observer_catalog
+            .iter()
+            .filter(|cap| cap.descriptor.name == "driver.motion-canvas.composition.plan")
+            .count();
+        assert_eq!(plan_count, 1);
+        let plan = observer_catalog
+            .iter_mut()
+            .find(|cap| cap.descriptor.name == "driver.motion-canvas.composition.plan")
+            .unwrap();
+        assert_eq!(plan.descriptor.version, "1.1");
+        assert_eq!(plan.tags.pop().as_deref(), Some("film-v2-subject-blend-v1"));
+        assert!(
+            !plan
+                .tags
+                .iter()
+                .any(|tag| tag == "film-v2-subject-blend-v1")
+        );
+        plan.descriptor.version = "1".into();
+        assert_eq!(
+            semwright_driver_sdk::capabilities_digest(&observer_catalog).unwrap(),
+            "f6de5045c2e5b54d1df99ae928d2533f71364f2c062a0367aa45f99bde217206",
+            "catalog changes beyond the reviewed subject blend discovery delta"
+        );
         let mut expected_failure = embedded_scalar::<crate::renderer::HostFailure>();
         let expected_definitions = expected_failure
             .as_object_mut()
