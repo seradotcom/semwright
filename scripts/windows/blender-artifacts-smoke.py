@@ -9,6 +9,9 @@ import argparse
 import hashlib
 import json
 import os
+import re
+import runpy
+import sys
 from pathlib import Path
 import secrets
 import shutil
@@ -74,24 +77,149 @@ def cli_json(cli, common, args, env, timeout=30):
         raise RuntimeError("Native CLI returned a non-JSON response: " + proc.stderr[-400:]) from error
 
 
+CATALOG_COMMANDS = (
+    "artifact.handoff",
+    "driver.blender.composition.reopen",
+    "driver.blender.composition.inspect",
+    "driver.blender.scene.inspect",
+    "driver.blender.collection.list",
+    "driver.blender.introspect.summary",
+    "driver.blender.render.settings",
+    "driver.blender.render",
+    "driver.blender.export.glb",
+)
+
+
+def registered_catalog_bundle(root, sid, output):
+    """Reuse the archived source-bound portable; do not rebuild or substitute it."""
+    pins = json.loads((root / "pins.json").read_text(encoding="utf-8-sig"))
+    record = json.loads((root / "run.json").read_text(encoding="utf-8-sig"))
+    assert set(pins) == {"source", "run", "archive_sha256", "driver_sha256"}
+    assert re.fullmatch(r"[0-9a-f]{40}", pins["source"])
+    assert re.fullmatch(r"[1-9][0-9]{0,19}", pins["run"])
+    assert all(re.fullmatch(r"[0-9a-f]{64}", pins[k])
+               for k in ("archive_sha256", "driver_sha256"))
+    assert record["headSha"] == pins["source"]
+    assert str(record["databaseId"]) == pins["run"]
+    assert record["status"] == "completed" and record["conclusion"] == "success"
+    archive = root / "portable/semwright-1.0.0-windows-x86_64.zip"
+    driver = root / "driver/target/debug/semwright-blender-driver.exe"
+    assert sha(archive) == pins["archive_sha256"]
+    assert sha(driver) == pins["driver_sha256"]
+    manifest = json.loads((root / "driver/verification/windows-blender-native/manifest.json")
+                          .read_text(encoding="utf-8"))
+    assert manifest["source"] == pins["source"] and manifest["sha256"] == pins["driver_sha256"]
+    assert manifest["name"] == driver.name and manifest["windows_blender_version"] == "5.2.1"
+    assert manifest["native_host_profile"] == "blender_5_2_1_initial"
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "release"))
+    from portable_package import safe_extract
+    from bundle_contract import verify_checksums
+    installation = Path(tempfile.mkdtemp(prefix="catalog-pinned-")).resolve(strict=True)
+    bundle = safe_extract(archive, "windows", installation)
+    assert bundle.name == "semwright-1.0.0-windows-x86_64"
+    payload = verify_checksums(bundle)
+    runpy.run_path(str(Path(__file__).with_name("pinned-pipe-peer-smoke.py")))["restrict_bundle"](installation, sid)
+    installer = ["pwsh", "-NoProfile", "-NonInteractive", "-File",
+                 bundle / "Install-Semwright.ps1", "-InPlace"]
+    for args in (installer + ["-Check"], installer):
+        result = run(args, timeout=60)
+        if result.returncode:
+            raise RuntimeError("Archived portable registration refused: " + result.stderr[-800:])
+    for relative, expected in payload.items():
+        assert sha(bundle / relative) == expected
+    receipt = bundle / ".semwright-install-receipt"
+    assert receipt.is_file()
+    write_json(output / "archived-source.json", {
+        "source_run": record, "pins": pins, "driver_manifest": manifest,
+        "binary_sha256": {name: sha(bundle / "bin" / name) for name in (
+            "semwright.exe", "semwrightd.exe", "semwright-mcp.exe",
+            "semwright-inspect.exe", "semwright-sandbox.exe")},
+        "registered_installation_receipt_sha256": sha(receipt),
+        "payload_entries": len(payload)})
+    return bundle / "bin", driver.resolve(strict=True), pins
+
+
+def catalog_envelope(result, command):
+    envelope = result["structuredContent"]
+    assert result.get("isError", False) is False
+    assert envelope["ok"] is True and envelope["command"] == command
+    execution = envelope["execution"]
+    assert execution["backend"] == "core" and execution["dry_run"] is False
+    assert execution["fallbacks_attempted"] == []
+    return envelope
+
+
+def observe_native_catalog(bins, case, env, output, report):
+    """Use the registered MCP's attested Windows pipe connection, not a mock."""
+    entry = json.loads((case / "config/mcp-client.json").read_text(
+        encoding="utf-8"))["mcpServers"]["semwright"]
+    assert Path(entry["command"]) == bins / "semwright-mcp.exe"
+    client_class = runpy.run_path(str(Path(__file__).with_name(
+        "workspace-smoke.py")))["McpClient"]
+    responses = {}
+    with (output / "mcp.log").open("x", encoding="utf-8") as stderr:
+        client = client_class(entry, stderr, env)
+        try:
+            def call(label, tool, command, arguments):
+                envelope = catalog_envelope(client.request("tools/call", {
+                    "name": tool, "arguments": arguments}), command)
+                path = output / (label + ".response.json")
+                write_json(path, envelope)
+                responses[label] = {"request_id": envelope["request_id"], "sha256": sha(path)}
+                return envelope["data"]
+            before = call("doctor-before", "semwright_doctor", "doctor", {})
+            assert before["fake"] is False
+            provider_status = before["providers"]
+            revision = provider_status["revision"]
+            assert any(p["route"] == "driver:blender" and p["connected"] is True
+                       for p in provider_status["providers"])
+            for index, command in enumerate(CATALOG_COMMANDS):
+                data = call(f"descriptor-{index:02d}", "capabilities_describe",
+                            "capabilities.describe", {"name": command})
+                assert data["revision"] == revision
+                assert data["capability"]["name"] == command
+                assert isinstance(data["provenance"], dict) and data["provenance"]
+                assert isinstance(data["routes"], list)
+                assert data["availability_is_authorization"] is False
+            after = call("doctor-after", "semwright_doctor", "doctor", {})
+            assert after["fake"] is False and after["providers"] == provider_status
+        finally:
+            client.close()
+        assert client.process.poll() is not None
+    assert len({row["request_id"] for row in responses.values()}) == len(CATALOG_COMMANDS) + 2
+    report.update({"catalog_commands": list(CATALOG_COMMANDS),
+                   "catalog_revision_before": revision, "catalog_revision_after": revision,
+                   "catalog_responses": responses, "mcp_stopped": True,
+                   "transport": "registered Windows MCP with attested pipe peer",
+                   "new_native_commands": 0})
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bin-dir", type=Path)
     parser.add_argument("--blender-root", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--preflight-only", action="store_true")
+    parser.add_argument("--catalog-root", type=Path)
     options = parser.parse_args()
+    catalog_only = options.catalog_root is not None
+    if catalog_only and (options.preflight_only or options.bin_dir is not None):
+        parser.error("catalog-only requires archived binaries, not build/preflight mode")
     if os.name != "nt" or os.environ.get("GITHUB_ACTIONS") != "true":
         raise SystemExit("This bounded native case runs only on hosted Windows Actions")
-    if not options.preflight_only and (options.bin_dir is None or options.blender_root is None):
+    if not options.preflight_only and (options.blender_root is None
+                                       or (not catalog_only and options.bin_dir is None)):
         parser.error("native execution requires --bin-dir and --blender-root")
     source = run(["git", "rev-parse", "HEAD"]).stdout.strip()
     if source != os.environ["GITHUB_SHA"]:
         raise RuntimeError("Native case source differs from CI source")
     output = options.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    write_json(output / "preflight.json", {"source": source, "powershell": "pwsh",
-               "mode": "ownership-only" if options.preflight_only else "native-artifacts",
+    harness_source = source
+    write_json(output / "preflight.json", {"source": None if catalog_only else source,
+               "harness_source": harness_source, "powershell": "pwsh",
+               "mode": ("archived-catalog-only" if catalog_only else
+                        "ownership-only" if options.preflight_only else "native-artifacts"),
                "native_started": False})
     sid = run(["pwsh", "-NoProfile", "-NonInteractive", "-Command",
                "[Security.Principal.WindowsIdentity]::GetCurrent().User.Value"]).stdout.strip()
@@ -131,12 +259,21 @@ def main():
                     "native_started": False, "fixture_removed": True})
         print("Native fixture ownership preflight passed; no broker or Blender started", flush=True)
         return
-    bins, runtime = options.bin_dir.resolve(), options.blender_root.resolve()
+    runtime = options.blender_root.resolve(strict=True)
+    if catalog_only:
+        bins, driver_source, catalog_pins = registered_catalog_bundle(
+            options.catalog_root.resolve(strict=True), sid, output)
+        source = catalog_pins["source"]
+    else:
+        bins = options.bin_dir.resolve(strict=True)
+        driver_source = bins / "semwright-blender-driver.exe"
     # setup intentionally refuses an incomplete adjacent executable bundle.
     required = ("semwright.exe", "semwrightd.exe", "semwright-mcp.exe",
                 "semwright-inspect.exe", "semwright-sandbox.exe",
-                "semwright-blender-driver.exe")
+                )
     missing = [name for name in required if not (bins / name).is_file()]
+    if not driver_source.is_file():
+        missing.append("semwright-blender-driver.exe")
     if missing:
         write_json(output / "result.json", {
             "source": source, "status": "FAILED_PRE_BROKER",
@@ -146,7 +283,7 @@ def main():
     protect(runtime, sid)
     (workspace / "reserved.png").write_bytes(b"existing-owner-artifact")
     driver = case / "semwright-blender-driver.exe"
-    shutil.copyfile(bins / driver.name, driver)
+    shutil.copyfile(driver_source, driver)
     blender = runtime / "blender.exe"
     manifest = {
         "manifest_version": 1, "protocol": 8, "id": "blender", "version": "1.0.0",
@@ -176,6 +313,8 @@ def main():
     env["SEMWRIGHT_DATA_DIR"] = str(data_root)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env.pop("SEMWRIGHT_MCP_UPSTREAMS", None)
+    for name in ("GH_TOKEN", "GITHUB_TOKEN"):
+        env.pop(name, None)
     pipe = r"\\.\pipe\semwright-native-artifacts-" + secrets.token_hex(12)
     cli = bins / "semwright.exe"
     common = ["--socket", pipe, "--session-file", str(case / "client.session"), "--json"]
@@ -200,12 +339,15 @@ def main():
     config.write_text(
         f"drivers = ['{manifest_path}']\ndriver_windows_blender52_initial = true\n"
         "driver_network = false\ndriver_nvidia_gpu = false\ndriver_recovery = false\n"
-        '[policy]\nprofile = "observe"\nallow = ["driver:blender"]\nconfirm_mutations = false\n'
+        '[policy]\nprofile = "observe"\nallow = ["driver:blender"]\n'
+        + ("confirm_mutations = true\n" if catalog_only else "confirm_mutations = false\n")
+        +
         f'[[policy.filesystem]]\nname = "workspace"\npath = \'{workspace}\'\nread = true\nwrite = true\n'
         f'[[policy.filesystem]]\nname = "blender-runtime"\npath = \'{runtime}\'\nread = true\nwrite = false\n'
         f'[[policy.filesystem]]\nname = "blender-executable"\npath = \'{blender}\'\nread = true\nwrite = false\n',
         encoding="utf-8", newline="\n")
-    report = {"status": "RUNNING", "source": source, "fake": None, "steps": [],
+    report = {"status": "RUNNING", "source": source, "harness_source": harness_source,
+              "fake": None, "steps": [],
               "native_profile": "Blender 5.2.1 Windows", "blender_sha256": sha(blender),
               "driver_sha256": sha(driver), "external_host_accepted": False, "release": False}
     broker = None
@@ -231,63 +373,67 @@ def main():
         else:
             raise TimeoutError("Native broker did not become ready")
 
-        def execute(label, command, args, expected_error=None):
-            code, envelope = cli_json(cli, common,
-                ["execute", "driver.blender." + command, "--args-json", json.dumps(args)], env, 90)
-            write_json(output / (label + ".response.json"), envelope)
-            report["steps"].append({"command": command, "request_id": envelope.get("request_id"),
-                                    "ok": envelope.get("ok")})
-            if envelope.get("execution", {}).get("fallbacks_attempted"):
-                raise RuntimeError("Unexpected native fallback")
-            if expected_error:
-                if code == 0 or envelope.get("ok") is not False or envelope["error"]["code"] != expected_error:
-                    raise RuntimeError("Native negative returned an unexpected result")
-                return envelope["error"]
-            if code or envelope.get("ok") is not True:
-                raise RuntimeError(command + " failed without replay: " + str(envelope.get("error")))
-            return envelope["data"]
+        if catalog_only:
+            observe_native_catalog(bins, case, env, output, report)
+            report["status"] = "PASS_ARCHIVED_NATIVE_CATALOG_NO_EFFECT"
+        else:
+            def execute(label, command, args, expected_error=None):
+                code, envelope = cli_json(cli, common,
+                    ["execute", "driver.blender." + command, "--args-json", json.dumps(args)], env, 90)
+                write_json(output / (label + ".response.json"), envelope)
+                report["steps"].append({"command": command, "request_id": envelope.get("request_id"),
+                                        "ok": envelope.get("ok")})
+                if envelope.get("execution", {}).get("fallbacks_attempted"):
+                    raise RuntimeError("Unexpected native fallback")
+                if expected_error:
+                    if code == 0 or envelope.get("ok") is not False or envelope["error"]["code"] != expected_error:
+                        raise RuntimeError("Native negative returned an unexpected result")
+                    return envelope["error"]
+                if code or envelope.get("ok") is not True:
+                    raise RuntimeError(command + " failed without replay: " + str(envelope.get("error")))
+                return envelope["data"]
 
-        summary = execute("summary", "introspect.summary", {})
-        assert summary["version"] == [5, 2, 1] and summary["arbitrary_python"] is False
-        execute("create", "object.create", {"name": "NativeArtifactCube", "primitive": "cube"})
-        execute("collection", "collection.create", {"name": "NativeArtifactCollection"})
-        execute("link", "collection.link", {"object": "NativeArtifactCube", "collection": "NativeArtifactCollection"})
-        exported = execute("export", "export.glb",
-                           {"collection": "NativeArtifactCollection", "path": "model.glb", "animations": False})
-        model = workspace / "model.glb"
-        data = model.read_bytes()
-        assert struct.unpack("<4sII", data[:12]) == (b"glTF", 2, len(data))
-        assert exported["bytes"] == len(data) and exported["sha256"] == sha(model)
-        execute("settings", "render.settings",
-                {"width": 32, "height": 32, "engine": "CYCLES", "samples": 1, "device": "CPU"})
-        rendered = execute("render", "render", {"path": "preview.png", "overwrite": False})
-        assert rendered == {"changed": True, "path": "preview.png", "format": "png"}
-        preview = workspace / "preview.png"
-        data = preview.read_bytes()
-        assert data[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", data[16:24]) == (32, 32)
-        refusal = execute("existing", "render", {"path": "reserved.png", "overwrite": False}, "Conflict")
-        assert refusal["outcome_known"] is False
-        assert (workspace / "reserved.png").read_bytes() == b"existing-owner-artifact"
-        assert not list(workspace.glob(".semwright-render-*")) and not list(workspace.glob(".semwright-export-*"))
-        artifacts = output / "artifacts"
-        artifacts.mkdir()
-        for path in (model, preview):
-            shutil.copyfile(path, artifacts / path.name)
-        report["artifacts"] = {path.name: {"bytes": path.stat().st_size, "sha256": sha(path)}
-                               for path in (model, preview)}
-        events = []
-        for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
-            try:
-                events.append(json.loads(line))
-            except ValueError:
-                pass
-        ready = [event["pid"] for event in events if event.get("phase") == "native_blender_ready"]
-        attested = {event["pid"] for event in events
-                    if event.get("phase") == "initial_process_attested_before_resume"
-                    and event.get("exact_job") is True}
-        assert len(ready) == 1 and ready[0] in attested
-        report["native_pid"] = ready[0]
-        report["status"] = "PASS_NATIVE_GLB_NEW_ONLY_PNG"
+            summary = execute("summary", "introspect.summary", {})
+            assert summary["version"] == [5, 2, 1] and summary["arbitrary_python"] is False
+            execute("create", "object.create", {"name": "NativeArtifactCube", "primitive": "cube"})
+            execute("collection", "collection.create", {"name": "NativeArtifactCollection"})
+            execute("link", "collection.link", {"object": "NativeArtifactCube", "collection": "NativeArtifactCollection"})
+            exported = execute("export", "export.glb",
+                               {"collection": "NativeArtifactCollection", "path": "model.glb", "animations": False})
+            model = workspace / "model.glb"
+            data = model.read_bytes()
+            assert struct.unpack("<4sII", data[:12]) == (b"glTF", 2, len(data))
+            assert exported["bytes"] == len(data) and exported["sha256"] == sha(model)
+            execute("settings", "render.settings",
+                    {"width": 32, "height": 32, "engine": "CYCLES", "samples": 1, "device": "CPU"})
+            rendered = execute("render", "render", {"path": "preview.png", "overwrite": False})
+            assert rendered == {"changed": True, "path": "preview.png", "format": "png"}
+            preview = workspace / "preview.png"
+            data = preview.read_bytes()
+            assert data[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", data[16:24]) == (32, 32)
+            refusal = execute("existing", "render", {"path": "reserved.png", "overwrite": False}, "Conflict")
+            assert refusal["outcome_known"] is False
+            assert (workspace / "reserved.png").read_bytes() == b"existing-owner-artifact"
+            assert not list(workspace.glob(".semwright-render-*")) and not list(workspace.glob(".semwright-export-*"))
+            artifacts = output / "artifacts"
+            artifacts.mkdir()
+            for path in (model, preview):
+                shutil.copyfile(path, artifacts / path.name)
+            report["artifacts"] = {path.name: {"bytes": path.stat().st_size, "sha256": sha(path)}
+                                   for path in (model, preview)}
+            events = []
+            for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                try:
+                    events.append(json.loads(line))
+                except ValueError:
+                    pass
+            ready = [event["pid"] for event in events if event.get("phase") == "native_blender_ready"]
+            attested = {event["pid"] for event in events
+                        if event.get("phase") == "initial_process_attested_before_resume"
+                        and event.get("exact_job") is True}
+            assert len(ready) == 1 and ready[0] in attested
+            report["native_pid"] = ready[0]
+            report["status"] = "PASS_NATIVE_GLB_NEW_ONLY_PNG"
     except BaseException as error:
         report["status"] = "FAILED_OR_UNKNOWN_NO_REPLAY"
         report["error"] = str(error)[:1200]
@@ -325,11 +471,29 @@ def main():
                 if path.stat().st_size <= 8192:
                     shutil.copyfile(path, diagnostics / path.name.removeprefix("."))
             report["local_diagnostics"] = len(list(diagnostics.iterdir()))
+        if catalog_only:
+            events = []
+            for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                try:
+                    events.append(json.loads(line))
+                except ValueError:
+                    pass
+            native_started = any(event.get("phase") in (
+                "blender_5_2_1_initial_requested", "native_launch_finished",
+                "native_blender_ready") for event in events)
+            report["native_started"] = native_started
+            report["archived_ci_run"] = catalog_pins["run"]
+            report["archive_sha256"] = catalog_pins["archive_sha256"]
+            if (native_started or report["steps"] or records
+                    or {path.name for path in workspace.iterdir()} != {"reserved.png"}):
+                report["status"] = "NOT_ACCEPTED_CATALOG_EFFECT"
         report["existing_target_preserved"] = (workspace / "reserved.png").read_bytes() == b"existing-owner-artifact"
         report["remaining_workspace_files"] = sorted(path.name for path in workspace.iterdir())
         write_json(output / "result.json", report)
         print(json.dumps(report, sort_keys=True), flush=True)
-    if report["status"] != "PASS_NATIVE_GLB_NEW_ONLY_PNG":
+    expected = ("PASS_ARCHIVED_NATIVE_CATALOG_NO_EFFECT" if catalog_only
+                else "PASS_NATIVE_GLB_NEW_ONLY_PNG")
+    if report["status"] != expected or not report["existing_target_preserved"]:
         raise RuntimeError(report["status"])
 
 

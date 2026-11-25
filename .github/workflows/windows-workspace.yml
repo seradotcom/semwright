@@ -59,6 +59,28 @@ on:
         default: false
         type: boolean
 
+      native_catalog_only:
+        description: Capture a read-only catalog from exact archived Windows portable and driver
+        required: false
+        default: false
+        type: boolean
+      catalog_source:
+        description: Exact archived source SHA for catalog-only
+        required: false
+        type: string
+      catalog_run:
+        description: Successful source-run ID in this repository
+        required: false
+        type: string
+      catalog_archive_sha256:
+        description: Expected portable archive SHA256
+        required: false
+        type: string
+      catalog_driver_sha256:
+        description: Expected archived native driver SHA256
+        required: false
+        type: string
+
 permissions:
   contents: read
 
@@ -73,7 +95,7 @@ env:
 
 jobs:
   native-stage-recovery:
-    if: inputs.native_stage_recovery_only == true
+    if: inputs.native_stage_recovery_only == true && inputs.native_catalog_only != true
     runs-on: windows-2025
     timeout-minutes: 12
     defaults:
@@ -97,7 +119,7 @@ jobs:
           cargo test --locked -p semwright-driver-host --lib stage_recovery::tests
 
   native-artifacts:
-    if: inputs.native_artifact_only == true
+    if: inputs.native_artifact_only == true && inputs.native_catalog_only != true
     runs-on: windows-2025
     timeout-minutes: 20
     defaults:
@@ -148,8 +170,61 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  native-catalog:
+    if: inputs.native_catalog_only == true
+    runs-on: windows-2025
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CATALOG_SOURCE: ${{ inputs.catalog_source }}
+      CATALOG_RUN: ${{ inputs.catalog_run }}
+      CATALOG_ARCHIVE_SHA256: ${{ inputs.catalog_archive_sha256 }}
+      CATALOG_DRIVER_SHA256: ${{ inputs.catalog_driver_sha256 }}
+    steps:
+      - name: Reject incompatible dispatch modes
+        if: inputs.native_stage_recovery_only == true || inputs.native_artifact_only == true || inputs.native_artifact_smoke == true
+        run: throw 'Catalog-only dispatch mode is mutually exclusive'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Retrieve only exact successful archived binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:CATALOG_SOURCE -cnotmatch '^[0-9a-f]{40}$' -or $env:CATALOG_RUN -cnotmatch '^[1-9][0-9]{0,19}$' -or $env:CATALOG_ARCHIVE_SHA256 -cnotmatch '^[0-9a-f]{64}$' -or $env:CATALOG_DRIVER_SHA256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Exact source, run and SHA256 pins required' }
+          $root = Join-Path $env:RUNNER_TEMP 'semwright-catalog-archive'
+          if (Test-Path -LiteralPath $root) { throw 'Archive destination already exists' }
+          $run = gh -R $env:GITHUB_REPOSITORY run view $env:CATALOG_RUN --json databaseId,headSha,status,conclusion
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $record = $run | ConvertFrom-Json
+          if ($record.headSha -cne $env:CATALOG_SOURCE -or $record.status -ne 'completed' -or $record.conclusion -ne 'success') { throw 'Archived run identity/conclusion mismatch' }
+          New-Item -ItemType Directory -Path $root | Out-Null
+          $run | Set-Content -LiteralPath (Join-Path $root 'run.json') -Encoding utf8
+          @{source=$env:CATALOG_SOURCE;run=$env:CATALOG_RUN;archive_sha256=$env:CATALOG_ARCHIVE_SHA256;driver_sha256=$env:CATALOG_DRIVER_SHA256} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'pins.json') -Encoding utf8
+          gh -R $env:GITHUB_REPOSITORY run download $env:CATALOG_RUN -n windows-workspace-portable -D (Join-Path $root 'portable')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh -R $env:GITHUB_REPOSITORY run download $env:CATALOG_RUN -n windows-blender-native-driver-acceptance -D (Join-Path $root 'driver')
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Observe registered native catalog without invoking native commands
+        run: ./scripts/windows/run-blender-artifacts-smoke.ps1 -CatalogOnly
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: windows-native-catalog-evidence
+          path: |
+            verification/windows-native-catalog/*.json
+            verification/windows-native-catalog/broker.log
+            verification/windows-native-catalog/mcp.log
+          if-no-files-found: error
+          retention-days: 14
+
   workspace:
-    if: inputs.native_stage_recovery_only != true && inputs.native_artifact_only != true
+    if: inputs.native_stage_recovery_only != true && inputs.native_artifact_only != true && inputs.native_catalog_only != true
     runs-on: windows-2025
     timeout-minutes: 35
     defaults:
@@ -426,7 +501,7 @@ jobs:
           retention-days: 7
 
   unix-setup:
-    if: inputs.native_stage_recovery_only != true && inputs.native_artifact_only != true
+    if: inputs.native_stage_recovery_only != true && inputs.native_artifact_only != true && inputs.native_catalog_only != true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

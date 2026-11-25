@@ -1,4 +1,5 @@
 # Download the same pinned distribution in either native CI dispatch mode.
+param([switch]$CatalogOnly)
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or -not $IsWindows) {
     throw 'This smoke runner is restricted to hosted Windows Actions.'
@@ -11,5 +12,9 @@ $destination = Join-Path $env:RUNNER_TEMP 'semwright-native-artifacts-blender'
 if (Test-Path -LiteralPath $destination) { throw 'Native runtime destination already exists' }
 Expand-Archive -LiteralPath $archive -DestinationPath $destination
 $runtime = Join-Path $destination 'blender-5.2.1-windows-x64'
-python -B scripts/windows/blender-artifacts-smoke.py --bin-dir target/debug --blender-root $runtime --output verification/windows-native-artifacts
+if ($CatalogOnly) {
+    python -B scripts/windows/blender-artifacts-smoke.py --blender-root $runtime --output verification/windows-native-catalog --catalog-root (Join-Path $env:RUNNER_TEMP 'semwright-catalog-archive')
+} else {
+    python -B scripts/windows/blender-artifacts-smoke.py --bin-dir target/debug --blender-root $runtime --output verification/windows-native-artifacts
+}
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
