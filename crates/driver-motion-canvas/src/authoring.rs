@@ -14,7 +14,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
-pub const COMPILER_EXTENSION_VERSION: u32 = 1;
+pub const COMPILER_EXTENSION_VERSION: u32 = 2;
 fn contract(e: impl std::fmt::Display) -> Error {
     Error::invalid(e.to_string())
 }
@@ -35,6 +35,7 @@ pub fn projection_digest(project: &Project) -> Result<Digest> {
 }
 pub fn check_binding(project: &Project) -> Result<()> {
     if let Some(binding) = &project.authoring {
+        ensure_blend_supported(&binding.intent)?;
         binding.validate().map_err(contract)?;
         ensure(
             projection_digest(project)? == binding.projection_digest,
@@ -50,10 +51,46 @@ pub fn check_binding(project: &Project) -> Result<()> {
     }
     Ok(())
 }
+/// Reject profiles not realizable by the closed Motion Canvas authoring path,
+/// before creating a plan, source tree or render job.
+pub fn ensure_blend_supported(film: &Film) -> Result<()> {
+    if !matches!(
+        film.version,
+        a::AUTHORING_VERSION | a::AUTHORING_BLEND_VERSION
+    ) {
+        return Err(Error::new(
+            semwright_types::ErrorCode::Unsupported,
+            "Unsupported Film version",
+        ));
+    }
+    for subject in film.shots().flat_map(|shot| &shot.subjects) {
+        if subject.blend_mode.is_normal() {
+            continue;
+        }
+        if film.version != a::AUTHORING_BLEND_VERSION
+            || matches!(&subject.content, a::SubjectContent::Camera { .. })
+        {
+            return Err(Error::new(
+                semwright_types::ErrorCode::Unsupported,
+                "Non-normal subject compositing requires Film v2 and a non-camera subject",
+            ));
+        }
+    }
+    Ok(())
+}
+fn composite_operation(mode: a::SubjectBlendMode) -> &'static str {
+    match mode {
+        a::SubjectBlendMode::Normal => "source-over",
+        a::SubjectBlendMode::Multiply => "multiply",
+        a::SubjectBlendMode::Screen => "screen",
+        a::SubjectBlendMode::Add => "lighter",
+    }
+}
 /// Planning creates no native nodes, does not render and does not write a file.
 /// Assets must have entered the managed project through its existing authorized
 /// import/handoff path. An artifact reference is never used as a filesystem path.
 pub fn project(film: &Film, base: Option<&Project>) -> Result<(Project, Realization)> {
+    ensure_blend_supported(film)?;
     for font in [&film.editorial.font, &film.editorial.mono_font] {
         ensure(
             matches!(
@@ -211,6 +248,9 @@ fn native_projection(s: &a::Subject) -> Result<(&'static str, Value)> {
         C::Camera { .. } => ("camera", json!({})),
     };
     props["opacity"] = json!(if s.initially_visible { 1.0 } else { 0.0 });
+    if !s.blend_mode.is_normal() {
+        props["semantic"]["composite_operation"] = json!(composite_operation(s.blend_mode));
+    }
     Ok((kind, props))
 }
 #[derive(Serialize)]
@@ -265,7 +305,7 @@ pub fn scene_source(scene: &Scene, project: &Project) -> Result<Option<String>> 
         });
     }
     let data = NativeSceneData {
-        version: 1,
+        version: film.version,
         id: &scene.id,
         start: plan.interval.start,
         end: plan.interval.end,
@@ -386,6 +426,40 @@ mod tests {
             "subject instrumentation must precede parent attachment"
         );
         assert!(source.contains("tasks.push(delay(sec(shot.start)-start"));
+    }
+
+    #[test]
+    fn subject_blend_projection_and_unsupported_profile_are_exact() {
+        let mut source = film();
+        source.sequences[0].beats[0].shots[0].subjects[0].blend_mode =
+            a::SubjectBlendMode::Multiply;
+        let error = project(&source, None).unwrap_err();
+        assert_eq!(error.code, semwright_types::ErrorCode::Unsupported);
+        source.version = a::AUTHORING_BLEND_VERSION;
+        for (mode, expected) in [
+            (a::SubjectBlendMode::Multiply, "multiply"),
+            (a::SubjectBlendMode::Screen, "screen"),
+            (a::SubjectBlendMode::Add, "lighter"),
+        ] {
+            source.sequences[0].beats[0].shots[0].subjects[0].blend_mode = mode;
+            let id = source.sequences[0].beats[0].shots[0].subjects[0].id.clone();
+            let (p, _) = project(&source, None).unwrap();
+            let node = p.scenes[0].nodes.iter().find(|node| node.id == id).unwrap();
+            assert_eq!(
+                serde_json::to_value(&node.properties).unwrap()["semantic"]["composite_operation"],
+                expected
+            );
+            let recovered = validate::parse(&serde_json::to_vec(&p).unwrap()).unwrap();
+            assert_eq!(recovered, p);
+            let generated = scene_source(&p.scenes[0], &p).unwrap().unwrap();
+            assert!(generated.contains("blend_mode"));
+        }
+        source.sequences[0].beats[0].shots[0].subjects[0].content =
+            a::SubjectContent::Camera { zoom: 1.0 };
+        assert_eq!(
+            project(&source, None).unwrap_err().code,
+            semwright_types::ErrorCode::Unsupported
+        );
     }
 
     #[test]

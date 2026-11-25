@@ -299,6 +299,10 @@ pub fn catalog() -> Result<Vec<Capability>> {
     for cap in &mut caps {
         cap.tags.push("composition".into());
         cap.object_types.push("motion-film".into());
+        if cap.descriptor.name == "driver.motion-canvas.composition.plan" {
+            cap.descriptor.version = "1.1".into();
+            cap.tags.push("film-v2-subject-blend-v1".into());
+        }
     }
     Ok(caps)
 }
@@ -317,7 +321,7 @@ fn trusted_profile(film: &a::Film) -> Result<c::ProfileDescriptor> {
     Ok(c::ProfileDescriptor {
         identity: c::ProfileIdentity {
             id: "semwright-motion-authoring".into(),
-            version: 1,
+            version: film.version,
             intent_schema: c::schema_digest::<a::Film>().map_err(contract_error)?,
             operation_schema: c::schema_digest::<MotionMutation>().map_err(contract_error)?,
         },
@@ -354,6 +358,7 @@ impl MotionDriver {
                 "An external project requires an explicitly created managed island first",
             ));
         }
+        crate::authoring::ensure_blend_supported(&input.film)?;
         input.film.validate().map_err(contract_error)?;
         input.budget.validate().map_err(contract_error)?;
         let current = self.composition_snapshot()?;
@@ -880,7 +885,7 @@ impl MotionDriver {
                 let film = snapshot
                     .as_ref()
                     .and_then(|s| s.project.authoring.as_ref().map(|a| a.intent.clone()));
-                serde_json::to_value(Inspection{fingerprint:snapshot.as_ref().map(|s|s.source_sha256.clone()),low_level_project:snapshot.is_some()&&film.is_none(),film,authoring_version:1,native_acceptance:"Inspection is not native acceptance; source-bound render and verification are required".into()})?
+                serde_json::to_value(Inspection{fingerprint:snapshot.as_ref().map(|s|s.source_sha256.clone()),low_level_project:snapshot.is_some()&&film.is_none(),film,authoring_version:a::AUTHORING_BLEND_VERSION,native_acceptance:"Inspection is not native acceptance; source-bound render and verification are required".into()})?
             }
             "driver.motion-canvas.composition.plan" => {
                 serde_json::to_value(self.prepare_authoring(Self::parse(args)?, context, None)?)?
@@ -1140,6 +1145,21 @@ fn apply_repair(
 #[cfg(test)]
 mod repair_tests {
     use super::*;
+    #[test]
+    fn subject_blend_capability_negotiation_is_explicit() {
+        let caps = catalog().unwrap();
+        let plan = caps
+            .iter()
+            .find(|cap| cap.descriptor.name == "driver.motion-canvas.composition.plan")
+            .unwrap();
+        assert_eq!(plan.descriptor.version, "1.1");
+        assert!(
+            plan.tags
+                .iter()
+                .any(|tag| tag == "film-v2-subject-blend-v1")
+        );
+    }
+
     use semwright_media_time::Rational as Q;
 
     fn q(n: i64, d: i64) -> Q {

@@ -236,3 +236,39 @@ fn source_binding_detects_drift() {
     b.intent.editorial.stroke = 3.0;
     assert!(b.validate().is_err());
 }
+
+#[test]
+fn subject_blend_v2_preserves_legacy_wire_and_rejects_unknown_modes() {
+    let legacy = fixture();
+    let original = serde_json::to_value(&legacy).unwrap();
+    let mut explicit = original.clone();
+    explicit["sequences"][0]["beats"][0]["shots"][0]["subjects"][0]["blend_mode"] =
+        serde_json::json!("normal");
+    let decoded: Film = strict_decode(&serde_json::to_vec(&explicit).unwrap()).unwrap();
+    assert_eq!(decoded, legacy);
+    assert_eq!(serde_json::to_value(&decoded).unwrap(), original);
+    assert_eq!(
+        canonical_digest(&decoded).unwrap(),
+        canonical_digest(&legacy).unwrap()
+    );
+    for mode in [
+        SubjectBlendMode::Multiply,
+        SubjectBlendMode::Screen,
+        SubjectBlendMode::Add,
+    ] {
+        let mut film = legacy.clone();
+        film.sequences[0].beats[0].shots[0].subjects[0].blend_mode = mode;
+        assert!(film.validate().is_err());
+        film.version = AUTHORING_BLEND_VERSION;
+        film.validate().unwrap();
+        let serialized = serde_json::to_vec(&film).unwrap();
+        assert_eq!(strict_decode::<Film>(&serialized).unwrap(), film);
+        assert_ne!(
+            canonical_digest(&film).unwrap(),
+            canonical_digest(&legacy).unwrap()
+        );
+    }
+    explicit["sequences"][0]["beats"][0]["shots"][0]["subjects"][0]["blend_mode"] =
+        serde_json::json!("destination-out");
+    assert!(strict_decode::<Film>(&serde_json::to_vec(&explicit).unwrap()).is_err());
+}

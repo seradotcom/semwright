@@ -58,7 +58,10 @@ fn font(f: &FontSpec) -> Result<()> {
 }
 impl Film {
     pub fn validate(&self) -> Result<()> {
-        ensure(self.version == AUTHORING_VERSION, "Film version mismatch")?;
+        ensure(
+            matches!(self.version, AUTHORING_VERSION | AUTHORING_BLEND_VERSION),
+            "Film version mismatch",
+        )?;
         id(&self.id)?;
         self.output.frame_rate.validate()?;
         ensure(
@@ -174,6 +177,11 @@ impl Film {
                             "duplicate/reserved logical subject",
                         )?;
                         ensure(layers.contains(&subject.layer), "unknown subject layer")?;
+                        ensure(
+                            subject.blend_mode.is_normal()
+                                || self.version == AUTHORING_BLEND_VERSION,
+                            "non-normal subject blending requires Film version 2",
+                        )?;
                         subjects.insert(subject.id.as_str(), subject);
                         text(&subject.role, 128)?;
                         count += 1;

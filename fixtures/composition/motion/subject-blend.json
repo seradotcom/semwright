@@ -1,0 +1,549 @@
+{
+  "version": 2,
+  "id": "subject-blend-oracle",
+  "output": {
+    "width": 192,
+    "height": 128,
+    "frame_rate": {
+      "num": 30,
+      "den": 1
+    },
+    "aspect": "landscape",
+    "safe_area": {
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    }
+  },
+  "editorial": {
+    "version": 1,
+    "font": {
+      "family": "Instrument Sans Variable",
+      "asset_digest": null,
+      "fallback": "deny",
+      "permitted_fallbacks": []
+    },
+    "mono_font": {
+      "family": "IBM Plex Mono",
+      "asset_digest": null,
+      "fallback": "deny",
+      "permitted_fallbacks": []
+    },
+    "type_scale": {
+      "body": 24,
+      "mono": 18
+    },
+    "colors": {
+      "background": "#00000000",
+      "text": "#223344"
+    },
+    "spacing": {
+      "base": 16,
+      "block": 24
+    },
+    "stroke": 0,
+    "corner_radius": 0
+  },
+  "timing": {
+    "version": 1,
+    "duration": {
+      "num": "1",
+      "den": "1"
+    },
+    "spans": [
+      {
+        "id": "sequence-span",
+        "minimum": {
+          "num": "1",
+          "den": "1"
+        },
+        "preferred": {
+          "num": "1",
+          "den": "1"
+        },
+        "maximum": {
+          "num": "1",
+          "den": "1"
+        },
+        "anchor": {
+          "kind": "absolute",
+          "time": {
+            "num": "0",
+            "den": "1"
+          }
+        },
+        "preference_priority": 0
+      },
+      {
+        "id": "shot-span",
+        "minimum": {
+          "num": "1",
+          "den": "1"
+        },
+        "preferred": {
+          "num": "1",
+          "den": "1"
+        },
+        "maximum": {
+          "num": "1",
+          "den": "1"
+        },
+        "anchor": {
+          "kind": "absolute",
+          "time": {
+            "num": "0",
+            "den": "1"
+          }
+        },
+        "preference_priority": 0
+      }
+    ],
+    "constraints": []
+  },
+  "sequences": [
+    {
+      "id": "sequence",
+      "span_id": "sequence-span",
+      "beats": [
+        {
+          "id": "beat",
+          "role": "mechanism",
+          "shots": [
+            {
+              "id": "shot",
+              "span_id": "shot-span",
+              "archetype": "statement",
+              "subjects": [
+                {
+                  "id": "normal_source",
+                  "role": "primary",
+                  "parent": "normal_inner",
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#d0603080",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 0,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 64,
+                      "height": 40
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": false
+                },
+                {
+                  "id": "normal_inner",
+                  "role": "primary",
+                  "parent": "normal_outer",
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#00000000",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 12,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 56,
+                      "height": 24
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": true
+                },
+                {
+                  "id": "normal_backdrop",
+                  "role": "primary",
+                  "parent": "normal_outer",
+                  "layer": "back",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#4080c080",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 0,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 80,
+                      "height": 64
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": false
+                },
+                {
+                  "id": "normal_outer",
+                  "role": "primary",
+                  "parent": null,
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#00000000",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": -48,
+                      "y": -32
+                    },
+                    "size": {
+                      "width": 64,
+                      "height": 48
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": true
+                },
+                {
+                  "id": "multiply_source",
+                  "role": "primary",
+                  "parent": "multiply_inner",
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#d0603080",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 0,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 64,
+                      "height": 40
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": false,
+                  "blend_mode": "multiply"
+                },
+                {
+                  "id": "multiply_inner",
+                  "role": "primary",
+                  "parent": "multiply_outer",
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#00000000",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 12,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 56,
+                      "height": 24
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": true
+                },
+                {
+                  "id": "multiply_backdrop",
+                  "role": "primary",
+                  "parent": "multiply_outer",
+                  "layer": "back",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#4080c080",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 0,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 80,
+                      "height": 64
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": false
+                },
+                {
+                  "id": "multiply_outer",
+                  "role": "primary",
+                  "parent": null,
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#00000000",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 48,
+                      "y": -32
+                    },
+                    "size": {
+                      "width": 64,
+                      "height": 48
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": true
+                },
+                {
+                  "id": "screen_source",
+                  "role": "primary",
+                  "parent": "screen_inner",
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#d0603080",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 0,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 64,
+                      "height": 40
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": false,
+                  "blend_mode": "screen"
+                },
+                {
+                  "id": "screen_inner",
+                  "role": "primary",
+                  "parent": "screen_outer",
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#00000000",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 12,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 56,
+                      "height": 24
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": true
+                },
+                {
+                  "id": "screen_backdrop",
+                  "role": "primary",
+                  "parent": "screen_outer",
+                  "layer": "back",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#4080c080",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 0,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 80,
+                      "height": 64
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": false
+                },
+                {
+                  "id": "screen_outer",
+                  "role": "primary",
+                  "parent": null,
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#00000000",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": -48,
+                      "y": 32
+                    },
+                    "size": {
+                      "width": 64,
+                      "height": 48
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": true
+                },
+                {
+                  "id": "add_source",
+                  "role": "primary",
+                  "parent": "add_inner",
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#d0603080",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 0,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 64,
+                      "height": 40
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": false,
+                  "blend_mode": "add"
+                },
+                {
+                  "id": "add_inner",
+                  "role": "primary",
+                  "parent": "add_outer",
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#00000000",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 12,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 56,
+                      "height": 24
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": true
+                },
+                {
+                  "id": "add_backdrop",
+                  "role": "primary",
+                  "parent": "add_outer",
+                  "layer": "back",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#4080c080",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 0,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 80,
+                      "height": 64
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": false
+                },
+                {
+                  "id": "add_outer",
+                  "role": "primary",
+                  "parent": null,
+                  "layer": "front",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#00000000",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 48,
+                      "y": 32
+                    },
+                    "size": {
+                      "width": 64,
+                      "height": 48
+                    }
+                  },
+                  "initially_visible": true,
+                  "clip_intentional": true
+                }
+              ],
+              "layers": [
+                {
+                  "id": "back",
+                  "order": 0,
+                  "intentional_overlay": true
+                },
+                {
+                  "id": "front",
+                  "order": 1,
+                  "intentional_overlay": true
+                }
+              ],
+              "annotations": [],
+              "captions": [],
+              "motion": [],
+              "constraints": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "cues": {
+    "version": 1,
+    "cues": []
+  },
+  "assets": []
+}
