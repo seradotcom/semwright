@@ -5,6 +5,7 @@ use semwright_platform_api::launch::{MountClass, WorkspaceMountBinding};
 use semwright_types::{ProviderMountPairRequirement, ProviderMountRequirements};
 
 pub(super) type MountBindings = Vec<Arc<dyn WorkspaceMountBinding>>;
+pub(super) const MOTION_APPLIED_SOURCE_READ: &str = "driver.motion-canvas.composition.source.read";
 #[derive(Clone)]
 pub(super) struct BoundProvider {
     pub(super) reference_id: String,
@@ -622,6 +623,7 @@ impl Broker {
         self.check_bound_provider(session, &bound, Some(selected))?;
         let protected_read =
             selected.native_read_scope_required && !invocation.capability.descriptor.risk.mutates();
+        let applied_source_read = args.request.command == MOTION_APPLIED_SOURCE_READ;
         // Keep the actual descriptor/arguments only for the final read fence;
         // they cannot supply a grant and are never re-executed.
         let read_completion_input = protected_read.then(|| {
@@ -701,6 +703,12 @@ impl Broker {
                 "Native resource access denied",
             ));
         }
+        if applied_source_read && !admission_current {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Applied source admission expired",
+            ));
+        }
         if outer_confirmation && !nested.execution.dry_run {
             audit.decision("allow_after_confirmation");
         }
@@ -739,12 +747,12 @@ impl Broker {
         {
             admission.check(self, context, true)?;
         }
-        if bound.admission.pair_requirement.is_some() {
+        if bound.admission.pair_requirement.is_some() || applied_source_read {
             let final_current = self
                 .check_bound_completion(session, &bound, Some(&bound.lease))
                 .map_err(|_| completion_error())?;
             admission_current = admission_current && final_current;
-            if protected_read && !admission_current {
+            if (protected_read || applied_source_read) && !admission_current {
                 return Err(completion_error());
             }
             output["admission_current"] = json!(admission_current);

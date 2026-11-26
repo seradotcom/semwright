@@ -1,5 +1,6 @@
 //! Typed authoring operations through the existing Driver Host.
 use super::*;
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use semwright_motion_authoring as a;
 use semwright_semantic_composition as c;
 use std::{collections::BTreeSet, io::BufRead};
@@ -25,6 +26,32 @@ pub struct ApplyPlanArgs {
     pub plan_ref: String,
     #[serde(default)]
     pub dry_run: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AppliedSourceArgs {
+    #[schemars(length(min = 64, max = 64), regex(pattern = "^[a-f0-9]{64}$"))]
+    pub plan_ref: String,
+    #[schemars(length(min = 64, max = 64), regex(pattern = "^[a-f0-9]{64}$"))]
+    pub expected_fingerprint: String,
+    /// Core checks this assertion against the actual bound provider lease.
+    pub expected_provider_generation: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AppliedSource {
+    pub schema_version: u32,
+    pub plan_ref: String,
+    pub project_id: String,
+    pub project_generation: String,
+    pub revision: u64,
+    pub fingerprint: String,
+    /// Fixed logical mount and relative file identity, never an OS path.
+    pub resource: String,
+    pub relative_source: String,
+    pub byte_count: usize,
+    #[schemars(length(max = 699052))]
+    pub source_base64: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -176,6 +203,7 @@ struct Stored {
     project: Project,
     base_fingerprint: Option<String>,
     applied_fingerprint: Option<String>,
+    applied_store_root: Option<PathBuf>,
     root: String,
 }
 pub struct CompositionRuntime {
@@ -294,6 +322,13 @@ pub fn catalog() -> Result<Vec<Capability>> {
             Risk::ReadOnly,
             Idempotency::ReadOnly,
             true,
+        )?,
+        MotionDriver::cap::<AppliedSourceArgs, AppliedSource>(
+            "driver.motion-canvas.composition.source.read",
+            "Read exact applied managed source bytes through the current bound project mount",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            false,
         )?,
     ];
     for cap in &mut caps {
@@ -495,6 +530,7 @@ impl MotionDriver {
                 project,
                 base_fingerprint: current.map(|s| s.source_sha256),
                 applied_fingerprint: None,
+                applied_store_root: None,
                 root,
             });
         Ok(public)
@@ -635,11 +671,14 @@ impl MotionDriver {
                     .expect("controller")
                     .executed(c::ExecutionStatus::Completed)
                     .map_err(contract_error)?;
-                self.composition
+                let applied_store_root = self.store()?.root().to_path_buf();
+                let stored = self
+                    .composition
                     .plans
                     .get_mut(&(owner, args.plan_ref))
-                    .expect("issued plan")
-                    .applied_fingerprint = Some(snapshot.source_sha256.clone());
+                    .expect("issued plan");
+                stored.applied_fingerprint = Some(snapshot.source_sha256.clone());
+                stored.applied_store_root = Some(applied_store_root);
                 receipt.applied = true;
                 receipt.fingerprint = snapshot.source_sha256;
                 receipt.execution_status = c::ExecutionStatus::Completed;
@@ -660,6 +699,83 @@ impl MotionDriver {
             }
         }
     }
+    fn read_applied_source(
+        &self,
+        args: AppliedSourceArgs,
+        context: &DriverExecutionContext,
+    ) -> Result<AppliedSource> {
+        context.check_cancelled()?;
+        let owner = host_owner(context);
+        let stored = self
+            .composition
+            .plans
+            .get(&(owner.clone(), args.plan_ref.clone()))
+            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Unknown host-owned plan"))?;
+        self.composition
+            .vault
+            .matches(&owner, &args.plan_ref, &stored.public)
+            .map_err(contract_error)?;
+        let expected = stored
+            .applied_fingerprint
+            .as_deref()
+            .ok_or_else(|| Error::new(ErrorCode::Conflict, "Plan has not been applied"))?;
+        if args.expected_fingerprint != expected {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Applied fingerprint mismatch",
+            ));
+        }
+        let store = self.store()?;
+        let grant = self
+            .roots
+            .get("project")
+            .ok_or_else(|| Error::unavailable("Project grant is not mounted"))?;
+        let expected_root = if store.is_island() {
+            grant.join(crate::store::ISLAND_DIR)
+        } else {
+            grant.clone()
+        };
+        if stored.applied_store_root.as_deref() != Some(store.root())
+            || store.root() != expected_root.as_path()
+            || fs::canonicalize(grant)? != *grant
+            || fs::canonicalize(&expected_root)? != expected_root
+        {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Applied project store is no longer the mounted resource",
+            ));
+        }
+        let bytes = store.applied_source_bytes(expected)?;
+        let project = validate::parse(&bytes)?;
+        if project.id != stored.project.id
+            || project.generation != stored.project.generation
+            || project.revision != stored.project.revision
+            || project.authoring.is_none()
+        {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Applied project identity changed",
+            ));
+        }
+        context.check_cancelled()?;
+        Ok(AppliedSource {
+            schema_version: 1,
+            plan_ref: args.plan_ref,
+            project_id: project.id,
+            project_generation: project.generation,
+            revision: project.revision,
+            fingerprint: expected.into(),
+            resource: "project".into(),
+            relative_source: if store.is_island() {
+                ".semwright/motion/semwright-motion.json".into()
+            } else {
+                crate::store::SEMANTIC_FILE.into()
+            },
+            byte_count: bytes.len(),
+            source_base64: STANDARD.encode(bytes),
+        })
+    }
+
     async fn measure_authoring(
         &mut self,
         args: ObserveArgs,
@@ -886,6 +1002,9 @@ impl MotionDriver {
                     .as_ref()
                     .and_then(|s| s.project.authoring.as_ref().map(|a| a.intent.clone()));
                 serde_json::to_value(Inspection{fingerprint:snapshot.as_ref().map(|s|s.source_sha256.clone()),low_level_project:snapshot.is_some()&&film.is_none(),film,authoring_version:a::AUTHORING_BLEND_VERSION,native_acceptance:"Inspection is not native acceptance; source-bound render and verification are required".into()})?
+            }
+            "driver.motion-canvas.composition.source.read" => {
+                serde_json::to_value(self.read_applied_source(Self::parse(args)?, context)?)?
             }
             "driver.motion-canvas.composition.plan" => {
                 serde_json::to_value(self.prepare_authoring(Self::parse(args)?, context, None)?)?

@@ -116,6 +116,37 @@ impl ProjectStore {
         read_granted_file(&self.root, relative, limit)
     }
 
+    /// Read the original authoritative file, never a regenerated serialization.
+    /// The fixed filename and byte budget are part of the driver contract.
+    pub(crate) fn applied_source_bytes(&self, expected: &str) -> Result<Vec<u8>> {
+        if !security::digest(expected) {
+            return Err(Error::invalid("Expected source fingerprint is malformed"));
+        }
+        let path = self.semantic_path();
+        let check = || -> Result<()> {
+            if fs::canonicalize(&self.root)? != self.root
+                || fs::canonicalize(&path)? != path
+                || !fs::symlink_metadata(&path)?.file_type().is_file()
+            {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Managed source is not the fixed regular project file",
+                ));
+            }
+            Ok(())
+        };
+        check()?;
+        let bytes = self.read_bounded(SEMANTIC_FILE, MAX_PROJECT_BYTES)?;
+        check()?;
+        if security::sha256(&bytes) != expected {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Applied source bytes changed",
+            ));
+        }
+        Ok(bytes)
+    }
+
     pub fn load(&self) -> Result<Snapshot> {
         let bytes = self.read_bounded(SEMANTIC_FILE, MAX_PROJECT_BYTES)?;
         let project = validate::parse(&bytes)?;
@@ -665,6 +696,59 @@ mod tests {
             "../../../fixtures/motion-canvas/hello-text/semwright-motion.json"
         ))
         .unwrap()
+    }
+
+    #[test]
+    fn applied_source_readback_is_exact_and_bounded() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        let store = ProjectStore::open(root.clone()).unwrap();
+        // Deliberately noncanonical JSON: no reserialization may stand in for bytes.
+        let mut original = serde_json::to_vec(&fixture()).unwrap();
+        original.extend_from_slice(b"  \r\n");
+        fs::write(store.semantic_path(), &original).unwrap();
+        let digest = security::sha256(&original);
+        assert_eq!(store.applied_source_bytes(&digest).unwrap(), original);
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+        assert_eq!(
+            store
+                .applied_source_bytes(&"f".repeat(64))
+                .unwrap_err()
+                .code,
+            ErrorCode::StaleReference
+        );
+        let bound = vec![b' '; MAX_PROJECT_BYTES];
+        fs::write(store.semantic_path(), &bound).unwrap();
+        assert_eq!(
+            store
+                .applied_source_bytes(&security::sha256(&bound))
+                .unwrap(),
+            bound
+        );
+        let too_large = vec![b' '; MAX_PROJECT_BYTES + 1];
+        fs::write(store.semantic_path(), &too_large).unwrap();
+        assert!(
+            store
+                .applied_source_bytes(&security::sha256(&too_large))
+                .is_err()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn applied_source_readback_refuses_symlink_even_with_matching_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let other = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        let store = ProjectStore::open(root).unwrap();
+        let target = other.path().join("foreign.json");
+        fs::write(&target, b"foreign").unwrap();
+        std::os::unix::fs::symlink(&target, store.semantic_path()).unwrap();
+        assert!(
+            store
+                .applied_source_bytes(&security::sha256(b"foreign"))
+                .is_err()
+        );
     }
 
     #[test]

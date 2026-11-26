@@ -1267,3 +1267,376 @@ async fn subject_blend_native_pixels() {
         "native blend pixel oracle mismatch: {evidence:#}"
     );
 }
+
+async fn source_call(
+    broker: &Arc<Broker>,
+    session: &str,
+    command: &str,
+    args: Value,
+) -> semwright_types::Envelope {
+    broker
+        .clone()
+        .execute(
+            session.into(),
+            semwright_types::unique_id(),
+            semwright_types::ExecuteRequest {
+                command: command.into(),
+                args,
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await
+}
+
+const SOURCE_READ: &str = "driver.motion-canvas.composition.source.read";
+
+fn source_bound(binding: &str, args: Value) -> Value {
+    json!({"binding_ref":binding,"request":{
+        "command":SOURCE_READ,"args":args,"dry_run":false
+    }})
+}
+
+fn source_denied(label: &str, reply: semwright_types::Envelope) -> Value {
+    assert!(!reply.ok, "{label} unexpectedly disclosed source");
+    assert!(
+        reply.data.is_none(),
+        "{label} returned data despite refusal"
+    );
+    let error = reply.error.expect("typed refusal");
+    json!({"case":label,"code":error.code,"request_id":reply.request_id})
+}
+
+#[tokio::test]
+#[ignore = "requires production Broker and Driver Host with owner-pinned runtime"]
+async fn applied_source_readback_real_bound_host() {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    assert!(
+        std::env::var_os("SEMWRIGHT_TEST_MOTION_SOURCE_READBACK").is_some(),
+        "physical source test requires explicit opt-in"
+    );
+    let h = Harness::new();
+    let source = h.project.path().join("semwright-motion.json");
+    std::fs::remove_file(&source).unwrap();
+    let node = PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_MOTION_NODE").unwrap());
+    let runtime = PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_MOTION_RUNTIME").unwrap());
+    let grants = vec![
+        grant("motion-node-tool", &node, false),
+        grant("project", h.project.path(), true),
+        grant("output", h.output.path(), true),
+        grant("runtime", &runtime, false),
+        grant("fontconfig", Path::new("/etc/fonts"), false),
+    ];
+    let provider = DriverProvider::connect(
+        manifest(h.executable.clone(), digest(&node)),
+        h.state.path(),
+        &h.helper,
+        &grants,
+        false,
+    )
+    .await
+    .unwrap();
+    let identity = provider.identity().id.clone();
+    let policy = Policy::new(PolicyConfig {
+        allow: [identity.clone(), "providers.execute_bound".into()].into(),
+        filesystem: grants,
+        ..Default::default()
+    })
+    .unwrap();
+    let broker = Broker::new(
+        policy,
+        vec![],
+        Audit::open(&h.state.path().join("audit"), 65_536, 2).unwrap(),
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    // The concrete production DriverProvider supplies the genuine mount binding.
+    let generation = broker
+        .mount_driver_provider(provider.clone())
+        .await
+        .unwrap();
+    let owner = BROKER_SESSION;
+    let other = "motion-source-foreign-owner";
+    let observe = |root: &str| json!({"provider":identity,"root":root});
+    let mount = source_call(
+        &broker,
+        owner,
+        "providers.mount.observe",
+        observe("project"),
+    )
+    .await;
+    assert!(mount.ok, "{mount:?}");
+    let mount = mount.data.unwrap();
+    assert_eq!(mount["provider_generation"], generation);
+    assert_eq!(mount["mount"]["root"], "project");
+    let binding = mount["binding_ref"].as_str().unwrap();
+    let output_mount =
+        source_call(&broker, owner, "providers.mount.observe", observe("output")).await;
+    assert!(output_mount.ok, "{output_mount:?}");
+    let output_mount = output_mount.data.unwrap();
+    let output_binding = output_mount["binding_ref"].as_str().unwrap();
+    let foreign = source_call(
+        &broker,
+        other,
+        "providers.mount.observe",
+        observe("project"),
+    )
+    .await;
+    assert!(foreign.ok, "{foreign:?}");
+    let foreign = foreign.data.unwrap();
+    let foreign_binding = foreign["binding_ref"].as_str().unwrap();
+
+    let film: Value = serde_json::from_slice(include_bytes!(
+        "../../../fixtures/composition/motion/subject-blend.json"
+    ))
+    .unwrap();
+    let budget = json!({"max_iterations":4,"max_operations":64,"max_findings":64,
+                        "max_observations":8,"max_elapsed_ms":120000});
+    let planned = source_call(
+        &broker,
+        owner,
+        "driver.motion-canvas.composition.plan",
+        json!({"film":film,"budget":budget}),
+    )
+    .await;
+    assert!(planned.ok, "{planned:?}");
+    let planned = planned.data.unwrap();
+    let plan_ref = planned["plan_ref"].as_str().unwrap();
+    let args = json!({"plan_ref":plan_ref,
+        "expected_fingerprint":planned["resulting_fingerprint"],
+        "expected_provider_generation":generation});
+    let mut negatives = vec![];
+    negatives.push(source_denied(
+        "unapplied_plan",
+        source_call(
+            &broker,
+            owner,
+            "providers.execute_bound",
+            source_bound(binding, args.clone()),
+        )
+        .await,
+    ));
+    assert!(!source.exists());
+    let applied = source_call(
+        &broker,
+        owner,
+        "driver.motion-canvas.composition.apply",
+        json!({"plan_ref":plan_ref,"dry_run":false}),
+    )
+    .await;
+    assert!(applied.ok, "{applied:?}");
+    let applied = serde_json::to_value(&applied).unwrap();
+    assert_eq!(applied["data"]["applied"], true);
+    assert_eq!(applied["data"]["fingerprint"], args["expected_fingerprint"]);
+    assert_eq!(
+        applied["execution"]["provenance"]["provider_generation"],
+        generation
+    );
+
+    // Read the authoritative physical file independently of driver serialization.
+    let original = std::fs::read(&source).unwrap();
+    let original_sha = digest(&source);
+    assert_eq!(original_sha, args["expected_fingerprint"].as_str().unwrap());
+    let readback = source_call(
+        &broker,
+        owner,
+        "providers.execute_bound",
+        source_bound(binding, args.clone()),
+    )
+    .await;
+    assert!(readback.ok, "{readback:?}");
+    let readback = serde_json::to_value(&readback).unwrap();
+    let outer = &readback["data"];
+    assert_eq!(outer["admission_current"], true);
+    assert_eq!(outer["binding_ref"], binding);
+    assert_eq!(
+        outer["result"]["execution"]["provenance"]["provider_generation"],
+        generation
+    );
+    let observed = &outer["result"]["data"];
+    assert_eq!(observed["plan_ref"], plan_ref);
+    assert_eq!(observed["fingerprint"], original_sha);
+    assert_eq!(observed["resource"], "project");
+    assert_eq!(observed["relative_source"], "semwright-motion.json");
+    assert_eq!(observed["byte_count"], original.len());
+    let decoded = STANDARD
+        .decode(observed["source_base64"].as_str().unwrap())
+        .unwrap();
+    assert_eq!(decoded, original);
+    let model: Value = serde_json::from_slice(&original).unwrap();
+    assert_eq!(observed["project_id"], model["id"]);
+    assert_eq!(observed["project_generation"], model["generation"]);
+    assert_eq!(observed["revision"], model["revision"]);
+
+    negatives.push(source_denied(
+        "unbound",
+        source_call(&broker, owner, SOURCE_READ, args.clone()).await,
+    ));
+    negatives.push(source_denied(
+        "wrong_mount",
+        source_call(
+            &broker,
+            owner,
+            "providers.execute_bound",
+            source_bound(output_binding, args.clone()),
+        )
+        .await,
+    ));
+    negatives.push(source_denied(
+        "foreign_binding",
+        source_call(
+            &broker,
+            other,
+            "providers.execute_bound",
+            source_bound(binding, args.clone()),
+        )
+        .await,
+    ));
+    negatives.push(source_denied(
+        "foreign_plan",
+        source_call(
+            &broker,
+            other,
+            "providers.execute_bound",
+            source_bound(foreign_binding, args.clone()),
+        )
+        .await,
+    ));
+    let mut wrong = args.clone();
+    wrong["expected_provider_generation"] = json!(generation + 1);
+    negatives.push(source_denied(
+        "generation_mismatch",
+        source_call(
+            &broker,
+            owner,
+            "providers.execute_bound",
+            source_bound(binding, wrong),
+        )
+        .await,
+    ));
+    let mut wrong = args.clone();
+    wrong["expected_fingerprint"] = json!("f".repeat(64));
+    negatives.push(source_denied(
+        "fingerprint_mismatch",
+        source_call(
+            &broker,
+            owner,
+            "providers.execute_bound",
+            source_bound(binding, wrong),
+        )
+        .await,
+    ));
+    let mut wrong = args.clone();
+    wrong["path"] = json!("../outside");
+    negatives.push(source_denied(
+        "caller_path",
+        source_call(
+            &broker,
+            owner,
+            "providers.execute_bound",
+            source_bound(binding, wrong),
+        )
+        .await,
+    ));
+    assert_eq!(std::fs::read(&source).unwrap(), original);
+    assert_eq!(std::fs::read_dir(h.output.path()).unwrap().count(), 0);
+
+    // A human edit can preserve semantic meaning while changing the actual bytes.
+    let mut changed = original.clone();
+    changed.push(b'\n');
+    std::fs::write(&source, &changed).unwrap();
+    negatives.push(source_denied(
+        "concurrent_source_edit",
+        source_call(
+            &broker,
+            owner,
+            "providers.execute_bound",
+            source_bound(binding, args.clone()),
+        )
+        .await,
+    ));
+    assert_eq!(std::fs::read(&source).unwrap(), changed);
+    std::fs::write(&source, &original).unwrap();
+    let refreshed = broker.refresh_provider(&identity).await.unwrap();
+    assert_ne!(refreshed, generation);
+    negatives.push(source_denied(
+        "stale_mount_after_generation_change",
+        source_call(
+            &broker,
+            owner,
+            "providers.execute_bound",
+            source_bound(binding, args.clone()),
+        )
+        .await,
+    ));
+    let current = source_call(
+        &broker,
+        owner,
+        "providers.mount.observe",
+        observe("project"),
+    )
+    .await;
+    assert!(current.ok, "{current:?}");
+    let current = current.data.unwrap();
+    assert_eq!(current["provider_generation"], refreshed);
+    let current_binding = current["binding_ref"].as_str().unwrap();
+    negatives.push(source_denied(
+        "old_generation_with_new_binding",
+        source_call(
+            &broker,
+            owner,
+            "providers.execute_bound",
+            source_bound(current_binding, args.clone()),
+        )
+        .await,
+    ));
+    broker.revoke_session(owner);
+    let mut fresh_args = args.clone();
+    fresh_args["expected_provider_generation"] = json!(refreshed);
+    negatives.push(source_denied(
+        "revoked_binding",
+        source_call(
+            &broker,
+            owner,
+            "providers.execute_bound",
+            source_bound(current_binding, fresh_args),
+        )
+        .await,
+    ));
+    assert_eq!(std::fs::read(&source).unwrap(), original);
+    assert_eq!(std::fs::read_dir(h.output.path()).unwrap().count(), 0);
+    let evidence = PathBuf::from(
+        std::env::var_os("SEMWRIGHT_TEST_MOTION_EVIDENCE").expect("explicit evidence root"),
+    )
+    .join("source-readback");
+    std::fs::create_dir_all(&evidence).unwrap();
+    std::fs::write(evidence.join("original-semantic.json"), &original).unwrap();
+    let mut retained = readback.clone();
+    retained["data"]["binding_ref"] = json!("[expired-test-reference-omitted]");
+    std::fs::write(
+        evidence.join("readback.json"),
+        serde_json::to_vec_pretty(&retained).unwrap(),
+    )
+    .unwrap();
+    // The evidence omits host binding bearer/reference and absolute mount paths.
+    std::fs::write(
+        evidence.join("verification.json"),
+        serde_json::to_vec_pretty(&json!({
+            "status":"PASS_BOUND_APPLIED_SOURCE_BYTES","source_sha256":original_sha,
+            "original_bytes":original.len(),"provider_generation":generation,
+            "refreshed_generation":refreshed,"physical_file_equal":true,
+            "project_id":model["id"],"project_generation":model["generation"],
+            "revision":model["revision"],"negative_cases":negatives,
+            "native_render_executed":false,"output_files":0,
+            "source_after_verification_sha256":digest(&source),
+            "production_driver_sha256":digest(&h.executable),
+            "sandbox_helper_sha256":digest(&h.helper)
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+}

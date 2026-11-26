@@ -803,6 +803,34 @@ impl Broker {
         if let Some(bound) = &bound {
             self.check_bound_provider(session, bound, dynamic_provider.as_ref())?;
         }
+        // Applied source disclosure requires a genuine session-scoped project
+        // mount, not a caller-supplied path or an unbound provider request.
+        if request.command == provider_mounts::MOTION_APPLIED_SOURCE_READ {
+            let admitted = bound.as_ref().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Applied source requires a current project mount binding",
+                )
+            })?;
+            if admitted.admission.mount != "project"
+                || admitted.admission.backend != "driver:motion-canvas"
+                || capability.metadata.source != SourceKind::Driver
+                || descriptor.risk != Risk::ReadOnly
+            {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Applied source binding is not the Motion Canvas project",
+                ));
+            }
+            if request.args["expected_provider_generation"].as_u64()
+                != Some(admitted.admission.generation)
+            {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Applied source provider generation changed",
+                ));
+            }
+        }
         let native_ref_capable = capability.metadata.source == SourceKind::Builtin
             || dynamic_provider
                 .as_ref()

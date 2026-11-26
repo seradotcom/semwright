@@ -1933,8 +1933,22 @@ mod tests {
 
         let catalog = MotionDriver::catalog().unwrap();
         let composed_digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
+        let mut predecessor = catalog.clone();
+        let additions = predecessor
+            .extract_if(.., |cap| {
+                cap.descriptor.name == "driver.motion-canvas.composition.source.read"
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(additions.len(), 1);
+        let source = &additions[0].descriptor;
+        assert_eq!(source.version, "1");
+        assert_eq!(source.risk, Risk::ReadOnly);
+        assert_eq!(source.idempotency, Idempotency::ReadOnly);
+        assert_eq!(source.requires, [SCOPE.to_string()]);
+        assert_eq!(source.backends, [SCOPE.to_string()]);
+        assert!(!source.dry_run && !source.interactive_consent);
         assert_eq!(
-            composed_digest,
+            semwright_driver_sdk::capabilities_digest(&predecessor).unwrap(),
             "ae8554dc3a98c30ac1309314f7d0103788d75041b8ce4375392b5d1915fc6508"
         );
         let observed_doctor = catalog
@@ -1955,7 +1969,7 @@ mod tests {
         // Recover the exact prior catalog by removing only the five optional
         // Host diagnostics and their two definitions. No other schema or
         // permission change can inherit the previous catalog's golden.
-        let mut observer_catalog = catalog.clone();
+        let mut observer_catalog = predecessor;
         // The only admitted capability catalog delta for Film v2 is the
         // composition.plan descriptor version and its explicit discovery tag.
         // Recover the exact reviewed predecessor before applying any of the
@@ -2350,7 +2364,7 @@ mod tests {
     #[test]
     fn catalog_is_curated_and_descriptor_names_are_owned() {
         let catalog = MotionDriver::catalog().unwrap();
-        assert_eq!(catalog.len(), 33);
+        assert_eq!(catalog.len(), 34);
         assert!(
             catalog
                 .iter()

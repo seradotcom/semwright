@@ -32,6 +32,11 @@ on:
         required: false
         type: boolean
         default: false
+      source_readback_only:
+        description: 'Exact candidate: bound source readback through real Broker and Driver Host'
+        required: false
+        type: boolean
+        default: false
   workflow_call:
   push:
     branches: [feat/motion-canvas-driver]
@@ -84,7 +89,16 @@ jobs:
           NATIVE_ONLY: ${{ inputs.native_only }}
           LAYOUT_OBSERVATION_FOCAL: ${{ inputs.layout_observation_focal }}
           SUBJECT_BLEND_ONLY: ${{ inputs.subject_blend_only }}
+          SOURCE_READBACK_ONLY: ${{ inputs.source_readback_only }}
         run: |
+          if [ "$SOURCE_READBACK_ONLY" = true ]; then
+            test "$SUBJECT_BLEND_ONLY" != true
+            test "$LAYOUT_OBSERVATION_FOCAL" != true
+            test "$GITHUB_EVENT_NAME" = workflow_dispatch
+            [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+            test "$CANDIDATE_SHA" = "$GITHUB_SHA"
+            NATIVE_ONLY=true
+          fi
           if [ "$SUBJECT_BLEND_ONLY" = true ]; then
             test "$LAYOUT_OBSERVATION_FOCAL" != true
             test "$GITHUB_EVENT_NAME" = workflow_dispatch
@@ -301,19 +315,19 @@ jobs:
         working-directory: integrations/motion-canvas/runtime
         run: npm run probe
       - name: Materialize deterministic managed fixture
-        if: ${{ inputs.subject_blend_only != true }}
+        if: ${{ inputs.subject_blend_only != true && inputs.source_readback_only != true }}
         run: |
           rm -rf "$RUNNER_TEMP/motion-generated"
           cargo run --locked -q -p semwright-driver-motion-canvas --example materialize -- fixtures/motion-canvas/hello-text/semwright-motion.json "$RUNNER_TEMP/motion-generated"
           ln -s "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules" "$RUNNER_TEMP/motion-generated/node_modules"
       - name: Typecheck and Vite-build generated Motion Canvas project
-        if: ${{ inputs.subject_blend_only != true }}
+        if: ${{ inputs.subject_blend_only != true && inputs.source_readback_only != true }}
         run: |
           cd "$RUNNER_TEMP/motion-generated"
           "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules/.bin/tsc" --noEmit
           "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules/.bin/vite" build
       - name: Typecheck semantic-completeness fixture against Motion Canvas 3.17.2
-        if: ${{ inputs.subject_blend_only != true }}
+        if: ${{ inputs.subject_blend_only != true && inputs.source_readback_only != true }}
         run: |
           rm -rf "$RUNNER_TEMP/motion-semantic-complete"
           cargo run --locked -q -p semwright-driver-motion-canvas --example materialize -- fixtures/motion-canvas/semantic-complete/semwright-motion.json "$RUNNER_TEMP/motion-semantic-complete"
@@ -337,7 +351,7 @@ jobs:
           } > "$GITHUB_WORKSPACE/verification/motion-canvas-host/runtime-tool-attestation.txt"
           cat "$GITHUB_WORKSPACE/verification/motion-canvas-host/runtime-tool-attestation.txt"
       - name: Real Driver Host conformance and sandboxed render/cancellation
-        if: ${{ inputs.subject_blend_only != true }}
+        if: ${{ inputs.subject_blend_only != true && inputs.source_readback_only != true }}
         env:
           SEMWRIGHT_TEST_MOTION_CANVAS: '1'
           SEMWRIGHT_TEST_MOTION_CANVAS_RENDER: '1'
@@ -352,6 +366,7 @@ jobs:
           cargo test --locked -p semwright-driver-motion-canvas real_motion_canvas_render_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/render.log
           cargo test --locked -p semwright-driver-motion-canvas composition_authoring_runs_through_broker_driver_host_and_native_renderer -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/composition-authoring.log
       - name: Film subject blend contract and real native pixels
+        if: ${{ inputs.source_readback_only != true }}
         env:
           SEMWRIGHT_TEST_MOTION_CANVAS: '1'
           SEMWRIGHT_TEST_MOTION_CANVAS_RENDER: '1'
@@ -377,6 +392,24 @@ jobs:
           test -s verification/motion-canvas-host/artifacts/subject-blend/native.png
           test -s verification/motion-canvas-host/artifacts/subject-blend/pixel-oracle.json
           printf '%s\n' "$GITHUB_SHA" > verification/motion-canvas-host/artifacts/subject-blend/source-sha.txt
+      - name: Exact applied source readback through the real bound Host
+        if: ${{ inputs.subject_blend_only != true }}
+        env:
+          SEMWRIGHT_TEST_MOTION_SOURCE_READBACK: '1'
+          SEMWRIGHT_TEST_MOTION_RUNTIME: ${{ github.workspace }}/integrations/motion-canvas/runtime
+          SEMWRIGHT_TEST_MOTION_NODE: ${{ runner.temp }}/semwright-motion-node
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+          SEMWRIGHT_TEST_MOTION_EVIDENCE: ${{ github.workspace }}/verification/motion-canvas-host/artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p verification/motion-canvas-host
+          cargo test --locked -p semwright-driver-motion-canvas --lib 2>&1 | tee verification/motion-canvas-host/source-readback-lib.log
+          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
+          cargo test --locked -p semwright-driver-motion-canvas --test live applied_source_readback_real_bound_host -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/source-readback-live.log
+          test -s verification/motion-canvas-host/artifacts/source-readback/original-semantic.json
+          test -s verification/motion-canvas-host/artifacts/source-readback/readback.json
+          test -s verification/motion-canvas-host/artifacts/source-readback/verification.json
+          printf '%s\n' "$GITHUB_SHA" > verification/motion-canvas-host/artifacts/source-readback/source-sha.txt
       - name: Capture sandbox denial diagnostics
         if: failure()
         run: |
@@ -393,7 +426,7 @@ jobs:
           } > verification/motion-canvas-host/sandbox-denials.log 2>&1
           cat verification/motion-canvas-host/sandbox-denials.log
       - name: Verify pinned Firefox within original 4 GiB address-space ceiling
-        if: ${{ inputs.subject_blend_only != true }}
+        if: ${{ inputs.subject_blend_only != true && inputs.source_readback_only != true }}
         working-directory: integrations/motion-canvas/runtime
         run: |
           mkdir -p verification
