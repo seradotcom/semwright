@@ -3,6 +3,11 @@ name: Windows interactive certification
 on:
   workflow_dispatch:
     inputs:
+      confirm_disposable_desktop:
+        description: "Confirm an unlocked disposable desktop; focus and clipboard will change"
+        required: true
+        default: false
+        type: boolean
       capture_mode:
         description: "WGC picker action to certify"
         required: true
@@ -34,6 +39,11 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Require explicit disposable desktop admission
+        if: inputs.confirm_disposable_desktop != true
+        run: |
+          echo "A disposable desktop must be explicitly confirmed before any interactive test." >&2
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
@@ -51,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           pwsh -NoProfile -File ./scripts/windows/run-interactive-certification.ps1 \
-            -CaptureMode "${{ inputs.capture_mode }}" \
+            -ConfirmDisposableDesktop -CaptureMode "${{ inputs.capture_mode }}" \
             -EvidenceRoot "$PWD/verification/windows-interactive/evidence"
       - name: Upload interactive evidence
         if: always()

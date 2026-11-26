@@ -2,11 +2,17 @@ param(
     [ValidateSet("Skip", "Select", "Cancel", "Both")]
     [string]$CaptureMode = "Skip",
     [string]$EvidenceRoot = "",
-    [string]$PrebuiltUiaDirectory = ""
+    [string]$PrebuiltUiaDirectory = "",
+    [ValidateSet("Semantic", "InputPointerClipboard")]
+    [string]$PrebuiltUiaCase = "Semantic",
+    [string]$PrebuiltSource = "",
+    [switch]$ConfirmDisposableDesktop
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot "interactive-evidence-contract.ps1")
+Assert-InteractiveInvocation -Prebuilt ([bool]$PrebuiltUiaDirectory) -Case $PrebuiltUiaCase -CaptureMode $CaptureMode -BinarySource $PrebuiltSource -DisposableConfirmed ([bool]$ConfirmDisposableDesktop)
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 Set-Location $Root
@@ -52,24 +58,25 @@ $sha = (git rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0) { throw "git rev-parse failed" }
 $prebuiltUia = $null
 $verifiedBinaryHash = $null
+$binarySource = $sha
 if ($PrebuiltUiaDirectory) {
-    if ($CaptureMode -ne "Skip") {
-        throw "Prebuilt UIA mode runs only the semantic UIA case; capture must remain Skip."
-    }
+    if ($PrebuiltSource) { $binarySource = $PrebuiltSource }
+    Assert-PrebuiltSourceCompatibility -Root $Root -BinarySource $binarySource -HarnessSource $sha
     $prebuiltUia = (Resolve-Path -LiteralPath (Join-Path $PrebuiltUiaDirectory "uia-native-fixture.exe")).Path
     $manifestPath = Join-Path $PrebuiltUiaDirectory "manifest.json"
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-    if ($manifest.source -ne $sha -or $manifest.name -ne "uia-native-fixture.exe") {
+    if ($manifest.source -cne $binarySource -or $manifest.name -cne "uia-native-fixture.exe" -or
+        $manifest.built_only -ne $true -or $manifest.interactive_accepted -ne $false) {
         throw "Prebuilt UIA manifest does not match this source and executable."
     }
     $verifiedBinaryHash = (Get-FileHash -LiteralPath $prebuiltUia -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($manifest.sha256 -notmatch '^[a-f0-9]{64}$' -or $verifiedBinaryHash -ne $manifest.sha256) {
         throw "Prebuilt UIA binary hash mismatch."
     }
-    if ((Test-Path -LiteralPath $EvidenceRoot) -and
-        @(Get-ChildItem -LiteralPath $EvidenceRoot -Force).Count -gt 0) {
-        throw "Prebuilt UIA evidence directory must be empty."
-    }
+}
+if ((Test-Path -LiteralPath $EvidenceRoot) -and
+    @(Get-ChildItem -LiteralPath $EvidenceRoot -Force).Count -gt 0) {
+    throw "Interactive evidence directory must be empty."
 }
 New-Item -ItemType Directory -Force -Path $EvidenceRoot | Out-Null
 $env:SEMWRIGHT_WINDOWS_INTERACTIVE = "1"
@@ -99,7 +106,8 @@ New-Row "real_apps" "Notepad, Calculator, Explorer, WinUI and Chromium matrix"
 function Invoke-CargoRow {
     param(
         [string]$RowId,
-        [string[]]$CargoArgs
+        [string[]]$CargoArgs,
+        [string]$ExpectedTestName
     )
     $log = Join-Path $EvidenceRoot "$RowId.log"
     $Rows[$RowId].log = (Split-Path $log -Leaf)
@@ -112,21 +120,34 @@ function Invoke-CargoRow {
         $Rows[$RowId].status = "FAIL"
         throw "Interactive certification row '$RowId' failed with exit code $code."
     }
-    $Rows[$RowId].status = "PASS_WINDOWS_INTERACTIVE"
+    try {
+        Assert-RustTestEvidence -Text (Get-Content -LiteralPath $log -Raw) -ExpectedTestName $ExpectedTestName
+        $Rows[$RowId].status = "PASS_WINDOWS_INTERACTIVE"
+    } catch {
+        $Rows[$RowId].status = "FAIL"
+        throw
+    }
 }
 
 function Invoke-PrebuiltUiaRow {
-    $row = $Rows["uia_semantic"]
-    $log = Join-Path $EvidenceRoot "uia_semantic.log"
-    $stderrLog = Join-Path $EvidenceRoot "uia_semantic.stderr.log"
+    $rowId = "uia_semantic"
+    $testName = "real_win32_fixture_exercises_uia_without_pixel_fallback"
+    $testArgs = @("--exact", $testName, "--show-output", "--test-threads=1")
+    if ($PrebuiltUiaCase -eq "InputPointerClipboard") {
+        $rowId = "input_pointer_clipboard"
+        $testName = "interactive_windows_input_pointer_clipboard_and_focus_drift"
+        $testArgs = @("--exact", $testName, "--ignored", "--show-output", "--test-threads=1")
+    }
+    $row = $Rows[$rowId]
+    $log = Join-Path $EvidenceRoot "$rowId.log"
+    $stderrLog = Join-Path $EvidenceRoot "$rowId.stderr.log"
     $row.log = (Split-Path $log -Leaf)
     $row.status = "RUNNING"
-    $testName = "real_win32_fixture_exercises_uia_without_pixel_fallback"
     $process = $null
     try {
         $start = @{
             FilePath = $prebuiltUia
-            ArgumentList = @("--exact", $testName, "--nocapture", "--test-threads=1")
+            ArgumentList = $testArgs
             WorkingDirectory = $Root
             NoNewWindow = $true
             PassThru = $true
@@ -144,10 +165,10 @@ function Invoke-PrebuiltUiaRow {
         $process.WaitForExit()
         $row.exit_code = $process.ExitCode
         $output = Get-Content -LiteralPath $log -Raw
-        if ($row.exit_code -ne 0 -or
-            $output -notmatch 'test result: ok\. 1 passed; 0 failed; 0 ignored;') {
-            throw "Prebuilt UIA case failed or did not execute exactly one test; inspect its logs."
+        if ($row.exit_code -ne 0) {
+            throw "Prebuilt interactive case failed; inspect its logs."
         }
+        Assert-RustTestEvidence -Text $output -ExpectedTestName $testName
         $row.status = "PASS_WINDOWS_INTERACTIVE"
         Write-Host $output
     }
@@ -175,31 +196,42 @@ try {
             "test", "--locked", "-p", "semwright-platform-windows",
             "--test", "uia_native_fixture",
             "real_win32_fixture_exercises_uia_without_pixel_fallback",
-            "--", "--nocapture", "--test-threads=1"
-        )
+            "--", "--exact", "--show-output", "--test-threads=1"
+        ) "real_win32_fixture_exercises_uia_without_pixel_fallback"
         Invoke-CargoRow "input_pointer_clipboard" @(
             "test", "--locked", "-p", "semwright-platform-windows",
             "--test", "uia_native_fixture",
             "interactive_windows_input_pointer_clipboard_and_focus_drift",
-            "--", "--ignored", "--nocapture", "--test-threads=1"
-        )
+            "--", "--exact", "--ignored", "--show-output", "--test-threads=1"
+        ) "interactive_windows_input_pointer_clipboard_and_focus_drift"
 
         $authorityLog = Join-Path $EvidenceRoot "secure_spawn_authority.log"
         $Rows["secure_spawn_authority"].log = (Split-Path $authorityLog -Leaf)
         $Rows["secure_spawn_authority"].status = "RUNNING"
         $authorityCommands = @(
-            @("test","--locked","-p","semwright-platform-windows-sys","--test","secure_spawn","--","--nocapture","--test-threads=1"),
-            @("test","--locked","-p","semwright-driver-host","--test","windows_secure_host","--","--nocapture","--test-threads=1"),
-            @("test","--locked","-p","semwright-plugin-host","--features","test-tools","--test","windows_secure_host","--","--nocapture","--test-threads=1"),
-            @("test","--locked","-p","semwright-federation","--test","windows_secure_stdio","--","--nocapture","--test-threads=1")
+            @("test","--locked","-p","semwright-platform-windows-sys","--test","secure_spawn","--","--show-output","--test-threads=1"),
+            @("test","--locked","-p","semwright-driver-host","--test","windows_secure_host","--","--show-output","--test-threads=1"),
+            @("test","--locked","-p","semwright-plugin-host","--features","test-tools","--test","windows_secure_host","--","--show-output","--test-threads=1"),
+            @("test","--locked","-p","semwright-federation","--test","windows_secure_stdio","--","--show-output","--test-threads=1")
         )
         foreach ($cargoArgs in $authorityCommands) {
             "COMMAND: cargo $($cargoArgs -join ' ')" | Tee-Object -FilePath $authorityLog -Append
-            & cargo @cargoArgs 2>&1 | Tee-Object -FilePath $authorityLog -Append
-            if ($LASTEXITCODE -ne 0) {
-                $Rows["secure_spawn_authority"].exit_code = $LASTEXITCODE
+            # Each individual suite must pass. One passing suite cannot
+            # conceal a zero-test or incomplete suite in the same row.
+            $suiteLog = Join-Path $EvidenceRoot ("secure_spawn_authority-" + $cargoArgs[3] + ".log")
+            & cargo @cargoArgs 2>&1 | Tee-Object -FilePath $suiteLog
+            $code = $LASTEXITCODE
+            Get-Content -LiteralPath $suiteLog | Add-Content -LiteralPath $authorityLog
+            if ($code -ne 0) {
+                $Rows["secure_spawn_authority"].exit_code = $code
                 $Rows["secure_spawn_authority"].status = "FAIL"
                 throw "Secure-spawn authority certification failed."
+            }
+            try {
+                Assert-RustTestEvidence -Text (Get-Content -LiteralPath $suiteLog -Raw)
+            } catch {
+                $Rows["secure_spawn_authority"].status = "FAIL"
+                throw
             }
         }
         $Rows["secure_spawn_authority"].exit_code = 0
@@ -211,8 +243,8 @@ try {
                 "test", "--locked", "-p", "semwright-platform-windows",
                 "--test", "capture_interactive",
                 "interactive_capture_picker_selects_bounded_png",
-                "--", "--ignored", "--nocapture", "--test-threads=1"
-            )
+                "--", "--exact", "--ignored", "--show-output", "--test-threads=1"
+            ) "interactive_capture_picker_selects_bounded_png"
         }
         if ($CaptureMode -in @("Cancel", "Both")) {
             Write-Host "ACTION REQUIRED: cancel the Windows capture picker."
@@ -220,8 +252,8 @@ try {
                 "test", "--locked", "-p", "semwright-platform-windows",
                 "--test", "capture_interactive",
                 "interactive_capture_picker_user_cancel_is_cancelled",
-                "--", "--ignored", "--nocapture", "--test-threads=1"
-            )
+                "--", "--exact", "--ignored", "--show-output", "--test-threads=1"
+            ) "interactive_capture_picker_user_cancel_is_cancelled"
         }
     }
 }
@@ -230,7 +262,9 @@ catch {
 }
 finally {
     $system = [ordered]@{
-        sha = $sha
+        sha = $binarySource
+        harness_sha = $sha
+        disposable_desktop_confirmed = [bool]$ConfirmDisposableDesktop
         utc = (Get-Date).ToUniversalTime().ToString("o")
         machine = $env:COMPUTERNAME
         architecture = $env:PROCESSOR_ARCHITECTURE
@@ -238,7 +272,9 @@ finally {
         github_actions = $env:GITHUB_ACTIONS
         runner_environment = $env:RUNNER_ENVIRONMENT
         capture_mode = $CaptureMode
-        mode = $(if ($prebuiltUia) { "prebuilt-uia-only" } else { "cargo-certification" })
+        mode = $(if ($prebuiltUia -and $PrebuiltUiaCase -eq "InputPointerClipboard") {
+            "prebuilt-input-pointer-clipboard-only"
+        } elseif ($prebuiltUia) { "prebuilt-uia-only" } else { "cargo-certification" })
         binary_sha256 = $verifiedBinaryHash
     }
     $hashes = @()
@@ -247,7 +283,7 @@ finally {
         $hashes += [ordered]@{ file = $_.Name; sha256 = $hash.Hash.ToLowerInvariant() }
     }
     $failed = @($Rows.Values | Where-Object { $_.status -eq "FAIL" })
-    $pending = @($Rows.Values | Where-Object { $_.status -eq "WINDOWS_INTERACTIVE_PENDING" })
+    $pending = @($Rows.Values | Where-Object { $_.status -ne "PASS_WINDOWS_INTERACTIVE" })
     $classification = if ($failure -or $failed.Count -gt 0) {
         "FAIL"
     } elseif ($pending.Count -gt 0) {

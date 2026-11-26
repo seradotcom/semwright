@@ -35,20 +35,36 @@ to 45 seconds. It requires exactly one passing test, not a zero-test exit status
 
 The case creates its own Win32 window, inspects and invokes its button through UIA,
 checks the changed text, denies reading the password control and rejects the old
-reference after the window closes. Only `uia_semantic` can receive
-`PASS_WINDOWS_INTERACTIVE`; the overall matrix and all unexecuted rows remain
+reference after the window closes. The default prebuilt case marks only
+`uia_semantic` as `PASS_WINDOWS_INTERACTIVE`; the overall matrix and all unexecuted rows remain
 `WINDOWS_INTERACTIVE_PENDING`. This is an actual control in a disposable fixture, not
 acceptance of arbitrary applications or the complete agent workflow.
+
+For the separate input/pointer/clipboard case, use the same verified executable
+on an **unlocked disposable desktop** with no real user clipboard or active work.
+The test changes focus, types Unicode, moves/clicks the pointer and writes to
+the clipboard. Never run it on a normal working desktop.
+
+    pwsh ./scripts/windows/run-interactive-certification.ps1 -PrebuiltUiaDirectory 'D:\SemwrightValidation\uia-bin' -PrebuiltUiaCase InputPointerClipboard -ConfirmDisposableDesktop -EvidenceRoot 'D:\SemwrightValidation\input-evidence'
+
+This confirmation is operator attestation, not automatic isolation. Only the
+selected row can pass. The harness requires the named passing test and complete
+summary, not merely exit 0. For a clean harness-only descendant of the exact
+artifact source, pass -PrebuiltSource with the original 40-character commit.
+The harness checks ancestry and permits only explicitly listed evidence/harness
+file changes; compiled source, tests, dependencies and other tracked files
+must remain unchanged. The receipt records binary source and harness SHA
+separately. Use the original CI artifact and verify its manifest/hash.
 
 ## Interactive certification
 
 Run on an unlocked disposable Windows desktop from a clean checkout:
 
 ```powershell
-pwsh ./scripts/windows/run-interactive-certification.ps1 -CaptureMode Both
+pwsh ./scripts/windows/run-interactive-certification.ps1 -ConfirmDisposableDesktop -CaptureMode Both
 ```
 
-Or manually dispatch `.github/workflows/windows-interactive.yml` to a self-hosted Windows runner. The workflow is `workflow_dispatch` only; the harness rejects noninteractive/service sessions even on self-hosted machines.
+Or manually dispatch `.github/workflows/windows-interactive.yml` to a self-hosted Windows runner. The workflow is `workflow_dispatch` only and requires explicit disposable-desktop confirmation; the harness rejects noninteractive/service sessions even on self-hosted machines.
 
 The harness writes `verification/windows-interactive/<timestamp>/result.json` plus per-row logs and SHA-256 hashes. It marks only actually executed rows as `PASS_WINDOWS_INTERACTIVE`; unexecuted rows remain `WINDOWS_INTERACTIVE_PENDING`. The overall classification remains pending while any required row is pending.
 
