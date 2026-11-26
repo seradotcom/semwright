@@ -1772,12 +1772,23 @@ async fn applied_source_readback_managed_island_boundary() {
         .mount_driver_provider(provider.clone())
         .await
         .unwrap();
-    let seed: Value = serde_json::from_slice(&fixture()).unwrap();
+    // The on-disk legacy fixture omits defaulted variables. The create
+    // descriptor requires the complete typed project envelope, as callers do.
+    let seed: Project = semwright_driver_motion_canvas::validate::parse(&fixture()).unwrap();
+    let seed_args = json!({"project":seed,"dry_run":false});
+    assert!(seed_args["project"]["variables"].is_object());
+    let caps = Provider::capabilities(provider.as_ref()).await.unwrap();
+    let cap = find(&caps, "driver.motion-canvas.project.island.create");
+    let schema = jsonschema::validator_for(&cap.descriptor.input_schema).unwrap();
+    assert!(
+        schema.is_valid(&seed_args),
+        "typed island seed must match the actual pinned descriptor"
+    );
     let created = source_call(
         &broker,
         BROKER_SESSION,
         "driver.motion-canvas.project.island.create",
-        json!({"project":seed,"dry_run":false}),
+        seed_args,
     )
     .await;
     assert!(created.ok, "island creation failed: {:?}", created.error);
