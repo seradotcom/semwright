@@ -2516,7 +2516,27 @@ mod driver_tests {
         let mut driver =
             MotionDriver::for_project_root(&std::fs::canonicalize(temp.path()).unwrap()).unwrap();
         let caps = driver.capabilities().await.unwrap();
-        assert_eq!(caps.len(), 33);
+        assert_eq!(caps.len(), 34);
+        let source = caps
+            .iter()
+            .find(|cap| cap.descriptor.name == "driver.motion-canvas.composition.source.read")
+            .expect("applied source capability");
+        assert_eq!(source.descriptor.risk, Risk::ReadOnly);
+        assert_eq!(source.descriptor.idempotency, Idempotency::ReadOnly);
+        assert_eq!(source.descriptor.requires, [SCOPE.to_string()]);
+        let input = jsonschema::validator_for(&source.descriptor.input_schema).unwrap();
+        let args = json!({
+            "plan_ref": "a".repeat(64),
+            "expected_fingerprint": "b".repeat(64),
+            "expected_provider_generation": 1,
+        });
+        assert!(input.is_valid(&args));
+        let mut invalid = args.clone();
+        invalid["path"] = json!("arbitrary.json");
+        assert!(!input.is_valid(&invalid));
+        let mut invalid = args;
+        invalid["expected_provider_generation"] = json!("1");
+        assert!(!input.is_valid(&invalid));
         let mut names = std::collections::BTreeSet::new();
         for cap in caps {
             assert!(cap.descriptor.name.starts_with("driver.motion-canvas."));
