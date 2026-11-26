@@ -37,6 +37,12 @@ on:
         required: false
         type: boolean
         default: false
+      source_readback_case:
+        description: 'Select only a new island/boundary observation or all readback checks'
+        required: false
+        type: choice
+        default: all
+        options: [all, island-boundary]
   workflow_call:
   push:
     branches: [feat/motion-canvas-driver]
@@ -90,7 +96,13 @@ jobs:
           LAYOUT_OBSERVATION_FOCAL: ${{ inputs.layout_observation_focal }}
           SUBJECT_BLEND_ONLY: ${{ inputs.subject_blend_only }}
           SOURCE_READBACK_ONLY: ${{ inputs.source_readback_only }}
+          SOURCE_READBACK_CASE: ${{ inputs.source_readback_case }}
         run: |
+          case "$SOURCE_READBACK_CASE" in
+            ""|all) ;;
+            island-boundary) test "$SOURCE_READBACK_ONLY" = true ;;
+            *) exit 2 ;;
+          esac
           if [ "$SOURCE_READBACK_ONLY" = true ]; then
             test "$SUBJECT_BLEND_ONLY" != true
             test "$LAYOUT_OBSERVATION_FOCAL" != true
@@ -395,6 +407,7 @@ jobs:
       - name: Exact applied source readback through the real bound Host
         if: ${{ inputs.subject_blend_only != true }}
         env:
+          SOURCE_READBACK_CASE: ${{ inputs.source_readback_case }}
           SEMWRIGHT_TEST_MOTION_SOURCE_READBACK: '1'
           SEMWRIGHT_TEST_MOTION_RUNTIME: ${{ github.workspace }}/integrations/motion-canvas/runtime
           SEMWRIGHT_TEST_MOTION_NODE: ${{ runner.temp }}/semwright-motion-node
@@ -403,13 +416,20 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p verification/motion-canvas-host
-          cargo test --locked -p semwright-driver-motion-canvas --lib 2>&1 | tee verification/motion-canvas-host/source-readback-lib.log
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
-          cargo test --locked -p semwright-driver-motion-canvas --test live applied_source_readback_real_bound_host -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/source-readback-live.log
-          test -s verification/motion-canvas-host/artifacts/source-readback/original-semantic.json
-          test -s verification/motion-canvas-host/artifacts/source-readback/readback.json
-          test -s verification/motion-canvas-host/artifacts/source-readback/verification.json
-          printf '%s\n' "$GITHUB_SHA" > verification/motion-canvas-host/artifacts/source-readback/source-sha.txt
+          if [ "$SOURCE_READBACK_CASE" != island-boundary ]; then
+            cargo test --locked -p semwright-driver-motion-canvas --lib 2>&1 | tee verification/motion-canvas-host/source-readback-lib.log
+            cargo test --locked -p semwright-driver-motion-canvas --test live applied_source_readback_real_bound_host -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/source-readback-live.log
+            test -s verification/motion-canvas-host/artifacts/source-readback/original-semantic.json
+            test -s verification/motion-canvas-host/artifacts/source-readback/readback.json
+            test -s verification/motion-canvas-host/artifacts/source-readback/verification.json
+            printf '%s\n' "$GITHUB_SHA" > verification/motion-canvas-host/artifacts/source-readback/source-sha.txt
+          fi
+          cargo test --locked -p semwright-driver-motion-canvas --test live applied_source_readback_managed_island_boundary -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/source-readback-island-boundary.log
+          test -s verification/motion-canvas-host/artifacts/source-readback-island-boundary/original-semantic.json
+          test -s verification/motion-canvas-host/artifacts/source-readback-island-boundary/readback.json
+          test -s verification/motion-canvas-host/artifacts/source-readback-island-boundary/verification.json
+          printf '%s\n' "$GITHUB_SHA" > verification/motion-canvas-host/artifacts/source-readback-island-boundary/source-sha.txt
       - name: Capture sandbox denial diagnostics
         if: failure()
         run: |

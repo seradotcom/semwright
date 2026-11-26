@@ -1650,3 +1650,289 @@ async fn applied_source_readback_real_bound_host() {
     )
     .unwrap();
 }
+
+/// Choose a valid Film near the actual persisted-byte ceiling. The pure
+/// projection below is only fixture sizing, never the physical readback oracle.
+fn boundary_source_film(base: &semwright_driver_motion_canvas::model::Project) -> Value {
+    use semwright_driver_motion_canvas::{authoring, model::MAX_PROJECT_BYTES};
+    const CLONES: usize = 32;
+    const MAX_RUN: usize = 16384;
+    let fixture: Value = serde_json::from_slice(include_bytes!(
+        "../../../fixtures/composition/motion/technical.json"
+    ))
+    .unwrap();
+    let mut template = fixture.clone();
+    let subjects = template["sequences"][0]["beats"][0]["shots"][0]["subjects"]
+        .as_array_mut()
+        .unwrap();
+    let label = subjects
+        .iter()
+        .find(|s| s["id"] == "label")
+        .unwrap()
+        .clone();
+    for i in 0..CLONES {
+        let mut extra = label.clone();
+        extra["id"] = json!(format!("boundary-label-{i:02}"));
+        subjects.push(extra);
+    }
+    let sized = |total: usize| -> Option<(Value, usize)> {
+        let mut film = template.clone();
+        let subjects = film["sequences"][0]["beats"][0]["shots"][0]["subjects"]
+            .as_array_mut()
+            .unwrap();
+        let count = subjects.len();
+        for (i, item) in subjects[count - CLONES..].iter_mut().enumerate() {
+            let bytes = total / CLONES + usize::from(i < total % CLONES);
+            assert!((1..=MAX_RUN).contains(&bytes));
+            item["content"]["runs"][0]["text"] = json!("x".repeat(bytes));
+        }
+        let typed: semwright_motion_authoring::Film = serde_json::from_value(film.clone()).unwrap();
+        let (project, _) = authoring::project(&typed, Some(base)).ok()?;
+        let bytes = serde_json::to_vec_pretty(&project).unwrap().len();
+        (bytes <= MAX_PROJECT_BYTES).then_some((film, bytes))
+    };
+    // The lower endpoint must be a real, valid projected Film. Search only
+    // within the unchanged text, subject and project budgets.
+    let mut best = sized(CLONES).expect("valid boundary fixture template");
+    let mut low = CLONES;
+    let mut high = CLONES * MAX_RUN;
+    while low <= high {
+        let mid = low + (high - low) / 2;
+        if let Some(candidate) = sized(mid) {
+            best = candidate;
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    assert!(
+        (MAX_PROJECT_BYTES - 64..=MAX_PROJECT_BYTES).contains(&best.1),
+        "valid applied fixture must reach the existing byte ceiling, got {}",
+        best.1
+    );
+    best.0
+}
+
+#[tokio::test]
+#[ignore = "requires production Broker and Driver Host with owner-pinned runtime"]
+async fn applied_source_readback_managed_island_boundary() {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    use semwright_driver_motion_canvas::model::{MAX_PROJECT_BYTES, Project};
+    assert!(
+        std::env::var_os("SEMWRIGHT_TEST_MOTION_SOURCE_READBACK").is_some(),
+        "physical source test requires explicit opt-in"
+    );
+    let h = Harness::new();
+    let project = h.project.path();
+    let standalone = project.join("semwright-motion.json");
+    std::fs::remove_file(&standalone).unwrap();
+    std::fs::create_dir(project.join("src")).unwrap();
+    let human_path = project.join("src/project.ts");
+    let human = b"import {makeProject} from '@motion-canvas/core';\nexport default makeProject({scenes: []});\n";
+    std::fs::write(&human_path, human).unwrap();
+    let package_path = project.join("package.json");
+    let package = br#"{"dependencies":{"@motion-canvas/core":"3.17.2"}}"#;
+    std::fs::write(&package_path, package).unwrap();
+    let node = PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_MOTION_NODE").unwrap());
+    let runtime = PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_MOTION_RUNTIME").unwrap());
+    let grants = vec![
+        grant("motion-node-tool", &node, false),
+        grant("project", project, true),
+        grant("output", h.output.path(), true),
+        grant("runtime", &runtime, false),
+        grant("fontconfig", Path::new("/etc/fonts"), false),
+    ];
+    let provider = DriverProvider::connect(
+        manifest(h.executable.clone(), digest(&node)),
+        h.state.path(),
+        &h.helper,
+        &grants,
+        false,
+    )
+    .await
+    .unwrap();
+    let identity = provider.identity().id.clone();
+    let policy = Policy::new(PolicyConfig {
+        allow: [identity.clone(), "providers.execute_bound".into()].into(),
+        filesystem: grants,
+        ..Default::default()
+    })
+    .unwrap();
+    let broker = Broker::new(
+        policy,
+        vec![],
+        Audit::open(&h.state.path().join("audit"), 65_536, 2).unwrap(),
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    let generation = broker
+        .mount_driver_provider(provider.clone())
+        .await
+        .unwrap();
+    let seed: Value = serde_json::from_slice(&fixture()).unwrap();
+    let created = source_call(
+        &broker,
+        BROKER_SESSION,
+        "driver.motion-canvas.project.island.create",
+        json!({"project":seed,"dry_run":false}),
+    )
+    .await;
+    assert!(created.ok, "island creation failed: {:?}", created.error);
+    let created = created.data.unwrap();
+    assert_eq!(created["applied"], true);
+    assert_eq!(created["managed_root"], ".semwright/motion");
+    let source = project.join(".semwright/motion/semwright-motion.json");
+    let bridge = project.join(".semwright/motion/managed-scenes.ts");
+    assert!(source.is_file() && bridge.is_file() && !standalone.exists());
+    let base: Project = serde_json::from_slice(&std::fs::read(&source).unwrap()).unwrap();
+    let film = boundary_source_film(&base);
+    let planned = source_call(
+        &broker,
+        BROKER_SESSION,
+        "driver.motion-canvas.composition.plan",
+        json!({"film":film,"budget":{"max_iterations":4,"max_operations":64,
+            "max_findings":64,"max_observations":8,"max_elapsed_ms":120000}}),
+    )
+    .await;
+    assert!(planned.ok, "boundary plan failed: {:?}", planned.error);
+    let plan = planned.data.unwrap();
+    let plan_ref = plan["plan_ref"].as_str().unwrap();
+    let applied = source_call(
+        &broker,
+        BROKER_SESSION,
+        "driver.motion-canvas.composition.apply",
+        json!({"plan_ref":plan_ref,"dry_run":false}),
+    )
+    .await;
+    assert!(applied.ok, "boundary apply failed: {:?}", applied.error);
+    let applied = serde_json::to_value(&applied).unwrap();
+    assert_eq!(applied["data"]["applied"], true);
+    assert_eq!(applied["data"]["execution_status"], "completed");
+    assert_eq!(
+        applied["execution"]["provenance"]["provider_generation"],
+        generation
+    );
+    // Capture the ORIGINAL file from the actual owner grant after apply.
+    let original = std::fs::read(&source).unwrap();
+    let source_sha = digest(&source);
+    assert!(
+        (MAX_PROJECT_BYTES - 64..=MAX_PROJECT_BYTES).contains(&original.len()),
+        "persisted source is {} bytes",
+        original.len()
+    );
+    assert_eq!(source_sha, applied["data"]["fingerprint"]);
+    let bridge_sha = digest(&bridge);
+    let mount = source_call(
+        &broker,
+        BROKER_SESSION,
+        "providers.mount.observe",
+        json!({"provider":identity,"root":"project"}),
+    )
+    .await;
+    assert!(
+        mount.ok,
+        "owner mount observation failed: {:?}",
+        mount.error
+    );
+    let mount = mount.data.unwrap();
+    assert_eq!(mount["provider_generation"], generation);
+    assert_eq!(mount["mount"]["root"], "project");
+    let binding = mount["binding_ref"].as_str().unwrap();
+    let args = json!({"plan_ref":plan_ref,"expected_fingerprint":source_sha,
+        "expected_provider_generation":generation});
+    let response = source_call(
+        &broker,
+        BROKER_SESSION,
+        "providers.execute_bound",
+        source_bound(binding, args.clone()),
+    )
+    .await;
+    assert!(
+        response.ok,
+        "boundary readback failed: {:?}",
+        response.error
+    );
+    let mut response = serde_json::to_value(&response).unwrap();
+    assert_eq!(response["data"]["admission_current"], true);
+    assert_eq!(response["data"]["binding_ref"], binding);
+    let nested = &response["data"]["result"];
+    assert_eq!(nested["ok"], true);
+    assert_eq!(nested["execution"]["backend"], "driver:motion-canvas");
+    assert_eq!(
+        nested["execution"]["provenance"]["provider_generation"],
+        generation
+    );
+    assert_eq!(nested["execution"]["fallbacks_attempted"], json!([]));
+    let readback = &nested["data"];
+    assert_eq!(readback["resource"], "project");
+    assert_eq!(
+        readback["relative_source"],
+        ".semwright/motion/semwright-motion.json"
+    );
+    assert_eq!(readback["fingerprint"], source_sha);
+    assert_eq!(readback["byte_count"], original.len());
+    assert_eq!(
+        STANDARD
+            .decode(readback["source_base64"].as_str().unwrap())
+            .unwrap(),
+        original
+    );
+    let response_size = serde_json::to_vec(&response).unwrap().len();
+    assert!(response_size < semwright_types::MAX_FRAME);
+    assert_eq!(std::fs::read(&source).unwrap(), original);
+    assert_eq!(digest(&bridge), bridge_sha);
+    // The same admitted fingerprint must not disclose an over-budget leaf
+    // even when an external editor merely appends insignificant whitespace.
+    let mut oversize = original.clone();
+    oversize.resize(MAX_PROJECT_BYTES + 1, b' ');
+    std::fs::write(&source, &oversize).unwrap();
+    let refused = source_denied(
+        "oversized_physical_leaf",
+        source_call(
+            &broker,
+            BROKER_SESSION,
+            "providers.execute_bound",
+            source_bound(binding, args),
+        )
+        .await,
+    );
+    assert!(matches!(
+        refused["code"].as_str(),
+        Some("PermissionDenied" | "ResourceExhausted")
+    ));
+    assert_eq!(std::fs::read(&source).unwrap(), oversize);
+    std::fs::write(&source, &original).unwrap();
+    assert_eq!(digest(&source), source_sha);
+    assert_eq!(digest(&bridge), bridge_sha);
+    assert_eq!(std::fs::read(&human_path).unwrap(), human);
+    assert_eq!(std::fs::read(&package_path).unwrap(), package);
+    assert!(!standalone.exists());
+    assert_eq!(std::fs::read_dir(h.output.path()).unwrap().count(), 0);
+    let evidence = PathBuf::from(
+        std::env::var_os("SEMWRIGHT_TEST_MOTION_EVIDENCE").expect("explicit evidence root"),
+    )
+    .join("source-readback-island-boundary");
+    std::fs::create_dir_all(&evidence).unwrap();
+    std::fs::write(evidence.join("original-semantic.json"), &original).unwrap();
+    response["data"]["binding_ref"] = json!("[expired-test-reference-omitted]");
+    std::fs::write(
+        evidence.join("readback.json"),
+        serde_json::to_vec_pretty(&response).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(evidence.join("verification.json"), serde_json::to_vec_pretty(&json!({
+        "status":"PASS_BOUND_MANAGED_ISLAND_SOURCE_BOUNDARY",
+        "source_sha256":source_sha,"source_after_sha256":digest(&source),
+        "original_bytes":original.len(),"max_source_bytes":MAX_PROJECT_BYTES,
+        "serialized_response_bytes":response_size,"max_protocol_frame_bytes":semwright_types::MAX_FRAME,
+        "provider_generation":generation,"physical_file_equal":true,
+        "relative_source":".semwright/motion/semwright-motion.json",
+        "oversized_leaf_bytes":oversize.len(),"oversized_leaf_refusal":refused,
+        "human_project_ts_preserved":true,"package_json_preserved":true,"bridge_preserved":true,
+        "standalone_file_created":false,"native_render_executed":false,"output_files":0,
+        "production_driver_sha256":digest(&h.executable),"sandbox_helper_sha256":digest(&h.helper)
+    })).unwrap()).unwrap();
+}
