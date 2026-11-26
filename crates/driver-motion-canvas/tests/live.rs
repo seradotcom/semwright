@@ -1594,9 +1594,19 @@ async fn applied_source_readback_real_bound_host() {
         )
         .await,
     ));
-    broker.revoke_session(owner);
     let mut fresh_args = args.clone();
     fresh_args["expected_provider_generation"] = json!(refreshed);
+    negatives.push(source_denied(
+        "relabel_old_apply_as_current_generation",
+        source_call(
+            &broker,
+            owner,
+            "providers.execute_bound",
+            source_bound(current_binding, fresh_args.clone()),
+        )
+        .await,
+    ));
+    broker.revoke_session(owner);
     negatives.push(source_denied(
         "revoked_binding",
         source_call(

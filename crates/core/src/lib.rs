@@ -169,6 +169,9 @@ impl Broker {
         if let Ok(catalog) = self.registry.read() {
             for lease in catalog.providers.values() {
                 lease.operation_gate.revoke_session(session);
+                if let Ok(mut receipts) = lease.motion_applied_sources.lock() {
+                    receipts.retain(|(owner, _), _| owner != session);
+                }
             }
         }
         if let Ok(mut jobs) = self.jobs.lock() {
@@ -681,6 +684,19 @@ impl Broker {
             );
         }
         let descriptor = self.invocation(&request.command);
+        let motion_apply_lease = if matches!(
+            request.command.as_str(),
+            "driver.motion-canvas.composition.apply"
+                | "driver.motion-canvas.composition.repair.apply"
+        ) {
+            descriptor
+                .as_ref()
+                .ok()
+                .and_then(|inv| inv.dynamic_provider.clone())
+        } else {
+            None
+        };
+        let apply_cancellation = motion_apply_lease.as_ref().map(|_| cancellation.clone());
         let trace_context = descriptor.as_ref().ok().map(|invocation| {
             (
                 invocation.capability.descriptor.clone(),
@@ -742,6 +758,20 @@ impl Broker {
             )
             .uncertain()),
         };
+        if let (Some(lease), Ok(output), Some(cancel)) = (
+            motion_apply_lease.as_ref(),
+            &result,
+            apply_cancellation.as_ref(),
+        ) && !cancel.is_cancelled()
+        {
+            self.remember_motion_applied_source(
+                &session,
+                &request,
+                lease,
+                output,
+                audit.provenance().as_ref(),
+            );
+        }
         // Recording may start while the bound operation awaits its provider.
         // Invalidate that recording too; canonical audit has already completed.
         if bound_execution && let Ok(mut workflows) = self.workflows.lock() {
@@ -830,6 +860,7 @@ impl Broker {
                     "Applied source provider generation changed",
                 ));
             }
+            self.require_motion_applied_source(session, admitted, &request.args)?;
         }
         let native_ref_capable = capability.metadata.source == SourceKind::Builtin
             || dynamic_provider

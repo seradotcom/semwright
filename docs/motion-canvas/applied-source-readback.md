@@ -28,8 +28,12 @@ The source is bounded to 512 KiB before encoding. The driver requires the
 applied host-owned plan, original project identity and current source hash.
 Core requires the genuine current project mount admission and expected live
 provider generation before dispatch and rechecks admission at disclosure.
-The caller must preserve the apply generation rather than substitute a new
-generation after refresh. A new provider process does not inherit plans.
+Core retains a bounded receipt for each successful, audited apply on its
+actual immutable provider lease. Refresh/reconnect does not inherit those
+receipts. A caller cannot relabel an old apply by asserting a new generation.
+A new provider process also does not inherit plans. Session revocation
+discards retained source receipts. Retention failure does not alter legacy
+apply success, but it disables this readback for the missing receipt.
 Stale or revoked mounts, foreign sessions, unapplied plans, changed bytes,
 unsupported source and oversized input fail closed. Refreshing discovery does
 not itself authorize a read of an old applied receipt.

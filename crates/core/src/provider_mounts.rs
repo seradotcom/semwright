@@ -95,6 +95,97 @@ impl Broker {
             .enforce(&descriptor, &json!({"root":root}), None)?;
         Ok(())
     }
+    /// Retain evidence of a completed apply on this actual lease. This is not
+    /// authority to access a mount, and legacy apply never depends on retention.
+    pub(super) fn remember_motion_applied_source(
+        &self,
+        session: &str,
+        request: &ExecuteRequest,
+        lease: &Arc<ProviderLease>,
+        output: &Value,
+        provenance: Option<&InvocationProvenance>,
+    ) {
+        if self.fake
+            || request.dry_run
+            || lease.identity.kind != SourceKind::Driver
+            || lease.identity.id != "driver:motion-canvas"
+            || !matches!(
+                request.command.as_str(),
+                "driver.motion-canvas.composition.apply"
+                    | "driver.motion-canvas.composition.repair.apply"
+            )
+            || request
+                .args
+                .get("dry_run")
+                .is_some_and(|v| v != &Value::Bool(false))
+            || output["applied"] != Value::Bool(true)
+            || output["execution_status"].as_str() != Some("completed")
+            || !provenance.is_some_and(|p| {
+                p.source == SourceKind::Driver
+                    && p.execution_provider.as_deref() == Some(lease.identity.id.as_str())
+                    && p.provider_generation == Some(lease.generation)
+            })
+        {
+            return;
+        }
+        let is_digest = |s: &str| {
+            s.len() == 64
+                && s.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        };
+        let (Some(plan), Some(fingerprint)) =
+            (output["plan_ref"].as_str(), output["fingerprint"].as_str())
+        else {
+            return;
+        };
+        if !is_digest(plan)
+            || !is_digest(fingerprint)
+            || request.args["plan_ref"].as_str() != Some(plan)
+            || session.is_empty()
+            || session.len() > 256
+            || self.mount_binding(lease, "project").is_err()
+        {
+            return;
+        }
+        if let Ok(mut receipts) = lease.motion_applied_sources.lock()
+            && lease.active()
+            && !lease.binding_epoch.is_cancelled()
+        {
+            let key = (session.to_owned(), plan.to_owned());
+            // Match the driver's bounded plan vault; never evict/relabel another
+            // receipt to make a new claim. Capacity loss disables only readback.
+            if receipts.len() < 64 || receipts.contains_key(&key) {
+                receipts
+                    .entry(key)
+                    .or_insert_with(|| fingerprint.to_owned());
+            }
+        }
+    }
+
+    pub(super) fn require_motion_applied_source(
+        &self,
+        session: &str,
+        bound: &BoundProvider,
+        args: &Value,
+    ) -> Result<()> {
+        let plan = arg_str(args, "plan_ref")?;
+        let expected = arg_str(args, "expected_fingerprint")?;
+        let receipts =
+            bound.lease.motion_applied_sources.lock().map_err(|_| {
+                Error::new(ErrorCode::Internal, "Applied source custody unavailable")
+            })?;
+        if receipts
+            .get(&(session.to_owned(), plan.to_owned()))
+            .is_none_or(|fingerprint| fingerprint != expected)
+        {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "No completed apply receipt for this session, source and provider generation",
+            ));
+        }
+        Ok(())
+    }
+
     fn mount_binding(
         &self,
         lease: &Arc<ProviderLease>,
@@ -624,6 +715,7 @@ impl Broker {
         let protected_read =
             selected.native_read_scope_required && !invocation.capability.descriptor.risk.mutates();
         let applied_source_read = args.request.command == MOTION_APPLIED_SOURCE_READ;
+        let applied_source_args = applied_source_read.then(|| args.request.args.clone());
         // Keep the actual descriptor/arguments only for the final read fence;
         // they cannot supply a grant and are never re-executed.
         let read_completion_input = protected_read.then(|| {
@@ -703,11 +795,14 @@ impl Broker {
                 "Native resource access denied",
             ));
         }
-        if applied_source_read && !admission_current {
-            return Err(Error::new(
-                ErrorCode::StaleReference,
-                "Applied source admission expired",
-            ));
+        if let Some(args) = applied_source_args.as_ref() {
+            if !admission_current {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Applied source admission expired",
+                ));
+            }
+            self.require_motion_applied_source(session, &bound, args)?;
         }
         if outer_confirmation && !nested.execution.dry_run {
             audit.decision("allow_after_confirmation");
@@ -757,6 +852,9 @@ impl Broker {
             }
             output["admission_current"] = json!(admission_current);
             output["admission_state"] = json!(admission_state(admission_current));
+        }
+        if let Some(args) = applied_source_args.as_ref() {
+            self.require_motion_applied_source(session, &bound, args)?;
         }
         Ok(output)
     }
