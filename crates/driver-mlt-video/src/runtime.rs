@@ -3707,6 +3707,9 @@ fn verified_av_mux_argv(
         "48000".into(),
         "-ac:a".into(),
         "2".into(),
+        // Use one movie tick per PCM sample so MP4 edits preserve the authored interval.
+        "-movie_timescale".into(),
+        "48000".into(),
         "-movflags".into(),
         "+faststart".into(),
         "-f".into(),
@@ -3745,6 +3748,7 @@ mod typed_native_av_mux_tests {
         assert!(pair("-c:v", "libx264"));
         assert!(pair("-c:a", "aac"));
         assert!(pair("-ar:a", "48000"));
+        assert!(pair("-movie_timescale", "48000"));
         assert!(pair("-ac:a", "2"));
         assert!(pair("-f", "mp4"));
         assert!(values.iter().any(|value| value == "-n"));

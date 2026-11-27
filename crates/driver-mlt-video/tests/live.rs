@@ -1128,9 +1128,10 @@ fn audio_live_command(
             "fixture-motion-frames",
             "fixture-caption-overlay",
             "fixture-caption-audio",
-            "fixture-aac-tail-33ffv1",
+            "fixture-aac-tail-31ffv1",
             "fixture-aac-tail-distinct-stereo",
             "oracle-video-only-ffprobe",
+            "oracle-aac-presentation-ffprobe",
         ]
         .contains(&label),
         "Undeclared live fixture/oracle command",
@@ -3529,10 +3530,10 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
     // while the source right channel remained active. Original source media
     // are generated via the already captured test harness, not via the
     // provider or untrusted user arguments.
-    let tail_video = media.path().join("aac-tail-33ffv1.mkv");
+    let tail_video = media.path().join("aac-tail-31ffv1.mkv");
     let tail_video_result = audio_live_command(
         &audio_originals,
-        "fixture-aac-tail-33ffv1",
+        "fixture-aac-tail-31ffv1",
         Command::new(&ffmpeg)
             .args([
                 "-hide_banner",
@@ -3545,7 +3546,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
                 "-i",
                 "color=c=red:s=160x90:r=30:d=1.1",
                 "-frames:v",
-                "33",
+                "31",
                 "-c:v",
                 "ffv1",
                 "-pix_fmt",
@@ -3558,10 +3559,10 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
     )?;
     assert!(
         tail_video_result.status.success(),
-        "33 FFV1 frame fixture generation failed"
+        "31 FFV1 frame fixture generation failed"
     );
 
-    let tail_wav = media.path().join("aac-tail-distinct-stereo-52800.wav");
+    let tail_wav = media.path().join("aac-tail-distinct-stereo-49600.wav");
     let tail_wav_result = audio_live_command(
         &audio_originals,
         "fixture-aac-tail-distinct-stereo",
@@ -3581,7 +3582,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
                 "-i",
                 "sine=frequency=660:sample_rate=48000:duration=1.1",
                 "-filter_complex",
-                "[0:a][1:a]amerge=inputs=2[a]",
+                "[0:a][1:a]amerge=inputs=2,atrim=end_sample=49600[a]",
                 "-map",
                 "[a]",
                 "-c:a",
@@ -3600,7 +3601,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
         "Original distinct L/R WAV generation failed"
     );
     let tail_samples = read_stereo_pcm16_wav(&tail_wav);
-    assert_eq!(tail_samples.len(), 52_800);
+    assert_eq!(tail_samples.len(), 49_600);
     assert!(
         tail_samples[..256]
             .iter()
@@ -3611,7 +3612,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
     );
     for channel in [0, 1] {
         assert!(
-            tail_samples[52_736..]
+            tail_samples[tail_samples.len() - 64..]
                 .iter()
                 .map(|sample| f64::from(sample[channel]).powi(2))
                 .sum::<f64>()
@@ -4139,10 +4140,11 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
         );
 
         // Source-to-AAC-to-PCM inside the REAL authenticated DriverProvider
-        // and native process-custody path. 33 FFV1 frames at 30 fps align
-        // with exactly 52,800 authored PCM16 stereo samples at 48 kHz.
+        // and native process-custody path. This cut uses 31 FFV1 frames at 30 fps and 49,600 authored
+        // PCM16 stereo samples at 48 kHz to exercise MP4 edit-list precision.
         // No input is reused from the defective master or copied from the
         // downstream product. The original two distinct channels are kept.
+        let tail_master = output.path().join("aac-tail-native-31f.mp4");
         let tail_mux = call(
             &audio_originals,
             provider.as_ref(),
@@ -4150,35 +4152,76 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
             "driver.mlt-video.av.mux",
             json!({
                 "video_root":"media",
-                "video_path":"aac-tail-33ffv1.mkv",
+                "video_path":"aac-tail-31ffv1.mkv",
                 "video_sha256":digest(&tail_video),
                 "audio_root":"media",
-                "audio_path":"aac-tail-distinct-stereo-52800.wav",
+                "audio_path":"aac-tail-distinct-stereo-49600.wav",
                 "audio_sha256":digest(&tail_wav),
                 "width":160,"height":90,"fps_num":30,"fps_den":1,
-                "frame_count":33,"sample_rate":48000,"channels":2,
+                "frame_count":31,"sample_rate":48000,"channels":2,
                 "profile":"h264-aac-mp4",
-                "output_path":"aac-tail-native-1p1.mp4",
+                "output_path":"aac-tail-native-31f.mp4",
                 "max_bytes":67108864
             }),
         )
         .await?;
-        assert_eq!(tail_mux["frame_count"], 33);
+        assert_eq!(tail_mux["frame_count"], 31);
         assert_eq!(tail_mux["video_sha256"], digest(&tail_video));
         assert_eq!(tail_mux["audio_sha256"], digest(&tail_wav));
         assert_eq!(
             tail_mux["artifact"]["sha256"],
-            digest(&output.path().join("aac-tail-native-1p1.mp4"))
+            digest(&tail_master)
         );
         assert_eq!(
             tail_mux["decoded_audio"]["sha256"],
-            digest(&output.path().join("aac-tail-native-1p1.decoded.wav"))
+            digest(&output.path().join("aac-tail-native-31f.decoded.wav"))
         );
         assert_all_stereo_windows_survive_aac(
             &tail_wav,
-            &output.path().join("aac-tail-native-1p1.decoded.wav"),
-            52_800,
+            &output.path().join("aac-tail-native-31f.decoded.wav"),
+            49_600,
         );
+        // Decoded PCM may include padding even when the edit list ends early.
+        // Check the presented audio interval and each original video timestamp.
+        let presentation = audio_live_command(
+            &audio_originals,
+            "oracle-aac-presentation-ffprobe",
+            Command::new(&ffprobe)
+                .args([
+                    "-v",
+                    "error",
+                    "-show_streams",
+                    "-show_frames",
+                    "-show_entries",
+                    "stream=codec_type,time_base,start_pts,duration_ts:frame=media_type,best_effort_timestamp",
+                    "-of",
+                    "json",
+                ])
+                .arg(&tail_master),
+        )?;
+        assert!(presentation.status.success(), "Independent MP4 readback failed");
+        let presentation: Value = serde_json::from_slice(&presentation.stdout)?;
+        let streams = presentation["streams"].as_array().unwrap();
+        assert_eq!(streams.len(), 2);
+        let audio = streams.iter().find(|item| item["codec_type"] == "audio").unwrap();
+        assert_eq!(audio["time_base"], "1/48000");
+        assert_eq!(audio["start_pts"], 0);
+        assert_eq!(
+            audio["duration_ts"], 49_600,
+            "AAC must present the entire original PCM interval"
+        );
+
+        let video = streams.iter().find(|item| item["codec_type"] == "video").unwrap();
+        let (num, den) = video["time_base"].as_str().unwrap().split_once('/').unwrap();
+        let (num, den): (u64, u64) = (num.parse().unwrap(), den.parse().unwrap());
+        let frames = presentation["frames"].as_array().unwrap().iter()
+            .filter(|frame| frame["media_type"] == "video").collect::<Vec<_>>();
+        assert_eq!(frames.len(), 31);
+        for (index, frame) in frames.into_iter().enumerate() {
+            let pts = frame["best_effort_timestamp"].as_u64().unwrap();
+            assert_eq!(pts * num * 30, index as u64 * den, "Video PTS at frame {index}");
+        }
+
         // The existing source is 96,000 stereo samples; no AV path may
         // regress in a longer final master or hide an empty right tail.
         assert_all_stereo_windows_survive_aac(
